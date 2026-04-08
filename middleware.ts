@@ -23,9 +23,11 @@ export async function middleware(request: NextRequest) {
     const { data } = await supabase.auth.getUser();
     user = data.user;
   } catch (error) {
+    // Handle auth errors gracefully - don't throw for missing sessions
     if (error instanceof Error && error.name !== "AuthSessionMissingError") {
       console.warn("Supabase middleware error:", error);
     }
+    // user remains null for missing sessions
   }
 
   // Plan enforcement for owner routes.

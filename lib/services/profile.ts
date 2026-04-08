@@ -18,12 +18,17 @@ export async function getProfileByUserId(userId: string): Promise<Profile | null
 
 export async function getCurrentProfile(): Promise<Profile | null> {
   const supabase = await createServerSideClient();
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError) {
-    throw userError;
+  try {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user?.id) {
+      return null;
+    }
+    return getProfileByUserId(user.id);
+  } catch (error) {
+    // Handle auth session missing errors gracefully
+    if (error instanceof Error && error.name === "AuthSessionMissingError") {
+      return null;
+    }
+    throw error;
   }
-  if (!user?.id) {
-    return null;
-  }
-  return getProfileByUserId(user.id);
 }
