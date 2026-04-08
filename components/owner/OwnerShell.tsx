@@ -171,8 +171,8 @@ export default function OwnerShell({ profile, tenantName, children }: OwnerShell
           </div>
         </aside>
 
-        <main id="main-content" className="flex-1 overflow-auto flex flex-col min-h-0">
-          <div className="flex-1">{children}</div>
+        <main id="main-content" className="flex-1 overflow-auto flex flex-col min-h-0 px-4 py-4 sm:px-6 lg:px-8">
+          <div className="w-full max-w-7xl mx-auto flex-1">{children}</div>
         </main>
       </div>
     </div>

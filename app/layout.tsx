@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ToastProvider } from "@/components/ui/ToastContainer";
+import NavigationProgress from "@/components/ui/NavigationProgress";
 
 export const metadata: Metadata = {
   title: { default: "Foreman", template: "%s | Foreman" },
@@ -11,6 +12,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
+        <NavigationProgress />
         <a href="#main-content" className="skip-link">Skip to main content</a>
         <ToastProvider>
           {children}

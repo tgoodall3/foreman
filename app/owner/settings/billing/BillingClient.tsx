@@ -27,7 +27,7 @@ export default function BillingClient({ tenant, profile }: { tenant: any; profil
   const trialExpired = trialEnds ? trialEnds < new Date() : false;
 
   return (
-    <div className="p-6 max-w-2xl">
+    <div className="p-6 max-w-2xl w-full mx-auto px-2 sm:px-0">
       <h1 className="font-display font-800 text-3xl text-forge mb-6">Billing</h1>
 
       <div className="bg-white rounded-xl border border-gray-200 p-6 mb-4">

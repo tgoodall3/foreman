@@ -79,8 +79,8 @@ export default function AccountClient({ profile, tenant }: { profile: any; tenan
   const inp = "w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:border-amber";
 
   return (
-    <div className="space-y-5">
-      <form onSubmit={handleSaveBiz} noValidate className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+    <div className="space-y-5 w-full max-w-3xl mx-auto px-2 sm:px-0">
+      <form onSubmit={handleSaveBiz} noValidate className="bg-white rounded-xl border border-gray-200 p-5 space-y-4 sm:p-6">
         <h2 className="font-display font-700 text-lg text-forge">Business Info</h2>
         <div>
           <label className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Business Name</label>
