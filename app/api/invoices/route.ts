@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
   const profile = await getProfile();
   if (!profile) return badRequest("Unauthorized");
 
-  const planError = await checkPlanForApi(profile.tenant_id);
+  const planError = await checkPlanForApi(profile);
   if (planError) return planError;
 
   const body = await req.json();

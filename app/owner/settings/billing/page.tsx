@@ -13,5 +13,5 @@ export default async function BillingPage() {
     .eq("id", profile.tenant_id)
     .single();
 
-  return <BillingClient tenant={tenant} />;
+  return <BillingClient tenant={tenant} profile={profile} />;
 }

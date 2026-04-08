@@ -9,12 +9,20 @@ export type PlanStatus = "active" | "trial_expired" | "no_plan";
  * - "trial_expired" — on trial plan but trial_ends_at is in the past
  * - "no_plan"       — tenant record not found
  */
-export async function getPlanStatus(tenantId: string): Promise<PlanStatus> {
+export interface PlanProfile {
+  id: string;
+  tenant_id: string;
+  plan: "trial" | "pro";
+}
+
+export async function getPlanStatus(profile: PlanProfile): Promise<PlanStatus> {
+  if (profile.plan === "pro") return "active";
+
   const supabase = createServiceClient();
   const { data: tenant } = await supabase
     .from("tenants")
     .select("plan, trial_ends_at")
-    .eq("id", tenantId)
+    .eq("id", profile.tenant_id)
     .single();
 
   if (!tenant) return "no_plan";
@@ -28,11 +36,11 @@ export async function getPlanStatus(tenantId: string): Promise<PlanStatus> {
  * Returns an error Response if the plan is not active, otherwise returns null.
  *
  * Usage:
- *   const planError = await checkPlanForApi(profile.tenant_id);
+ *   const planError = await checkPlanForApi(profile);
  *   if (planError) return planError;
  */
-export async function checkPlanForApi(tenantId: string): Promise<Response | null> {
-  const status = await getPlanStatus(tenantId);
+export async function checkPlanForApi(profile: PlanProfile): Promise<Response | null> {
+  const status = await getPlanStatus(profile);
   if (status === "active") return null;
   if (status === "trial_expired") {
     return errorResponse("Your free trial has expired. Please upgrade to continue.", 402);

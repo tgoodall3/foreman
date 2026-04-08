@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
     const profile = await requireOwner();
     if (!profile) return errorResponse("Unauthorized", 401);
 
-    const planError = await checkPlanForApi(profile.tenant_id);
+    const planError = await checkPlanForApi(profile);
     if (planError) return planError;
 
     const body = await req.json();

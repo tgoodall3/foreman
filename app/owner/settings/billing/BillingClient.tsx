@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { formatDate } from "@/lib/utils";
 
-export default function BillingClient({ tenant }: { tenant: any }) {
+export default function BillingClient({ tenant, profile }: { tenant: any; profile: any }) {
   const [loading, setLoading] = useState(false);
 
   const handleUpgrade = async () => {
@@ -22,7 +22,7 @@ export default function BillingClient({ tenant }: { tenant: any }) {
     else setLoading(false);
   };
 
-  const isPro = tenant?.plan === "pro";
+  const isPro = profile?.plan === "pro" || tenant?.plan === "pro";
   const trialEnds = tenant?.trial_ends_at ? new Date(tenant.trial_ends_at) : null;
   const trialExpired = trialEnds ? trialEnds < new Date() : false;
 

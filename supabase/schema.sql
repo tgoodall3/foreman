@@ -29,6 +29,7 @@ create table profiles (
   email text not null,
   full_name text not null,
   role text not null check (role in ('owner', 'worker', 'property_manager')),
+  plan text not null default 'trial' check (plan in ('trial', 'pro')),
   phone text,
   avatar_url text,
   is_active boolean default true,

@@ -37,6 +37,7 @@ export interface Profile {
   role: UserRole;
   phone?: string;
   avatar_url?: string;
+  plan: "trial" | "pro";
   is_active: boolean;
   created_at: string;
 }
