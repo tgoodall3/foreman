@@ -1,0 +1,48 @@
+import { requireWorker } from "@/lib/auth";
+import Link from "next/link";
+
+export default async function WorkerLayout({ children }: { children: React.ReactNode }) {
+  const profile = await requireWorker();
+
+  return (
+    <div className="min-h-screen bg-surface flex flex-col">
+      {/* Top nav */}
+      <header className="bg-forge px-4 py-3 flex items-center justify-between sticky top-0 z-10">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 bg-amber rounded flex items-center justify-center">
+            <span className="font-display font-800 text-forge text-base">F</span>
+          </div>
+          <span className="font-display font-800 text-white text-lg tracking-wide">FOREMAN</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-mist text-sm">{profile.full_name}</span>
+          <form action="/api/auth/signout" method="POST">
+            <button type="submit" className="text-mist hover:text-white text-sm transition-colors" aria-label="Sign out">↩</button>
+          </form>
+        </div>
+      </header>
+
+      <main id="main-content" className="flex-1">
+        {children}
+      </main>
+
+      {/* Bottom nav */}
+      <nav className="bg-white border-t border-gray-200 flex sticky bottom-0" aria-label="Worker navigation">
+        {[
+          { href: "/worker", label: "My Jobs", icon: "🔨" },
+          { href: "/worker/completed", label: "Completed", icon: "✅" },
+          { href: "/worker/settings", label: "Settings", icon: "⚙️" },
+        ].map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className="flex-1 flex flex-col items-center py-3 text-mist hover:text-forge transition-colors min-h-[44px]"
+          >
+            <span className="text-lg" aria-hidden="true">{item.icon}</span>
+            <span className="text-xs font-500 mt-0.5">{item.label}</span>
+          </Link>
+        ))}
+      </nav>
+    </div>
+  );
+}
