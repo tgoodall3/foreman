@@ -17,9 +17,10 @@ export default async function WorkerJobPage({ params }: { params: { id: string }
 
   if (!job) notFound();
 
-  const [{ data: photos }, { data: notes }] = await Promise.all([
+  const [{ data: photos }, { data: notes }, { data: checklist }] = await Promise.all([
     supabase.from("job_photos").select("*, profiles(full_name)").eq("job_id", job.id).order("created_at"),
     supabase.from("job_notes").select("*, profiles(full_name)").eq("job_id", job.id).order("created_at"),
+    supabase.from("job_checklist_items").select("id, text, position, done, done_at, profiles(full_name)").eq("job_id", job.id).order("position"),
   ]);
 
   return (
@@ -27,6 +28,7 @@ export default async function WorkerJobPage({ params }: { params: { id: string }
       job={job}
       photos={photos || []}
       notes={notes || []}
+      checklist={checklist || []}
       profile={profile}
     />
   );

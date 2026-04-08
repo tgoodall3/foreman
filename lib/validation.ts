@@ -95,3 +95,14 @@ export const updateAccountSchema = z.object({
   phone: phoneSchema,
   address: addressSchema.optional(),
 });
+
+export const createEstimateSchema = z.object({
+  propertyManagerId: uuidSchema,
+  propertyId:        uuidSchema.optional(),
+  title:             nameSchema,
+  description:       z.string().max(2000).trim().optional(),
+  lineItems:         z.array(invoiceLineItemSchema).min(1),
+  taxRate:           z.number().min(0).max(100).optional(),
+  validUntil:        z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  notes:             notesSchema,
+});

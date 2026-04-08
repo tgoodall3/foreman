@@ -29,6 +29,18 @@ export function generateInvoiceNumber(tenantSlug: string, count: number) {
   return `${tenantSlug.toUpperCase()}-${String(count).padStart(4, "0")}`;
 }
 
+export function generateEstimateNumber(tenantSlug: string, count: number) {
+  return `EST-${tenantSlug.toUpperCase()}-${String(count).padStart(4, "0")}`;
+}
+
+export const ESTIMATE_STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  draft:     { label: "Draft",     color: "text-gray-600",   bg: "bg-gray-100" },
+  sent:      { label: "Sent",      color: "text-blue-600",   bg: "bg-blue-100" },
+  approved:  { label: "Approved",  color: "text-green-600",  bg: "bg-green-100" },
+  declined:  { label: "Declined",  color: "text-red-600",    bg: "bg-red-100" },
+  converted: { label: "Converted", color: "text-purple-600", bg: "bg-purple-100" },
+};
+
 export const JOB_STATUS_CONFIG: Record<JobStatus, { label: string; color: string; bg: string }> = {
   pending:     { label: "Pending",     color: "text-yellow-700", bg: "bg-yellow-100" },
   scheduled:   { label: "Scheduled",  color: "text-blue-700",   bg: "bg-blue-100" },

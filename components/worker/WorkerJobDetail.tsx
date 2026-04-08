@@ -5,15 +5,17 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { formatDate, formatDateTime, JOB_STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/utils";
 import Link from "next/link";
+import JobChecklist from "@/components/jobs/JobChecklist";
 
 interface Props {
   job: any;
   photos: any[];
   notes: any[];
+  checklist: any[];
   profile: any;
 }
 
-export default function WorkerJobDetail({ job, photos: initialPhotos, notes: initialNotes, profile }: Props) {
+export default function WorkerJobDetail({ job, photos: initialPhotos, notes: initialNotes, checklist, profile }: Props) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -26,6 +28,8 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
   const [addingNote, setAddingNote] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [error, setError] = useState("");
+  const [showHoursPrompt, setShowHoursPrompt] = useState(false);
+  const [hoursWorked, setHoursWorked] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const statusCfg = JOB_STATUS_CONFIG[job.status as keyof typeof JOB_STATUS_CONFIG];
@@ -41,8 +45,18 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
   const transitions = statusTransitions[job.status] || [];
 
   const handleStatusUpdate = async (nextStatus: string) => {
+    // For "complete", show hours prompt first
+    if (nextStatus === "completed") {
+      setShowHoursPrompt(true);
+      return;
+    }
+    await commitStatusUpdate(nextStatus, null);
+  };
+
+  const commitStatusUpdate = async (nextStatus: string, hours: number | null) => {
     setUpdatingStatus(true);
     setError("");
+
     const { error: err } = await supabase
       .from("jobs")
       .update({ status: nextStatus, updated_at: new Date().toISOString() })
@@ -50,9 +64,30 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
 
     if (err) {
       setError("Failed to update status. Try again.");
-    } else {
-      router.refresh();
+      setUpdatingStatus(false);
+      return;
     }
+
+    // Save actual hours if provided
+    if (hours != null && hours > 0) {
+      fetch(`/api/jobs/${job.id}/hours`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ actual_hours: hours }),
+      });
+    }
+
+    // Notify PM when job is completed (fire and forget)
+    if (nextStatus === "completed") {
+      fetch("/api/jobs/notify-completed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobId: job.id }),
+      });
+    }
+
+    setShowHoursPrompt(false);
+    router.refresh();
     setUpdatingStatus(false);
   };
 
@@ -170,6 +205,54 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
           <p className="text-xs text-mist uppercase tracking-wider font-600 mb-2">Job Details</p>
           <p className="text-sm text-steel leading-relaxed">{job.description}</p>
         </div>
+      )}
+
+      {/* Hours prompt modal */}
+      {showHoursPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" role="dialog" aria-modal="true" aria-labelledby="hours-dialog-title">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <h2 id="hours-dialog-title" className="font-display font-800 text-xl text-forge mb-1">Mark Complete</h2>
+            <p className="text-sm text-mist mb-4">How many hours did this job take?</p>
+            <input
+              type="number"
+              value={hoursWorked}
+              onChange={(e) => setHoursWorked(e.target.value)}
+              min="0"
+              step="0.25"
+              placeholder="e.g. 2.5"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-amber mb-4"
+              autoFocus
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowHoursPrompt(false)}
+                className="flex-1 border border-gray-300 rounded-lg py-2.5 text-sm font-600 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => commitStatusUpdate("completed", hoursWorked ? parseFloat(hoursWorked) : null)}
+                disabled={updatingStatus}
+                className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-display font-700 py-2.5 rounded-lg text-sm transition-colors"
+              >
+                {updatingStatus ? "Saving…" : "Complete Job"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Checklist */}
+      {checklist.length > 0 && (
+        <section aria-labelledby="checklist-heading" className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
+          <h2 id="checklist-heading" className="font-display font-700 text-lg text-forge mb-3">
+            Checklist
+            <span className="ml-2 text-sm font-500 text-mist">
+              ({checklist.filter((i: any) => i.done).length}/{checklist.length})
+            </span>
+          </h2>
+          <JobChecklist jobId={job.id} items={checklist} canManage={false} />
+        </section>
       )}
 
       {/* Status Actions */}

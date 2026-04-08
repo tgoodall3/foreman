@@ -1,21 +1,23 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import Link from "next/link";
 
 export default function NewJobPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
 
   const [title, setTitle]           = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority]     = useState("normal");
-  const [scheduledDate, setScheduledDate] = useState("");
+  const [scheduledDate, setScheduledDate] = useState(searchParams.get("date") ?? "");
   const [scheduledTime, setScheduledTime] = useState("");
   const [estimatedHours, setEstimatedHours] = useState("");
   const [propertyId, setPropertyId] = useState("");
+  const [recurrence, setRecurrence] = useState("none");
   const [assignedWorkers, setAssignedWorkers] = useState<string[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
   const [workers, setWorkers]       = useState<any[]>([]);
@@ -61,6 +63,7 @@ export default function NewJobPage() {
       estimated_hours: estimatedHours ? parseFloat(estimatedHours) : null,
       property_id: propertyId || null,
       assigned_workers: assignedWorkers,
+      recurrence,
     }).select().single();
 
     if (jobError) { setError(jobError.message); setLoading(false); return; }
@@ -134,6 +137,19 @@ export default function NewJobPage() {
               <option value="">— Select property —</option>
               {properties.map((p) => <option key={p.id} value={p.id}>{p.name} · {p.city}, {p.state}</option>)}
             </select>
+          </div>
+          <div>
+            <label htmlFor="recurrence" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Repeats</label>
+            <select id="recurrence" value={recurrence} onChange={(e) => setRecurrence(e.target.value)} className={inp}>
+              <option value="none">Does not repeat</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="biweekly">Every 2 weeks</option>
+              <option value="monthly">Monthly</option>
+            </select>
+            {recurrence !== "none" && !scheduledDate && (
+              <p className="text-xs text-amber mt-1">Set a start date so we know when to schedule the next occurrence.</p>
+            )}
           </div>
         </div>
 

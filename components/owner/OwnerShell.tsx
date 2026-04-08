@@ -5,13 +5,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const NAV = [
-  { href: "/owner", label: "Dashboard", icon: "⬡" },
-  { href: "/owner/jobs", label: "Jobs", icon: "🔨" },
-  { href: "/owner/work-orders", label: "Work Orders", icon: "📋" },
-  { href: "/owner/workers", label: "Workers", icon: "👷" },
-  { href: "/owner/properties", label: "Properties", icon: "🏢" },
-  { href: "/owner/invoices", label: "Invoices", icon: "💵" },
-  { href: "/owner/settings", label: "Settings", icon: "⚙" },
+  { href: "/owner",            label: "Dashboard",   icon: "⬡" },
+  { href: "/owner/schedule",   label: "Schedule",    icon: "📅" },
+  { href: "/owner/jobs",       label: "Jobs",        icon: "🔨" },
+  { href: "/owner/estimates",  label: "Estimates",   icon: "📝" },
+  { href: "/owner/work-orders",label: "Work Orders", icon: "📋" },
+  { href: "/owner/workers",    label: "Workers",     icon: "👷" },
+  { href: "/owner/properties", label: "Properties",  icon: "🏢" },
+  { href: "/owner/invoices",   label: "Invoices",    icon: "💵" },
+  { href: "/owner/settings",   label: "Settings",    icon: "⚙" },
 ];
 
 interface OwnerShellProps {

@@ -3,6 +3,7 @@ import { createServerSideClient } from "@/lib/supabase-server";
 import { formatDate, formatDateTime, JOB_STATUS_CONFIG, PRIORITY_CONFIG, formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import JobChecklist from "@/components/jobs/JobChecklist";
 
 export default async function JobDetailPage({ params }: { params: { id: string } }) {
   const profile = await requireOwner();
@@ -17,10 +18,11 @@ export default async function JobDetailPage({ params }: { params: { id: string }
 
   if (!job) notFound();
 
-  const [{ data: photos }, { data: notes }, { data: workers }] = await Promise.all([
+  const [{ data: photos }, { data: notes }, { data: workers }, { data: checklist }] = await Promise.all([
     supabase.from("job_photos").select("*, profiles(full_name)").eq("job_id", job.id).order("created_at"),
     supabase.from("job_notes").select("*, profiles(full_name)").eq("job_id", job.id).order("created_at"),
     supabase.from("profiles").select("id, full_name").eq("tenant_id", profile.tenant_id).eq("role", "worker").eq("is_active", true),
+    supabase.from("job_checklist_items").select("id, text, position, done, done_at, profiles(full_name)").eq("job_id", job.id).order("position"),
   ]);
 
   const assignedWorkers = workers?.filter((w) => job.assigned_workers?.includes(w.id)) || [];
@@ -40,11 +42,16 @@ export default async function JobDetailPage({ params }: { params: { id: string }
             <span className="text-sm text-forge">{job.title}</span>
           </div>
           <h1 className="font-display font-800 text-3xl text-forge">{job.title}</h1>
-          <div className="flex items-center gap-2 mt-2">
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
             <span className={`badge ${statusCfg.bg} ${statusCfg.color}`}>{statusCfg.label}</span>
             <span className={`badge ${priorityCfg.bg} ${priorityCfg.color}`}>{priorityCfg.label}</span>
             {job.scheduled_date && (
               <span className="text-xs text-mist">Scheduled: {formatDate(job.scheduled_date)}</span>
+            )}
+            {job.recurrence && job.recurrence !== "none" && (
+              <span className="badge bg-blue-50 text-blue-700">
+                🔁 {{ weekly: "Weekly", biweekly: "Every 2 weeks", monthly: "Monthly", daily: "Daily" }[job.recurrence as string] ?? job.recurrence}
+              </span>
             )}
           </div>
         </div>
@@ -66,6 +73,19 @@ export default async function JobDetailPage({ params }: { params: { id: string }
               <p className="text-sm text-steel leading-relaxed">{job.description}</p>
             </section>
           )}
+
+          {/* Checklist */}
+          <section aria-labelledby="checklist-heading" className="bg-white rounded-xl border border-gray-200 p-5">
+            <h2 id="checklist-heading" className="font-display font-700 text-lg text-forge mb-4">
+              Checklist
+              {(checklist?.length ?? 0) > 0 && (
+                <span className="ml-2 text-sm font-500 text-mist">
+                  ({checklist!.filter((i: any) => i.done).length}/{checklist!.length})
+                </span>
+              )}
+            </h2>
+            <JobChecklist jobId={job.id} items={(checklist ?? []) as any} canManage={true} />
+          </section>
 
           {/* Photos */}
           <section aria-labelledby="photos-heading" className="bg-white rounded-xl border border-gray-200 p-5">
@@ -191,6 +211,34 @@ export default async function JobDetailPage({ params }: { params: { id: string }
                 ))}
               </ul>
             )}
+          </div>
+
+          {/* Time */}
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <p className="text-xs text-mist uppercase tracking-wider font-600 mb-3">Time</p>
+            <div className="space-y-2">
+              {job.estimated_hours != null && (
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-mist">Estimated</span>
+                  <span className="font-600 text-forge">{job.estimated_hours}h</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-mist">Actual</span>
+                <span className={`font-600 ${job.actual_hours != null ? "text-forge" : "text-mist"}`}>
+                  {job.actual_hours != null ? `${job.actual_hours}h` : "—"}
+                </span>
+              </div>
+              {job.estimated_hours != null && job.actual_hours != null && (
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-mist">Variance</span>
+                  <span className={`font-600 ${job.actual_hours > job.estimated_hours ? "text-red-600" : "text-green-600"}`}>
+                    {job.actual_hours > job.estimated_hours ? "+" : ""}
+                    {(job.actual_hours - job.estimated_hours).toFixed(1)}h
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* From Work Order */}

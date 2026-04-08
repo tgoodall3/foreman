@@ -32,10 +32,15 @@ export async function POST(req: NextRequest) {
   await supabase.from("stripe_events").insert({ id: event.id });
 
   switch (event.type) {
-    // Checkout completed — subscription created, upgrade tenant to pro
+    // Checkout completed — two cases:
+    //   (a) subscription checkout → upgrade tenant to pro
+    //   (b) invoice payment checkout → mark foreman invoice paid
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
-      const tenantId = session.metadata?.tenant_id;
+      const tenantId  = session.metadata?.tenant_id;
+      const invoiceId = session.metadata?.invoice_id;
+
+      // Case (a): subscription
       if (tenantId && session.subscription) {
         await supabase
           .from("tenants")
@@ -45,6 +50,14 @@ export async function POST(req: NextRequest) {
             trial_ends_at: null,
           })
           .eq("id", tenantId);
+      }
+
+      // Case (b): one-time invoice payment
+      if (invoiceId && session.payment_status === "paid") {
+        await supabase
+          .from("invoices")
+          .update({ status: "paid", paid_at: new Date().toISOString() })
+          .eq("id", invoiceId);
       }
       break;
     }

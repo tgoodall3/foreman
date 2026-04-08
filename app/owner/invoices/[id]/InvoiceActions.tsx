@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface InvoiceActionsProps {
   invoiceId: string;
@@ -9,66 +9,109 @@ interface InvoiceActionsProps {
 }
 
 export default function InvoiceActions({ invoiceId, status }: InvoiceActionsProps) {
-  const router = useRouter();
-  const [sending, setSending] = useState(false);
-  const [marking, setMarking] = useState(false);
-  const [error, setError] = useState("");
+  const router       = useRouter();
+  const searchParams = useSearchParams();
+  const [sending,    setSending]    = useState(false);
+  const [marking,    setMarking]    = useState(false);
+  const [payLink,    setPayLink]    = useState(false);
+  const [copiedLink, setCopiedLink] = useState("");
+  const [error, setError]           = useState("");
+
+  // Show success toast if redirected back from Stripe
+  const justPaid = searchParams.get("paid") === "true";
 
   const sendInvoice = async () => {
-    setSending(true);
-    setError("");
-    try {
-      const res = await fetch(`/api/invoices/${invoiceId}/send`, { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to send");
-      alert("Invoice sent successfully!");
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setSending(false);
-    }
+    setSending(true); setError("");
+    const res = await fetch(`/api/invoices/${invoiceId}/send`, { method: "POST" });
+    const data = await res.json();
+    setSending(false);
+    if (!res.ok) { setError(data.error || "Failed to send"); return; }
+    router.refresh();
   };
 
   const markPaid = async () => {
-    setMarking(true);
-    setError("");
-    try {
-      const res = await fetch(`/api/invoices/${invoiceId}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "paid" }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to update");
-      router.refresh(); // Refresh to show updated status
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setMarking(false);
-    }
+    setMarking(true); setError("");
+    const res = await fetch(`/api/invoices/${invoiceId}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "paid" }),
+    });
+    const data = await res.json();
+    setMarking(false);
+    if (!res.ok) { setError(data.error || "Failed to update"); return; }
+    router.refresh();
   };
 
+  const getPayLink = async () => {
+    setPayLink(true); setError("");
+    const res = await fetch(`/api/invoices/${invoiceId}/pay-link`, { method: "POST" });
+    const data = await res.json();
+    setPayLink(false);
+    if (!res.ok) { setError(data.error || "Failed to create link"); return; }
+    // Copy to clipboard
+    try {
+      await navigator.clipboard.writeText(data.url);
+      setCopiedLink(data.url);
+    } catch {
+      setCopiedLink(data.url); // fallback: show the URL
+    }
+    router.refresh(); // status may have changed to "sent"
+  };
+
+  if (status === "paid") {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="inline-flex items-center gap-1.5 text-green-700 font-600 text-sm">
+          <span className="text-green-500">✓</span> Paid
+        </span>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex items-center gap-2">
-      {status !== "paid" && (
-        <>
-          <button
-            onClick={sendInvoice}
-            disabled={sending}
-            className="bg-amber hover:bg-amber-dark disabled:opacity-50 text-forge font-display font-700 px-4 py-2 rounded-lg text-sm transition-colors"
-          >
-            {sending ? "Sending…" : "Send Invoice"}
-          </button>
-          <button
-            onClick={markPaid}
-            disabled={marking}
-            className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-display font-700 px-4 py-2 rounded-lg text-sm transition-colors"
-          >
-            {marking ? "Updating…" : "Mark Paid"}
-          </button>
-        </>
+    <div className="flex flex-col gap-2 items-end">
+      {justPaid && (
+        <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-1.5 font-600">
+          Payment received!
+        </p>
       )}
-      {error && <p className="text-red-600 text-sm">{error}</p>}
+
+      <div className="flex flex-wrap gap-2 justify-end">
+        <button
+          onClick={sendInvoice}
+          disabled={sending}
+          className="bg-forge hover:bg-forge-light disabled:opacity-50 text-white font-display font-700 px-4 py-2 rounded-lg text-sm transition-colors min-h-[44px]"
+        >
+          {sending ? "Sending…" : "Email Invoice"}
+        </button>
+
+        <button
+          onClick={getPayLink}
+          disabled={payLink}
+          className="bg-amber hover:bg-amber-dark disabled:opacity-50 text-forge font-display font-700 px-4 py-2 rounded-lg text-sm transition-colors min-h-[44px]"
+        >
+          {payLink ? "Creating…" : "Get Pay Link"}
+        </button>
+
+        <button
+          onClick={markPaid}
+          disabled={marking}
+          className="border border-green-300 text-green-700 hover:bg-green-50 disabled:opacity-50 font-display font-700 px-4 py-2 rounded-lg text-sm transition-colors min-h-[44px]"
+        >
+          {marking ? "Updating…" : "Mark Paid"}
+        </button>
+      </div>
+
+      {copiedLink && (
+        <div className="w-full mt-1 bg-green-50 border border-green-200 rounded-lg p-3">
+          <p className="text-xs font-600 text-green-700 mb-1.5">✓ Pay link copied to clipboard — send it to your client:</p>
+          <p className="text-xs text-green-800 break-all font-mono bg-white border border-green-100 rounded px-2 py-1">
+            {copiedLink}
+          </p>
+        </div>
+      )}
+
+      {error && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-1.5">{error}</p>}
     </div>
   );
 }
