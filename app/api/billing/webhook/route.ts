@@ -17,28 +17,76 @@ export async function POST(req: NextRequest) {
 
   const supabase = createServiceClient();
 
+  // Idempotency — skip events already processed (Stripe retries on non-2xx)
+  const { data: existing } = await supabase
+    .from("stripe_events")
+    .select("id")
+    .eq("id", event.id)
+    .maybeSingle();
+
+  if (existing) {
+    return NextResponse.json({ received: true, skipped: true });
+  }
+
+  // Record before processing so retries during a crash don't double-process
+  await supabase.from("stripe_events").insert({ id: event.id });
+
   switch (event.type) {
+    // Checkout completed — subscription created, upgrade tenant to pro
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
       const tenantId = session.metadata?.tenant_id;
       if (tenantId && session.subscription) {
-        await supabase.from("tenants").update({
-          plan: "pro",
-          stripe_subscription_id: session.subscription as string,
-          trial_ends_at: null,
-        }).eq("id", tenantId);
+        await supabase
+          .from("tenants")
+          .update({
+            plan: "pro",
+            stripe_subscription_id: session.subscription as string,
+            trial_ends_at: null,
+          })
+          .eq("id", tenantId);
       }
       break;
     }
+
+    // Subscription renewed, reactivated, or plan changed
+    case "customer.subscription.updated": {
+      const sub = event.data.object as Stripe.Subscription;
+      if (sub.status === "active" || sub.status === "trialing") {
+        await supabase
+          .from("tenants")
+          .update({ plan: "pro", stripe_subscription_id: sub.id })
+          .eq("stripe_customer_id", sub.customer as string);
+      }
+      break;
+    }
+
+    // Subscription cancelled or expired — revert tenant to trial state
     case "customer.subscription.deleted": {
       const sub = event.data.object as Stripe.Subscription;
-      await supabase.from("tenants")
+      await supabase
+        .from("tenants")
         .update({ plan: "trial", stripe_subscription_id: null })
         .eq("stripe_subscription_id", sub.id);
       break;
     }
+
+    // Recurring payment confirmed — ensure pro flag is set (handles edge cases)
+    case "invoice.payment_succeeded": {
+      const invoice = event.data.object as Stripe.Invoice;
+      if (invoice.subscription) {
+        await supabase
+          .from("tenants")
+          .update({ plan: "pro" })
+          .eq("stripe_subscription_id", invoice.subscription as string);
+      }
+      break;
+    }
+
+    // Payment failed — TODO: send dunning email via Resend
     case "invoice.payment_failed": {
-      // Could send a payment failed email here
+      const invoice = event.data.object as Stripe.Invoice;
+      console.warn(`Payment failed for customer ${invoice.customer}`);
       break;
     }
   }

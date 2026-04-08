@@ -37,6 +37,7 @@ export default function OwnerShell({ profile, tenantName, children }: OwnerShell
           </div>
         </div>
         <button
+          type="button"
           onClick={() => setMobileOpen((open) => !open)}
           className="text-white p-2 hover:bg-forge-light rounded-lg transition-colors"
           aria-label={mobileOpen ? "Close menu" : "Open menu"}
@@ -53,7 +54,7 @@ export default function OwnerShell({ profile, tenantName, children }: OwnerShell
       </header>
 
       {mobileOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div className="fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} aria-hidden="true" />
           <div className="absolute left-0 top-0 h-full w-full max-w-[320px] bg-forge shadow-2xl p-4 overflow-y-auto z-10">
             <div className="flex items-center justify-between mb-6">
@@ -74,7 +75,9 @@ export default function OwnerShell({ profile, tenantName, children }: OwnerShell
 
             <nav className="space-y-2">
               {NAV.map((item) => {
-                const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+                const isActive = item.href === "/owner"
+                  ? pathname === "/owner"
+                  : pathname === item.href || pathname.startsWith(item.href + "/");
                 return (
                   <Link
                     key={item.href}
@@ -82,7 +85,7 @@ export default function OwnerShell({ profile, tenantName, children }: OwnerShell
                     onClick={() => setMobileOpen(false)}
                     className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm transition-colors ${
                       isActive
-                        ? 'bg-amber/20 text-white font-600'  // Subtle highlight for mobile
+                        ? 'bg-amber/20 text-white font-600'
                         : 'text-white hover:bg-forge-light'
                     }`}
                   >
@@ -129,7 +132,9 @@ export default function OwnerShell({ profile, tenantName, children }: OwnerShell
 
           <nav className="flex-1 px-3 py-4 space-y-1">
             {NAV.map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+              const isActive = item.href === "/owner"
+                ? pathname === "/owner"
+                : pathname === item.href || pathname.startsWith(item.href + "/");
               return (
                 <Link
                   key={item.href}

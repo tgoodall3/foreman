@@ -39,7 +39,7 @@ export default async function PortalPage({ searchParams }: { searchParams: { tok
         <div className="max-w-sm text-center bg-white rounded-2xl border border-gray-200 p-8">
           <p className="text-4xl mb-3">🏢</p>
           <h1 className="font-display font-800 text-xl text-forge mb-2">No Properties Yet</h1>
-          <p className="text-mist text-sm">Your contractor hasn't added any properties to your account yet. Contact them to get started.</p>
+          <p className="text-mist text-sm">Your contractor hasn&apos;t added any properties to your account yet. Contact them to get started.</p>
         </div>
       </div>
     );

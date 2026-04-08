@@ -5,10 +5,14 @@ import { getProfile } from "@/lib/auth";
 import { createInvoiceSchema, validateInput } from "@/lib/validation";
 import { generateInvoiceNumber } from "@/lib/utils";
 import { logError } from "@/lib/logger";
+import { checkPlanForApi } from "@/lib/plan";
 
 export async function POST(req: NextRequest) {
   const profile = await getProfile();
   if (!profile) return badRequest("Unauthorized");
+
+  const planError = await checkPlanForApi(profile.tenant_id);
+  if (planError) return planError;
 
   const body = await req.json();
   const validation = validateInput(createInvoiceSchema, body);

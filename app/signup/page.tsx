@@ -128,7 +128,7 @@ export default function SignupPage() {
                 <label htmlFor="password" className="block text-sm font-500 text-chalk mb-1">Password</label>
                 <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)}
                   required aria-required="true" autoComplete="new-password" minLength={8}
-                  className="w-full bg-forge border border-steel rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-mist focus:outline-none focus:border-amber"
+                  className="w-full bg-forge border border-steel rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-mist focus:border-amber"
                   placeholder="Min 8 characters" />
               </div>
               {error && <div role="alert" className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">{error}</div>}
@@ -146,21 +146,21 @@ export default function SignupPage() {
                 <label htmlFor="biz-name" className="block text-sm font-500 text-chalk mb-1">Business Name <span className="text-red-400">*</span></label>
                 <input id="biz-name" type="text" value={bizName} onChange={(e) => setBizName(e.target.value)}
                   required aria-required="true"
-                  className="w-full bg-forge border border-steel rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-mist focus:outline-none focus:border-amber"
+                  className="w-full bg-forge border border-steel rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-mist focus:border-amber"
                   placeholder="Precision Contracting Group" />
               </div>
               <div>
                 <label htmlFor="biz-phone" className="block text-sm font-500 text-chalk mb-1">Phone</label>
                 <input id="biz-phone" type="tel" value={bizPhone} onChange={(e) => setBizPhone(e.target.value)}
                   autoComplete="tel"
-                  className="w-full bg-forge border border-steel rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-mist focus:outline-none focus:border-amber"
+                  className="w-full bg-forge border border-steel rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-mist focus:border-amber"
                   placeholder="(555) 000-0000" />
               </div>
               <div>
                 <label htmlFor="biz-address" className="block text-sm font-500 text-chalk mb-1">Address</label>
                 <input id="biz-address" type="text" value={bizAddress} onChange={(e) => setBizAddress(e.target.value)}
                   autoComplete="street-address"
-                  className="w-full bg-forge border border-steel rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-mist focus:outline-none focus:border-amber"
+                  className="w-full bg-forge border border-steel rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-mist focus:border-amber"
                   placeholder="123 Main St, Indianapolis, IN" />
               </div>
               {error && <div role="alert" className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">{error}</div>}

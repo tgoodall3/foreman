@@ -3,11 +3,15 @@ import { createServiceClient } from "@/lib/supabase";
 import { requireOwner } from "@/lib/auth";
 import { validateInput, workOrderActionSchema } from "@/lib/validation";
 import { errorResponse } from "@/lib/api";
+import { checkPlanForApi } from "@/lib/plan";
 
 export async function POST(req: NextRequest) {
   try {
     const profile = await requireOwner();
     if (!profile) return errorResponse("Unauthorized", 401);
+
+    const planError = await checkPlanForApi(profile.tenant_id);
+    if (planError) return planError;
 
     const body = await req.json();
     const validation = validateInput(workOrderActionSchema, body);

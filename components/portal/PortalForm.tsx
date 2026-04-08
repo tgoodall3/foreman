@@ -53,7 +53,7 @@ export default function PortalForm({ propertyManager, properties, tenantName }: 
           </div>
           <h1 className="font-display font-800 text-2xl text-forge mb-2">Work Order Submitted</h1>
           <p className="text-mist text-sm mb-6">
-            Your work order has been received by {tenantName}. You'll receive a confirmation email shortly.
+            Your work order has been received by {tenantName}. You&apos;ll receive a confirmation email shortly.
           </p>
           <button
             onClick={() => { setSubmitted(false); setTitle(""); setDescription(""); setPriority("normal"); }}
@@ -87,7 +87,7 @@ export default function PortalForm({ propertyManager, properties, tenantName }: 
           <div className="mb-6">
             <h1 className="font-display font-800 text-2xl text-forge">Submit Work Order</h1>
             <p className="text-mist text-sm mt-1">
-              Hi {propertyManager.full_name} — fill out the form below and we'll get back to you shortly.
+              Hi {propertyManager.full_name} — fill out the form below and we&apos;ll get back to you shortly.
             </p>
           </div>
 
