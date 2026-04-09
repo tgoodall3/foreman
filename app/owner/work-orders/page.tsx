@@ -99,4 +99,5 @@ function WorkOrderCard({ wo }: { wo: any }) {
   );
 }
 // Force dynamic rendering to avoid static 404s when data/env missing at build time
+// Force dynamic rendering (and use service client in detail pages) to avoid stale static pages and RLS edge cases
 export const dynamic = "force-dynamic";

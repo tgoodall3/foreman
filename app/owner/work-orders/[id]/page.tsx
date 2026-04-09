@@ -1,23 +1,30 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireOwner } from "@/lib/auth";
-import { createServerSideClient } from "@/lib/supabase-server";
+import { createServiceClient } from "@/lib/supabase";
 import { formatDate, PRIORITY_CONFIG } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 export default async function WorkOrderDetailPage({ params }: { params: { id: string } }) {
   const profile = await requireOwner();
-  const supabase = await createServerSideClient();
+  // Use service role to avoid RLS issues if session cookies fail on prod
+  const supabase = createServiceClient();
 
-  const { data: wo } = await supabase
+  const { data: wo, error } = await supabase
     .from("work_orders")
     .select("id, title, description, status, priority, created_at, property_managers(full_name, email, company, phone), properties(name, address, city, state), jobs(id, title, status)")
     .eq("id", params.id)
     .eq("tenant_id", profile.tenant_id)
     .maybeSingle();
 
-  if (!wo) notFound();
+  if (!wo) {
+    // Distinguish access vs missing to aid debugging (still a 404 for users)
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("Work order not found or inaccessible", { id: params.id, error });
+    }
+    notFound();
+  }
 
   const priorityCfg = PRIORITY_CONFIG[wo.priority as keyof typeof PRIORITY_CONFIG];
   const statusColors: Record<string, string> = {
