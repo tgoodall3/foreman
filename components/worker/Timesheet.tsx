@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Entry = {
   id: string;
@@ -241,26 +241,13 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
                     return (
                       <div
                         key={e.id}
-                        className={`flex items-start justify-between gap-2 rounded-lg border px-3 py-2 ${
-                          style ? `${style.bg} ${style.text}` : "border-gray-100"
-                        }`}
+                        className="flex items-start justify-between gap-2 rounded-lg border border-gray-100 px-3 py-2"
                       >
                         <div>
                           <p className="font-600 text-sm text-forge">
                             {fmtTime(e.clocked_in_at)} – {e.clocked_out_at ? fmtTime(e.clocked_out_at) : "open"}
                           </p>
                           {e.notes && <p className="text-xs text-mist mt-0.5">{e.notes}</p>}
-                          {req && (
-                            <span className={`inline-flex items-center text-[11px] font-700 mt-1 px-2 py-0.5 rounded border ${
-                              req.status === "approved"
-                                ? "border-green-200 text-green-700 bg-green-50"
-                                : req.status === "declined"
-                                  ? "border-red-200 text-red-700 bg-red-50"
-                                  : "border-amber/40 text-amber-dark bg-amber/10"
-                            }`}>
-                              {req.status}
-                            </span>
-                          )}
                         </div>
                         <button
                           onClick={() => openModal(date, e.id)}
