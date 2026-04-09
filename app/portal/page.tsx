@@ -1,8 +1,8 @@
 import { createServiceClient } from "@/lib/supabase";
-import PortalForm from "@/components/portal/PortalForm";
+import PortalDashboard from "@/components/portal/PortalDashboard";
 import { notFound } from "next/navigation";
 
-export default async function PortalPage({ searchParams }: { searchParams: { token?: string } }) {
+export default async function PortalPage({ searchParams }: { searchParams: { token?: string; tab?: string; paid?: string } }) {
   if (!searchParams.token) {
     return (
       <div className="min-h-screen bg-forge flex items-center justify-center p-4">
@@ -27,29 +27,40 @@ export default async function PortalPage({ searchParams }: { searchParams: { tok
 
   if (!pm) notFound();
 
-  const { data: properties } = await supabase
-    .from("properties")
-    .select("*")
-    .eq("property_manager_id", pm.id)
-    .order("name");
+  const [
+    { data: properties },
+    { data: workOrders },
+    { data: invoices },
+  ] = await Promise.all([
+    supabase
+      .from("properties")
+      .select("id, name, address, city, state")
+      .eq("property_manager_id", pm.id)
+      .order("name"),
 
-  if (!properties?.length) {
-    return (
-      <div className="min-h-screen bg-surface flex items-center justify-center p-4">
-        <div className="max-w-sm text-center bg-white rounded-2xl border border-gray-200 p-8">
-          <p className="text-4xl mb-3">🏢</p>
-          <h1 className="font-display font-800 text-xl text-forge mb-2">No Properties Yet</h1>
-          <p className="text-mist text-sm">Your contractor hasn&apos;t added any properties to your account yet. Contact them to get started.</p>
-        </div>
-      </div>
-    );
-  }
+    supabase
+      .from("work_orders")
+      .select("id, title, status, priority, created_at, properties(name)")
+      .eq("property_manager_id", pm.id)
+      .order("created_at", { ascending: false }),
+
+    supabase
+      .from("invoices")
+      .select("id, invoice_number, status, total, due_date, created_at, jobs(title)")
+      .eq("property_manager_id", pm.id)
+      .order("created_at", { ascending: false }),
+  ]);
 
   return (
-    <PortalForm
+    <PortalDashboard
+      token={searchParams.token}
       propertyManager={pm}
-      properties={properties}
-      tenantName={(pm.tenants as any)?.name || "Your Contractor"}
+      tenantName={(pm.tenants as any)?.name ?? "Your Contractor"}
+      properties={properties ?? []}
+      workOrders={(workOrders ?? []) as any[]}
+      invoices={(invoices ?? []) as any[]}
+      initialTab={(searchParams.tab as any) ?? "overview"}
+      paidSuccess={searchParams.paid === "true"}
     />
   );
 }

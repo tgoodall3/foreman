@@ -15,103 +15,127 @@ export const OWNER_PAGE_SIZE = 20;
 export async function getOwnerDashboardData(profile: Profile) {
   const supabase = await createServerSideClient();
 
-  const now = new Date();
+  const now        = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-  const today = now.toISOString().split("T")[0];
+  const today      = now.toISOString().split("T")[0];
 
   const [
-    recentJobsResult,
+    todayJobsResult,
+    upcomingResult,
     workOrdersResult,
     invoicesResult,
     workersResult,
     monthJobsResult,
-    overdueResult,
-    todayJobsResult,
+    overdueInvoicesResult,
+    uninvoicedResult,
+    unsendResult,
   ] = await Promise.all([
-    // Recent jobs for the list
+    // TODAY'S jobs — full detail for the primary view
     supabase
       .from("jobs")
-      .select("id, title, status, priority, scheduled_date, created_at, properties(name)")
+      .select("id, title, status, priority, scheduled_time, estimated_hours, actual_hours, assigned_workers, invoice_id, properties(name, city)")
       .eq("tenant_id", profile.tenant_id)
-      .order("created_at", { ascending: false })
-      .limit(6),
+      .eq("scheduled_date", today)
+      .not("status", "in", '("cancelled")')
+      .order("scheduled_time", { ascending: true, nullsFirst: false }),
+
+    // Next 4 days upcoming (not today, not cancelled/completed/invoiced)
+    supabase
+      .from("jobs")
+      .select("id, title, status, priority, scheduled_date, scheduled_time, assigned_workers, properties(name)")
+      .eq("tenant_id", profile.tenant_id)
+      .gt("scheduled_date", today)
+      .not("status", "in", '("completed","invoiced","cancelled")')
+      .order("scheduled_date", { ascending: true })
+      .limit(5),
+
     // Pending work orders
     supabase
       .from("work_orders")
-      .select("id, title, priority, status, created_at, properties(name), property_managers(full_name)")
+      .select("id, title, priority, created_at, properties(name), property_managers(full_name)")
       .eq("tenant_id", profile.tenant_id)
       .eq("status", "pending")
       .order("created_at", { ascending: false })
       .limit(5),
-    // All invoices for revenue stats
+
+    // Invoices for revenue stats
     supabase
       .from("invoices")
       .select("total, status, due_date, paid_at")
       .eq("tenant_id", profile.tenant_id),
-    // Active workers
+
+    // Active workers (id + name for chips)
     supabase
       .from("profiles")
-      .select("id")
+      .select("id, full_name")
       .eq("tenant_id", profile.tenant_id)
       .eq("role", "worker")
-      .eq("is_active", true),
-    // Jobs completed this month (for metrics)
+      .eq("is_active", true)
+      .order("full_name"),
+
+    // Jobs completed this month
     supabase
       .from("jobs")
-      .select("id, actual_hours, estimated_hours")
+      .select("id, actual_hours")
       .eq("tenant_id", profile.tenant_id)
       .in("status", ["completed", "invoiced"])
       .gte("updated_at", monthStart),
-    // Overdue invoices (sent, past due date)
+
+    // Overdue invoices
     supabase
       .from("invoices")
-      .select("id, total")
+      .select("id, invoice_number, total, due_date, property_managers(full_name)")
       .eq("tenant_id", profile.tenant_id)
       .eq("status", "sent")
-      .lt("due_date", today),
-    // Jobs scheduled for today
+      .lt("due_date", today)
+      .order("due_date", { ascending: true }),
+
+    // Completed jobs with no invoice (action needed)
     supabase
       .from("jobs")
-      .select("id")
+      .select("id, title, updated_at, properties(name)")
       .eq("tenant_id", profile.tenant_id)
-      .eq("scheduled_date", today)
-      .not("status", "in", '("completed","invoiced","cancelled")'),
+      .eq("status", "completed")
+      .is("invoice_id", null)
+      .order("updated_at", { ascending: false })
+      .limit(10),
+
+    // Draft invoices ready to send (action needed)
+    supabase
+      .from("invoices")
+      .select("id, invoice_number, total, property_managers(full_name)")
+      .eq("tenant_id", profile.tenant_id)
+      .eq("status", "draft")
+      .order("created_at", { ascending: false })
+      .limit(10),
   ]);
 
-  // Revenue calculations
-  const allInvoices = (invoicesResult.data ?? []) as any[];
-  const revenueThisMonth = allInvoices
-    .filter((i) => i.status === "paid" && i.paid_at && i.paid_at >= monthStart)
-    .reduce((s: number, i: any) => s + i.total, 0);
-  const revenueAllTime = allInvoices
-    .filter((i) => i.status === "paid")
-    .reduce((s: number, i: any) => s + i.total, 0);
-  const outstanding = allInvoices
-    .filter((i) => i.status === "sent" || i.status === "overdue")
-    .reduce((s: number, i: any) => s + i.total, 0);
-
-  // Job metrics
-  const completedThisMonth = monthJobsResult.data ?? [];
-  const jobsWithHours = completedThisMonth.filter((j: any) => j.actual_hours != null);
-  const avgHours = jobsWithHours.length
-    ? jobsWithHours.reduce((s: number, j: any) => s + j.actual_hours, 0) / jobsWithHours.length
-    : null;
+  const allInvoices      = (invoicesResult.data ?? []) as any[];
+  const completedMonth   = monthJobsResult.data ?? [];
+  const jobsWithHours    = completedMonth.filter((j: any) => j.actual_hours != null);
 
   return {
-    jobs:     recentJobsResult.data as any[],
-    workOrders: workOrdersResult.data as any[],
-    workers:  workersResult.data ?? [],
+    today:          today,
+    todayJobs:      (todayJobsResult.data  ?? []) as any[],
+    upcomingJobs:   (upcomingResult.data   ?? []) as any[],
+    workOrders:     (workOrdersResult.data ?? []) as any[],
+    workers:        (workersResult.data    ?? []) as any[],
+
     metrics: {
-      revenueThisMonth,
-      revenueAllTime,
-      outstanding,
-      overdueCount:       overdueResult.data?.length ?? 0,
-      overdueTotal:       (overdueResult.data ?? []).reduce((s: number, i: any) => s + i.total, 0),
-      completedThisMonth: completedThisMonth.length,
-      avgJobHours:        avgHours,
-      todayJobCount:      todayJobsResult.data?.length ?? 0,
-      pendingWorkOrders:  workOrdersResult.data?.length ?? 0,
+      revenueThisMonth:   allInvoices.filter((i) => i.status === "paid" && i.paid_at >= monthStart).reduce((s: number, i: any) => s + i.total, 0),
+      outstanding:        allInvoices.filter((i) => ["sent","overdue"].includes(i.status)).reduce((s: number, i: any) => s + i.total, 0),
+      completedThisMonth: completedMonth.length,
+      avgJobHours:        jobsWithHours.length ? jobsWithHours.reduce((s: number, j: any) => s + j.actual_hours, 0) / jobsWithHours.length : null,
       activeWorkers:      workersResult.data?.length ?? 0,
+      pendingWorkOrders:  workOrdersResult.data?.length ?? 0,
+    },
+
+    // Action-needed items
+    actions: {
+      overdueInvoices: (overdueInvoicesResult.data ?? []) as any[],
+      uninvoicedJobs:  (uninvoicedResult.data       ?? []) as any[],
+      draftInvoices:   (unsendResult.data            ?? []) as any[],
+      pendingOrders:   (workOrdersResult.data        ?? []) as any[],
     },
   };
 }
@@ -123,7 +147,7 @@ export async function getOwnerJobs(profile: Profile, status?: string, page = 1, 
 
   let query = supabase
     .from("jobs")
-    .select("id, title, status, priority, scheduled_date, properties(name)", { count: "exact" })
+    .select("id, title, status, priority, scheduled_date, invoice_id, properties(name)", { count: "exact" })
     .eq("tenant_id", profile.tenant_id)
     .order("created_at", { ascending: false })
     .range(start, end);

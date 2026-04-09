@@ -2,6 +2,7 @@ import { requireWorker } from "@/lib/auth";
 import { createServerSideClient } from "@/lib/supabase-server";
 import { formatDate, JOB_STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/utils";
 import Link from "next/link";
+import ClockWidget from "@/components/worker/ClockWidget";
 
 export default async function WorkerDashboard() {
   const profile = await requireWorker();
@@ -20,12 +21,39 @@ export default async function WorkerDashboard() {
   const upcomingJobs = jobs?.filter((j) => j.scheduled_date && j.scheduled_date > today) || [];
   const unscheduled = jobs?.filter((j) => !j.scheduled_date) || [];
 
+  const summary = [
+    { label: "Today", value: todayJobs.length },
+    { label: "Upcoming", value: upcomingJobs.length },
+    { label: "Unscheduled", value: unscheduled.length },
+  ];
+
   return (
-    <div className="p-4 max-w-lg mx-auto">
-      <div className="mb-6">
-        <h1 className="font-display font-800 text-2xl text-forge">My Jobs</h1>
-        <p className="text-mist text-sm">{formatDate(new Date())}</p>
+    <div className="p-4 max-w-3xl mx-auto space-y-5">
+      <div className="bg-gradient-to-r from-forge to-steel text-white rounded-2xl p-5 shadow-sm">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-wider text-amber/80 font-700">Worker</p>
+            <h1 className="font-display font-800 text-2xl">My Jobs</h1>
+            <p className="text-sm text-white/70">{formatDate(new Date())}</p>
+          </div>
+          <Link
+            href="/worker/timesheets"
+            className="inline-flex items-center gap-2 bg-white text-forge font-700 px-3 py-2 rounded-xl text-sm shadow-sm hover:shadow transition"
+          >
+            ⏱ View timesheet
+          </Link>
+        </div>
+        <div className="grid grid-cols-3 gap-3 mt-4">
+          {summary.map((s) => (
+            <div key={s.label} className="bg-white/10 rounded-xl px-3 py-2">
+              <p className="text-[11px] uppercase tracking-wide text-white/70">{s.label}</p>
+              <p className="font-display font-800 text-xl">{s.value}</p>
+            </div>
+          ))}
+        </div>
       </div>
+
+      <ClockWidget />
 
       {/* Today */}
       {todayJobs.length > 0 && (

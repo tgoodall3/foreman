@@ -18,128 +18,237 @@ export default async function OwnerDashboard() {
   ]);
   if ((workerCount ?? 0) === 0 && (pmCount ?? 0) === 0) redirect("/owner/onboarding");
 
-  const { jobs, workOrders, metrics } = await getOwnerDashboardData(profile);
+  const { today, todayJobs, upcomingJobs, workOrders, workers, metrics, actions } =
+    await getOwnerDashboardData(profile);
 
-  const today = new Date();
-  const monthName = today.toLocaleString("en-US", { month: "long" });
+  const monthName  = new Date().toLocaleString("en-US", { month: "long" });
+  const workerMap  = Object.fromEntries(workers.map((w: any) => [w.id, w.full_name]));
+
+  const overdueCount = actions.overdueInvoices.length;
+  const overdueTotal = actions.overdueInvoices.reduce((s: number, i: any) => s + (i.total ?? 0), 0);
+
+  const actionCount =
+    overdueCount +
+    actions.uninvoicedJobs.length +
+    actions.draftInvoices.length +
+    actions.pendingOrders.length;
 
   return (
     <div className="p-6 max-w-6xl">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="font-display font-800 text-3xl text-forge">Dashboard</h1>
-        <p className="text-mist mt-1">{formatDate(today)}</p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="font-display font-800 text-3xl text-forge">Today</h1>
+          <p className="text-mist mt-0.5">{formatDate(today)}</p>
+        </div>
+        <Link
+          href="/owner/jobs/new"
+          className="bg-amber hover:bg-amber-dark text-forge font-display font-700 px-4 py-2 rounded-xl text-sm transition-colors"
+        >
+          + New Job
+        </Link>
       </div>
 
-      {/* Overdue alert */}
-      {metrics.overdueCount > 0 && (
-        <div className="mb-6 bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-red-500 text-lg">⚠</span>
-            <p className="text-sm font-600 text-red-700">
-              {metrics.overdueCount} overdue invoice{metrics.overdueCount !== 1 ? "s" : ""} — {formatCurrency(metrics.overdueTotal)} outstanding
-            </p>
-          </div>
-          <Link href="/owner/invoices?status=overdue" className="text-xs text-red-700 hover:underline font-600 shrink-0">
-            View →
-          </Link>
-        </div>
-      )}
-
-      {/* Today's schedule callout */}
-      {metrics.todayJobCount > 0 && (
-        <div className="mb-6 bg-amber/10 border border-amber/30 rounded-xl px-4 py-3 flex items-center justify-between gap-4">
-          <p className="text-sm font-600 text-forge">
-            📅 {metrics.todayJobCount} job{metrics.todayJobCount !== 1 ? "s" : ""} scheduled today
-          </p>
-          <Link href="/owner/schedule" className="text-xs text-amber hover:underline font-600 shrink-0">
-            View schedule →
-          </Link>
-        </div>
-      )}
-
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard
-          label={`Revenue (${monthName})`}
-          value={formatCurrency(metrics.revenueThisMonth)}
-          sub={`${formatCurrency(metrics.revenueAllTime)} all time`}
-          accent
-        />
-        <StatCard
-          label="Outstanding"
-          value={formatCurrency(metrics.outstanding)}
-          sub={metrics.overdueCount > 0 ? `${metrics.overdueCount} overdue` : "all current"}
-          urgent={metrics.overdueCount > 0}
-        />
-        <StatCard
-          label={`Completed (${monthName})`}
-          value={metrics.completedThisMonth}
-          sub={
-            metrics.avgJobHours != null
-              ? `avg ${metrics.avgJobHours.toFixed(1)}h per job`
-              : "no time tracked"
-          }
-        />
-        <StatCard
-          label="Active Workers"
-          value={metrics.activeWorkers}
-          sub={metrics.pendingWorkOrders > 0 ? `${metrics.pendingWorkOrders} work orders pending` : "no pending orders"}
-          urgent={metrics.pendingWorkOrders > 0}
-        />
-      </div>
-
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Recent Jobs */}
-        <section aria-labelledby="recent-jobs-heading" className="lg:col-span-2">
-          <div className="flex items-center justify-between mb-4">
-            <h2 id="recent-jobs-heading" className="font-display font-700 text-xl text-forge">Recent Jobs</h2>
-            <div className="flex items-center gap-3">
-              <Link href="/owner/schedule" className="text-sm text-mist hover:text-amber font-500 transition-colors">Schedule →</Link>
-              <Link href="/owner/jobs" className="text-sm text-amber hover:underline font-500">All jobs →</Link>
-            </div>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
-            {!jobs?.length ? (
-              <div className="p-8 text-center text-mist text-sm">
-                No jobs yet.{" "}
-                <Link href="/owner/jobs/new" className="text-amber hover:underline">Create your first job →</Link>
-              </div>
-            ) : (
-              jobs.map((job: any) => {
-                const statusCfg   = JOB_STATUS_CONFIG[job.status as keyof typeof JOB_STATUS_CONFIG];
-                const priorityCfg = PRIORITY_CONFIG[job.priority as keyof typeof PRIORITY_CONFIG];
-                const prop = Array.isArray(job.properties) ? job.properties[0] : job.properties;
-                return (
-                  <Link
-                    key={job.id}
-                    href={`/owner/jobs/${job.id}`}
-                    className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors group"
-                  >
-                    <div className="min-w-0">
-                      <p className="font-500 text-sm text-forge truncate group-hover:text-amber transition-colors">{job.title}</p>
-                      <p className="text-xs text-mist mt-0.5">
-                        {prop?.name ? `${prop.name} · ` : ""}
-                        {job.scheduled_date ? formatDate(job.scheduled_date) : "Not scheduled"}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-3">
-                      <span className={`badge ${priorityCfg.bg} ${priorityCfg.color}`}>{priorityCfg.label}</span>
-                      <span className={`badge ${statusCfg.bg} ${statusCfg.color}`}>{statusCfg.label}</span>
-                    </div>
-                  </Link>
-                );
-              })
-            )}
-          </div>
+      {/* ── Action-needed rail ─────────────────────────────────── */}
+      {actionCount > 0 && (
+        <section aria-label="Action needed" className="mb-6 space-y-2">
+          {overdueCount > 0 && (
+            <ActionBanner
+              icon="⚠"
+              color="red"
+              message={`${overdueCount} overdue invoice${overdueCount !== 1 ? "s" : ""} — ${formatCurrency(overdueTotal)} outstanding`}
+              href="/owner/invoices?status=overdue"
+              linkLabel="Review →"
+            />
+          )}
+          {actions.uninvoicedJobs.length > 0 && (
+            <ActionBanner
+              icon="💵"
+              color="amber"
+              message={`${actions.uninvoicedJobs.length} completed job${actions.uninvoicedJobs.length !== 1 ? "s" : ""} not yet invoiced`}
+              href="/owner/jobs?status=completed"
+              linkLabel="Invoice →"
+            />
+          )}
+          {actions.draftInvoices.length > 0 && (
+            <ActionBanner
+              icon="📤"
+              color="blue"
+              message={`${actions.draftInvoices.length} draft invoice${actions.draftInvoices.length !== 1 ? "s" : ""} ready to send`}
+              href="/owner/invoices?status=draft"
+              linkLabel="Send →"
+            />
+          )}
+          {actions.pendingOrders.length > 0 && (
+            <ActionBanner
+              icon="📋"
+              color="gray"
+              message={`${actions.pendingOrders.length} pending work order${actions.pendingOrders.length !== 1 ? "s" : ""} need attention`}
+              href="/owner/work-orders"
+              linkLabel="Review →"
+            />
+          )}
         </section>
+      )}
 
-        {/* Right column */}
+      {/* ── Today's Jobs ──────────────────────────────────────── */}
+      <section aria-labelledby="today-heading" className="mb-8">
+        <div className="flex items-center justify-between mb-3">
+          <h2 id="today-heading" className="font-display font-700 text-xl text-forge">
+            {todayJobs.length > 0
+              ? `${todayJobs.length} job${todayJobs.length !== 1 ? "s" : ""} today`
+              : "No jobs scheduled today"}
+          </h2>
+          <Link href="/owner/schedule" className="text-sm text-amber hover:underline font-500">
+            Schedule →
+          </Link>
+        </div>
+
+        {todayJobs.length === 0 ? (
+          <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+            <p className="text-mist text-sm mb-3">Nothing on the books. Enjoy the quiet — or get ahead.</p>
+            <Link href="/owner/jobs/new" className="text-amber hover:underline text-sm font-600">
+              Schedule a job for today →
+            </Link>
+          </div>
+        ) : (
+          <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+            {todayJobs.map((job: any) => {
+              const statusCfg   = JOB_STATUS_CONFIG[job.status as keyof typeof JOB_STATUS_CONFIG];
+              const priorityCfg = PRIORITY_CONFIG[job.priority as keyof typeof PRIORITY_CONFIG];
+              const prop = Array.isArray(job.properties) ? job.properties[0] : job.properties;
+              const assignedNames: string[] = (job.assigned_workers ?? [])
+                .map((id: string) => workerMap[id])
+                .filter(Boolean);
+
+              return (
+                <Link
+                  key={job.id}
+                  href={`/owner/jobs/${job.id}`}
+                  className="flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 transition-colors group"
+                >
+                  {/* Time */}
+                  <div className="w-14 shrink-0 text-right">
+                    <p className="text-xs font-600 text-forge tabular-nums">
+                      {job.scheduled_time
+                        ? job.scheduled_time.slice(0, 5)
+                        : <span className="text-mist">—</span>}
+                    </p>
+                  </div>
+
+                  {/* Main info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-600 text-sm text-forge truncate group-hover:text-amber transition-colors">
+                      {job.title}
+                    </p>
+                    <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                      {prop?.name && (
+                        <span className="text-xs text-mist">{prop.name}</span>
+                      )}
+                      {assignedNames.length > 0 && (
+                        <>
+                          {prop?.name && <span className="text-xs text-mist/40">·</span>}
+                          {assignedNames.map((name) => (
+                            <span key={name} className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-gray-100 text-xs font-500 text-steel">
+                              {name.split(" ")[0]}
+                            </span>
+                          ))}
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Badges */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {job.estimated_hours && (
+                      <span className="text-xs text-mist tabular-nums hidden sm:inline">
+                        {job.estimated_hours}h
+                      </span>
+                    )}
+                    <span className={`badge ${priorityCfg.bg} ${priorityCfg.color}`}>{priorityCfg.label}</span>
+                    <span className={`badge ${statusCfg.bg} ${statusCfg.color}`}>{statusCfg.label}</span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* ── Bottom grid: stats + upcoming + work orders ───────── */}
+      <div className="grid lg:grid-cols-3 gap-6">
+        {/* Left: stats + upcoming */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Stats */}
+          <section aria-label="Monthly metrics">
+            <h2 className="font-display font-700 text-lg text-forge mb-3">{monthName}</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <StatCard
+                label="Revenue"
+                value={formatCurrency(metrics.revenueThisMonth)}
+                accent
+              />
+              <StatCard
+                label="Outstanding"
+                value={formatCurrency(metrics.outstanding)}
+                urgent={overdueCount > 0}
+              />
+              <StatCard
+                label="Jobs Done"
+                value={metrics.completedThisMonth}
+                sub={metrics.avgJobHours != null ? `avg ${metrics.avgJobHours.toFixed(1)}h` : undefined}
+              />
+              <StatCard
+                label="Workers"
+                value={metrics.activeWorkers}
+                sub="active"
+              />
+            </div>
+          </section>
+
+          {/* Upcoming */}
+          {upcomingJobs.length > 0 && (
+            <section aria-labelledby="upcoming-heading">
+              <div className="flex items-center justify-between mb-3">
+                <h2 id="upcoming-heading" className="font-display font-700 text-lg text-forge">Upcoming</h2>
+                <Link href="/owner/schedule" className="text-sm text-amber hover:underline font-500">View schedule →</Link>
+              </div>
+              <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+                {upcomingJobs.map((job: any) => {
+                  const statusCfg   = JOB_STATUS_CONFIG[job.status as keyof typeof JOB_STATUS_CONFIG];
+                  const priorityCfg = PRIORITY_CONFIG[job.priority as keyof typeof PRIORITY_CONFIG];
+                  const prop = Array.isArray(job.properties) ? job.properties[0] : job.properties;
+                  return (
+                    <Link
+                      key={job.id}
+                      href={`/owner/jobs/${job.id}`}
+                      className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors group"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-500 text-sm text-forge truncate group-hover:text-amber transition-colors">{job.title}</p>
+                        <p className="text-xs text-mist mt-0.5">
+                          {prop?.name ? `${prop.name} · ` : ""}
+                          {job.scheduled_date ? formatDate(job.scheduled_date) : "Not scheduled"}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 ml-3">
+                        <span className={`badge ${priorityCfg.bg} ${priorityCfg.color}`}>{priorityCfg.label}</span>
+                        <span className={`badge ${statusCfg.bg} ${statusCfg.color}`}>{statusCfg.label}</span>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+        </div>
+
+        {/* Right: work orders + quick actions */}
         <div className="space-y-6">
           {/* Pending Work Orders */}
           <section aria-labelledby="work-orders-heading">
-            <div className="flex items-center justify-between mb-4">
-              <h2 id="work-orders-heading" className="font-display font-700 text-xl text-forge">
+            <div className="flex items-center justify-between mb-3">
+              <h2 id="work-orders-heading" className="font-display font-700 text-lg text-forge">
                 Work Orders
                 {metrics.pendingWorkOrders > 0 && (
                   <span className="ml-2 inline-flex items-center justify-center w-5 h-5 bg-amber text-forge text-xs font-700 rounded-full">
@@ -179,7 +288,7 @@ export default async function OwnerDashboard() {
 
           {/* Quick actions */}
           <section aria-labelledby="quick-actions-heading">
-            <h2 id="quick-actions-heading" className="font-display font-700 text-xl text-forge mb-4">Quick Actions</h2>
+            <h2 id="quick-actions-heading" className="font-display font-700 text-lg text-forge mb-3">Quick Actions</h2>
             <div className="grid grid-cols-2 gap-2">
               {[
                 { href: "/owner/jobs/new",      label: "New Job",      icon: "🔨" },
@@ -200,6 +309,38 @@ export default async function OwnerDashboard() {
           </section>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ActionBanner({
+  icon,
+  color,
+  message,
+  href,
+  linkLabel,
+}: {
+  icon: string;
+  color: "red" | "amber" | "blue" | "gray";
+  message: string;
+  href: string;
+  linkLabel: string;
+}) {
+  const styles = {
+    red:   "bg-red-50 border-red-200 text-red-700",
+    amber: "bg-amber/10 border-amber/30 text-amber-dark",
+    blue:  "bg-blue-50 border-blue-200 text-blue-700",
+    gray:  "bg-gray-50 border-gray-200 text-steel",
+  };
+  return (
+    <div className={`border rounded-xl px-4 py-2.5 flex items-center justify-between gap-4 ${styles[color]}`}>
+      <div className="flex items-center gap-2">
+        <span aria-hidden="true">{icon}</span>
+        <p className="text-sm font-600">{message}</p>
+      </div>
+      <Link href={href} className="text-xs font-700 hover:underline shrink-0">
+        {linkLabel}
+      </Link>
     </div>
   );
 }

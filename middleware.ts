@@ -23,15 +23,13 @@ export async function middleware(request: NextRequest) {
     const { data } = await supabase.auth.getUser();
     user = data.user;
   } catch (error) {
-    // Handle auth errors gracefully - don't throw for missing sessions
     if (error instanceof Error && error.name !== "AuthSessionMissingError") {
       console.warn("Supabase middleware error:", error);
     }
-    // user remains null for missing sessions
   }
 
   // Plan enforcement for owner routes.
-  // /owner/settings is always accessible so expired users can reach the billing page.
+  // /owner/settings is always accessible so expired users can reach billing.
   if (
     user &&
     pathname.startsWith("/owner") &&
@@ -42,39 +40,35 @@ export async function middleware(request: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
+    // Single join query instead of two sequential queries
     const { data: profile } = await service
       .from("profiles")
-      .select("tenant_id")
+      .select("tenant_id, tenants(plan, trial_ends_at)")
       .eq("id", user.id)
       .single();
 
     if (profile) {
-      const { data: tenant } = await service
-        .from("tenants")
-        .select("plan, trial_ends_at")
-        .eq("id", profile.tenant_id)
-        .single();
+      const tenantRaw = profile.tenants as unknown;
+      const tenant = (Array.isArray(tenantRaw) ? tenantRaw[0] : tenantRaw) as { plan: string; trial_ends_at: string | null } | null;
+      const isPro = tenant?.plan === "pro";
+      const trialActive = tenant?.trial_ends_at && new Date(tenant.trial_ends_at) > new Date();
 
-      if (tenant) {
-        const isPro = tenant.plan === "pro";
-        const trialActive =
-          tenant.trial_ends_at && new Date(tenant.trial_ends_at) > new Date();
-
-        if (!isPro && !trialActive) {
-          const url = request.nextUrl.clone();
-          url.pathname = "/owner/settings/billing";
-          url.searchParams.set("expired", "true");
-          return NextResponse.redirect(url);
-        }
+      if (!isPro && !trialActive) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/owner/settings/billing";
+        url.searchParams.set("expired", "true");
+        return NextResponse.redirect(url);
       }
     }
   }
 
-  // Forward the current pathname to server components via a request header.
-  // Used by layouts that need to know the active route.
-  const response = NextResponse.next();
-  response.headers.set("x-pathname", pathname);
-  return response;
+  // Pass current pathname and user ID to server components via request headers.
+  // x-user-id lets getCurrentProfile skip auth.getUser() on owner/worker routes.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", pathname);
+  if (user?.id) requestHeaders.set("x-user-id", user.id);
+
+  return NextResponse.next({ request: { headers: requestHeaders } });
 }
 
 export const config = {

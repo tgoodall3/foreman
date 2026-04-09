@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { createClient } from "@/lib/supabase";
 import { JOB_STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -50,13 +52,11 @@ function getMondayOf(dateStr: string): string {
   return d.toISOString().split("T")[0];
 }
 
-/** Format YYYY-MM-DD → "Apr 7" */
 function fmtShort(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00Z");
   return `${MONTH_NAMES[d.getUTCMonth()]} ${d.getUTCDate()}`;
 }
 
-/** Format YYYY-MM-DD week range → "Apr 7–13" or "Mar 31 – Apr 6" */
 function fmtWeekRange(start: string): string {
   const end = addDays(start, 6);
   const s = new Date(start + "T00:00:00Z");
@@ -67,7 +67,6 @@ function fmtWeekRange(start: string): string {
   return `${sm} ${s.getUTCDate()} – ${em} ${e.getUTCDate()}`;
 }
 
-/** Format 24h "HH:MM" → "9:00 AM" */
 function fmtTime(t: string): string {
   const [hStr, mStr] = t.split(":");
   const h = parseInt(hStr, 10);
@@ -77,69 +76,334 @@ function fmtTime(t: string): string {
   return `${h12}:${m} ${suffix}`;
 }
 
-// ─── Job Card ─────────────────────────────────────────────────────────────────
+// Status transitions available to the owner from the schedule
+const STATUS_TRANSITIONS: Record<string, { label: string; next: string; color: string }> = {
+  pending:     { label: "Start Job",      next: "in_progress", color: "bg-amber hover:bg-amber-dark text-forge" },
+  scheduled:   { label: "Start Job",      next: "in_progress", color: "bg-amber hover:bg-amber-dark text-forge" },
+  in_progress: { label: "Mark Complete",  next: "completed",   color: "bg-green-600 hover:bg-green-700 text-white" },
+};
 
-function JobCard({ job, workerMap }: { job: Job; workerMap: Record<string, string> }) {
-  const statusCfg  = JOB_STATUS_CONFIG[job.status as keyof typeof JOB_STATUS_CONFIG]
+// ─── Action Sheet ─────────────────────────────────────────────────────────────
+
+function JobActionSheet({
+  job,
+  workerMap,
+  onClose,
+  onSaved,
+}: {
+  job: Job;
+  workerMap: Record<string, string>;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const supabase = createClient();
+
+  const statusCfg   = JOB_STATUS_CONFIG[job.status as keyof typeof JOB_STATUS_CONFIG]
     ?? { label: job.status, bg: "bg-gray-100", color: "text-gray-600" };
   const priorityCfg = PRIORITY_CONFIG[job.priority as keyof typeof PRIORITY_CONFIG]
     ?? { label: job.priority, bg: "bg-gray-100", color: "text-gray-600" };
 
-  // Supabase may return the joined row as an object or a single-element array
   const prop = Array.isArray(job.properties) ? job.properties[0] : job.properties;
+  const transition = STATUS_TRANSITIONS[job.status];
 
-  const assignedNames = (job.assigned_workers ?? [])
-    .map((id) => workerMap[id])
-    .filter(Boolean);
+  // Reschedule form state
+  const [rescheduleDate, setRescheduleDate] = useState(job.scheduled_date ?? "");
+  const [rescheduleTime, setRescheduleTime] = useState(job.scheduled_time ?? "");
+  const [savingReschedule, setSavingReschedule] = useState(false);
+
+  // Worker assignment state
+  const [selectedWorkers, setSelectedWorkers] = useState<string[]>(job.assigned_workers ?? []);
+  const [savingWorkers, setSavingWorkers] = useState(false);
+
+  // Status transition
+  const [savingStatus, setSavingStatus] = useState(false);
+
+  const [error, setError] = useState("");
+  const [saved, setSaved] = useState("");
+
+  const workerList = Object.entries(workerMap).map(([id, name]) => ({ id, name }));
+
+  const toggleWorker = (id: string) => {
+    setSelectedWorkers((prev) =>
+      prev.includes(id) ? prev.filter((w) => w !== id) : [...prev, id]
+    );
+  };
+
+  const saveWorkers = async () => {
+    setSavingWorkers(true);
+    setError("");
+    const { error: err } = await supabase
+      .from("jobs")
+      .update({ assigned_workers: selectedWorkers, updated_at: new Date().toISOString() })
+      .eq("id", job.id);
+    setSavingWorkers(false);
+    if (err) { setError("Failed to update workers."); return; }
+    setSaved("Workers updated");
+    setTimeout(() => { setSaved(""); onSaved(); }, 800);
+  };
+
+  const saveReschedule = async () => {
+    if (!rescheduleDate) { setError("Date is required."); return; }
+    setSavingReschedule(true);
+    setError("");
+    const { error: err } = await supabase
+      .from("jobs")
+      .update({
+        scheduled_date: rescheduleDate,
+        scheduled_time: rescheduleTime || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", job.id);
+    setSavingReschedule(false);
+    if (err) { setError("Failed to reschedule."); return; }
+    setSaved("Rescheduled");
+    setTimeout(() => { setSaved(""); onSaved(); }, 800);
+  };
+
+  const advanceStatus = async () => {
+    if (!transition) return;
+    setSavingStatus(true);
+    setError("");
+    const { error: err } = await supabase
+      .from("jobs")
+      .update({ status: transition.next, updated_at: new Date().toISOString() })
+      .eq("id", job.id);
+    setSavingStatus(false);
+    if (err) { setError("Failed to update status."); return; }
+
+    // Fire notifications on completion (best-effort)
+    if (transition.next === "completed") {
+      fetch("/api/jobs/notify-completed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobId: job.id }),
+      });
+    }
+
+    setSaved(transition.next === "completed" ? "Marked complete!" : "Job started");
+    setTimeout(() => { setSaved(""); onSaved(); }, 800);
+  };
 
   return (
-    <Link
-      href={`/owner/jobs/${job.id}`}
-      className="block bg-white border border-gray-200 rounded-xl p-3 hover:border-amber hover:shadow-sm transition-all group"
+    // Backdrop
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="action-sheet-title"
     >
-      <div className="flex items-start justify-between gap-2 mb-1.5">
-        <span className="font-600 text-forge text-sm leading-snug group-hover:text-amber transition-colors line-clamp-2">
-          {job.title}
-        </span>
-        <span className={`badge shrink-0 ${priorityCfg.bg} ${priorityCfg.color} text-xs`}>
-          {priorityCfg.label}
-        </span>
-      </div>
+      <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-xl overflow-hidden max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-start justify-between px-5 pt-5 pb-4 border-b border-gray-100">
+          <div className="min-w-0 pr-3">
+            <h2 id="action-sheet-title" className="font-display font-800 text-lg text-forge leading-snug">
+              {job.title}
+            </h2>
+            {prop && (
+              <p className="text-xs text-mist mt-0.5 truncate">{prop.name} · {prop.city}</p>
+            )}
+            <div className="flex items-center gap-2 mt-2">
+              <span className={`badge ${statusCfg.bg} ${statusCfg.color}`}>{statusCfg.label}</span>
+              <span className={`badge ${priorityCfg.bg} ${priorityCfg.color}`}>{priorityCfg.label}</span>
+              {job.scheduled_date && (
+                <span className="text-xs text-mist">{fmtShort(job.scheduled_date)}</span>
+              )}
+              {job.scheduled_time && (
+                <span className="text-xs text-mist">{fmtTime(job.scheduled_time)}</span>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="shrink-0 p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+            aria-label="Close"
+          >
+            <svg className="w-5 h-5 text-mist" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
 
-      {prop && (
-        <p className="text-xs text-mist mb-1.5 truncate">
-          {prop.name} · {prop.city}
-        </p>
+        {/* Scrollable body */}
+        <div className="overflow-y-auto flex-1">
+          {/* Status action */}
+          {transition && (
+            <div className="px-5 py-4 border-b border-gray-100">
+              <button
+                onClick={advanceStatus}
+                disabled={savingStatus || !!saved}
+                className={`w-full font-display font-700 py-3 rounded-xl text-sm transition-colors disabled:opacity-50 ${transition.color}`}
+              >
+                {savingStatus ? "Updating…" : transition.label}
+              </button>
+            </div>
+          )}
+
+          {/* Worker assignment */}
+          {workerList.length > 0 && (
+            <div className="px-5 py-4 border-b border-gray-100">
+              <p className="text-xs font-700 text-mist uppercase tracking-wider mb-3">Assigned Workers</p>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {workerList.map(({ id, name }) => {
+                  const active = selectedWorkers.includes(id);
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => toggleWorker(id)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-600 border transition-all ${
+                        active
+                          ? "bg-forge text-white border-forge"
+                          : "bg-white text-steel border-gray-200 hover:border-forge"
+                      }`}
+                    >
+                      <span
+                        className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-800 ${
+                          active ? "bg-white/20 text-white" : "bg-steel/20 text-steel"
+                        }`}
+                      >
+                        {name[0]}
+                      </span>
+                      {name.split(" ")[0]}
+                      {active && (
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                onClick={saveWorkers}
+                disabled={savingWorkers || !!saved}
+                className="w-full border border-gray-200 hover:border-forge rounded-lg py-2 text-sm font-600 text-forge transition-colors disabled:opacity-50"
+              >
+                {savingWorkers ? "Saving…" : "Save Assignment"}
+              </button>
+            </div>
+          )}
+
+          {/* Reschedule */}
+          <div className="px-5 py-4 border-b border-gray-100">
+            <p className="text-xs font-700 text-mist uppercase tracking-wider mb-3">Reschedule</p>
+            <div className="flex gap-2 mb-3">
+              <div className="flex-1">
+                <label className="block text-xs text-mist mb-1">Date</label>
+                <input
+                  type="date"
+                  value={rescheduleDate}
+                  onChange={(e) => setRescheduleDate(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-xs text-mist mb-1">Time (optional)</label>
+                <input
+                  type="time"
+                  value={rescheduleTime}
+                  onChange={(e) => setRescheduleTime(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber"
+                />
+              </div>
+            </div>
+            <button
+              onClick={saveReschedule}
+              disabled={savingReschedule || !!saved}
+              className="w-full border border-gray-200 hover:border-forge rounded-lg py-2 text-sm font-600 text-forge transition-colors disabled:opacity-50"
+            >
+              {savingReschedule ? "Saving…" : "Save Schedule"}
+            </button>
+          </div>
+
+          {/* Feedback / errors */}
+          {error && (
+            <div className="mx-5 mt-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              {error}
+            </div>
+          )}
+          {saved && (
+            <div className="mx-5 mt-3 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2 font-600">
+              ✓ {saved}
+            </div>
+          )}
+
+          {/* Full detail link */}
+          <div className="px-5 py-4">
+            <Link
+              href={`/owner/jobs/${job.id}`}
+              className="block text-center text-sm text-amber hover:underline font-600"
+            >
+              View full details →
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Status left-border colours ───────────────────────────────────────────────
+
+const STATUS_BORDER: Record<string, string> = {
+  pending:     "border-l-yellow-400",
+  scheduled:   "border-l-blue-400",
+  in_progress: "border-l-amber",
+  completed:   "border-l-green-500",
+  invoiced:    "border-l-purple-400",
+  cancelled:   "border-l-gray-300",
+};
+
+// ─── Job Card — compact for narrow calendar columns ───────────────────────────
+
+function JobCard({
+  job,
+  workerMap,
+  onClick,
+}: {
+  job: Job;
+  workerMap: Record<string, string>;
+  onClick: () => void;
+}) {
+  const border = STATUS_BORDER[job.status] ?? "border-l-gray-300";
+
+  const priorityCfg = PRIORITY_CONFIG[job.priority as keyof typeof PRIORITY_CONFIG]
+    ?? { label: job.priority, bg: "bg-gray-100", color: "text-gray-600" };
+
+  const initials = (job.assigned_workers ?? [])
+    .map((id) => workerMap[id]?.[0])
+    .filter(Boolean)
+    .slice(0, 3);
+
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full text-left bg-white border border-gray-200 border-l-4 ${border} rounded-lg px-2 py-1.5 hover:bg-amber/5 hover:border-amber hover:border-l-amber transition-all group`}
+    >
+      {/* Time row */}
+      {job.scheduled_time && (
+        <p className="text-[10px] text-mist mb-0.5 tabular-nums">{fmtTime(job.scheduled_time)}</p>
       )}
 
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className={`badge text-xs ${statusCfg.bg} ${statusCfg.color}`}>
-          {statusCfg.label}
-        </span>
-        {job.scheduled_time && (
-          <span className="text-xs text-mist">{fmtTime(job.scheduled_time)}</span>
-        )}
-        {job.estimated_hours != null && (
-          <span className="text-xs text-mist">{job.estimated_hours}h</span>
-        )}
-      </div>
+      {/* Title */}
+      <p className="font-600 text-forge text-xs leading-snug group-hover:text-amber transition-colors line-clamp-2">
+        {job.title}
+      </p>
 
-      {assignedNames.length > 0 && (
-        <div className="flex gap-1 mt-2 flex-wrap">
-          {assignedNames.map((name) => (
+      {/* Worker initials */}
+      {initials.length > 0 && (
+        <div className="flex gap-0.5 mt-1">
+          {initials.map((letter, i) => (
             <span
-              key={name}
-              className="inline-flex items-center gap-1 text-xs bg-steel/10 text-steel rounded-full px-2 py-0.5"
+              key={i}
+              className="w-4 h-4 bg-steel/20 text-steel rounded-full flex items-center justify-center text-[9px] font-800"
             >
-              <span className="w-4 h-4 bg-steel rounded-full flex items-center justify-center text-white text-[10px] font-700">
-                {name[0]}
-              </span>
-              {name.split(" ")[0]}
+              {letter}
             </span>
           ))}
         </div>
       )}
-    </Link>
+    </button>
   );
 }
 
@@ -147,12 +411,19 @@ function JobCard({ job, workerMap }: { job: Job; workerMap: Record<string, strin
 
 export default function ScheduleWeekView({ days, unscheduled, workerMap, weekStart, today }: Props) {
   const router = useRouter();
+  const [activeJob, setActiveJob] = useState<Job | null>(null);
+
   const prevWeek = addDays(weekStart, -7);
   const nextWeek = addDays(weekStart, 7);
   const thisWeek = getMondayOf(today);
   const isCurrentWeek = weekStart === thisWeek;
 
   const totalScheduled = days.reduce((sum, d) => sum + d.jobs.length, 0);
+
+  const handleSaved = () => {
+    setActiveJob(null);
+    router.refresh();
+  };
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl">
@@ -210,12 +481,11 @@ export default function ScheduleWeekView({ days, unscheduled, workerMap, weekSta
       </div>
 
       {/* ── Day columns ── */}
-      {/* Mobile: stacked vertically. Desktop: 7-column grid */}
       <div className="space-y-3 lg:grid lg:grid-cols-7 lg:gap-3 lg:space-y-0">
         {days.map(({ date, jobs }, i) => {
-          const isToday = date === today;
-          const dayNum  = new Date(date + "T00:00:00Z").getUTCDate();
-          const isWeekend = i >= 5; // Sat/Sun
+          const isToday  = date === today;
+          const dayNum   = new Date(date + "T00:00:00Z").getUTCDate();
+          const isWeekend = i >= 5;
 
           return (
             <div
@@ -243,11 +513,11 @@ export default function ScheduleWeekView({ days, unscheduled, workerMap, weekSta
                     {DAY_NAMES[i]}
                   </span>
                   <span
-                    className={`text-sm ${
+                    className={
                       isToday
                         ? "w-6 h-6 bg-amber text-forge font-700 rounded-full flex items-center justify-center text-xs"
-                        : "text-mist"
-                    }`}
+                        : "text-sm text-mist"
+                    }
                   >
                     {dayNum}
                   </span>
@@ -268,12 +538,17 @@ export default function ScheduleWeekView({ days, unscheduled, workerMap, weekSta
               </div>
 
               {/* Jobs */}
-              <div className="p-2 space-y-2 min-h-[60px]">
+              <div className="p-1.5 space-y-1 min-h-[48px]">
                 {jobs.length === 0 ? (
-                  <p className="text-xs text-mist/60 text-center py-3 hidden lg:block">—</p>
+                  <p className="text-[10px] text-mist/40 text-center py-2 hidden lg:block">—</p>
                 ) : (
                   jobs.map((job) => (
-                    <JobCard key={job.id} job={job} workerMap={workerMap} />
+                    <JobCard
+                      key={job.id}
+                      job={job}
+                      workerMap={workerMap}
+                      onClick={() => setActiveJob(job)}
+                    />
                   ))
                 )}
               </div>
@@ -294,9 +569,14 @@ export default function ScheduleWeekView({ days, unscheduled, workerMap, weekSta
               View all →
             </Link>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {unscheduled.map((job) => (
-              <JobCard key={job.id} job={job} workerMap={workerMap} />
+              <JobCard
+                key={job.id}
+                job={job}
+                workerMap={workerMap}
+                onClick={() => setActiveJob(job)}
+              />
             ))}
           </div>
         </section>
@@ -314,6 +594,16 @@ export default function ScheduleWeekView({ days, unscheduled, workerMap, weekSta
             Create a Job
           </Link>
         </div>
+      )}
+
+      {/* ── Action Sheet ── */}
+      {activeJob && (
+        <JobActionSheet
+          job={activeJob}
+          workerMap={workerMap}
+          onClose={() => setActiveJob(null)}
+          onSaved={handleSaved}
+        />
       )}
     </div>
   );

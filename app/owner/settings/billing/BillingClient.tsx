@@ -14,12 +14,19 @@ export default function BillingClient({ tenant, profile }: { tenant: any; profil
     else setLoading(false);
   };
 
+  const [manageError, setManageError] = useState("");
+
   const handleManage = async () => {
     setLoading(true);
+    setManageError("");
     const res = await fetch("/api/billing/portal", { method: "POST" });
     const data = await res.json();
-    if (data.url) window.location.href = data.url;
-    else setLoading(false);
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      setManageError(data.error || "Unable to open billing portal. Contact support.");
+      setLoading(false);
+    }
   };
 
   const isPro = profile?.plan === "pro" || tenant?.plan === "pro";
@@ -71,6 +78,9 @@ export default function BillingClient({ tenant, profile }: { tenant: any; profil
               className="text-sm text-amber hover:underline font-600 transition-colors">
               {loading ? "Loading…" : "Manage subscription →"}
             </button>
+            {manageError && (
+              <p className="text-xs text-red-600 mt-2">{manageError}</p>
+            )}
           </div>
         )}
       </div>
