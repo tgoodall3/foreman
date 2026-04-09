@@ -61,7 +61,17 @@ export default async function WorkOrderDetailPage({ params }: { params: { id: st
             <span className="text-xs text-mist">Opened {formatDate(wo.created_at.split("T")[0])}</span>
           </div>
         </div>
-        <Link href="/owner/jobs/new" className="text-sm text-amber hover:underline font-600">+ New Job</Link>
+        <div className="flex gap-2">
+          {job && (
+            <Link
+              href={`/owner/jobs/${job.id}`}
+              className="inline-flex items-center gap-1 bg-amber text-forge font-700 text-xs px-3 py-2 rounded-lg hover:bg-amber-dark transition-colors"
+            >
+              Open Job →
+            </Link>
+          )}
+          <Link href="/owner/jobs/new" className="text-sm text-amber hover:underline font-600">+ New Job</Link>
+        </div>
       </div>
 
       <div className="grid md:grid-cols-3 gap-6">
@@ -89,6 +99,17 @@ export default async function WorkOrderDetailPage({ params }: { params: { id: st
               workOrderDescription={wo.description || ""}
               propertyId={prop?.id || (wo as any).property_id || ""}
             />
+          )}
+          {wo.status === "accepted" && job && (
+            <div className="bg-white rounded-xl border border-green-200 p-4">
+              <p className="text-sm text-green-700 font-600 mb-2">Job created from this work order.</p>
+              <Link
+                href={`/owner/jobs/${job.id}/edit`}
+                className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-xs font-700 px-3 py-2 rounded-lg transition-colors"
+              >
+                Schedule / Assign →
+              </Link>
+            </div>
           )}
           <section className="bg-white rounded-xl border border-gray-200 p-4">
             <h3 className="font-display font-700 text-base text-forge mb-2">Property</h3>

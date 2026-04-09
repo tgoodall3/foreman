@@ -40,6 +40,14 @@ interface Invoice {
   jobs?: { title: string } | null;
 }
 
+interface Comment {
+  id: string;
+  work_order_id: string;
+  message: string;
+  created_at: string;
+  property_managers?: { full_name?: string };
+}
+
 interface Props {
   token: string;
   propertyManager: PropertyManager;
@@ -47,6 +55,7 @@ interface Props {
   properties: Property[];
   workOrders: WorkOrder[];
   invoices: Invoice[];
+  comments: Comment[];
   initialTab?: Tab;
   paidSuccess?: boolean;
 }
@@ -187,6 +196,51 @@ function PropertyCreate({
         </form>
       )}
       <p className="text-[11px] text-mist mt-2">Owner will be notified when you add a property to {tenantName}.</p>
+    </div>
+  );
+}
+
+// ─── Comment Form ──────────────────────────────────────────────────────────────
+function CommentForm({ token, workOrderId, onAdded }: { token: string; workOrderId: string; onAdded: (c: Comment) => void }) {
+  const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const submit = async () => {
+    if (!message.trim()) return;
+    setSubmitting(true); setError("");
+    const res = await fetch("/api/portal/comments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, work_order_id: workOrderId, message: message.trim() }),
+    });
+    const data = await res.json();
+    setSubmitting(false);
+    if (!res.ok) { setError(data.error || "Failed to add comment"); return; }
+    onAdded(data.comment);
+    setMessage("");
+  };
+
+  return (
+    <div className="mt-2 space-y-1">
+      <textarea
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        rows={2}
+        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs"
+        placeholder="Add a comment…"
+      />
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={submit}
+          disabled={submitting}
+          className="bg-forge text-white text-xs font-700 px-3 py-1.5 rounded-lg disabled:opacity-60"
+        >
+          {submitting ? "Posting…" : "Post"}
+        </button>
+        {error && <p className="text-xs text-red-600">{error}</p>}
+      </div>
     </div>
   );
 }
@@ -382,6 +436,10 @@ function WorkOrderForm({
 function PayButton({ invoiceId, token }: { invoiceId: string; token: string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState("");
+  const [allowACH, setAllowACH] = useState(true);
+  const [allowTips, setAllowTips] = useState(false);
+  const [tipAmount, setTipAmount] = useState("0");
+  const [deposit, setDeposit] = useState("");
 
   const handlePay = async () => {
     setLoading(true);
@@ -389,7 +447,14 @@ function PayButton({ invoiceId, token }: { invoiceId: string; token: string }) {
     const res = await fetch("/api/portal/pay", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ invoice_id: invoiceId, token }),
+      body: JSON.stringify({
+        invoice_id: invoiceId,
+        token,
+        allowACH,
+        allowTips,
+        tipAmount: Number(tipAmount) || 0,
+        amount: deposit ? Number(deposit) : null,
+      }),
     });
     const data = await res.json();
     setLoading(false);
@@ -398,7 +463,34 @@ function PayButton({ invoiceId, token }: { invoiceId: string; token: string }) {
   };
 
   return (
-    <div>
+    <div className="space-y-1">
+      <div className="flex gap-2 flex-wrap text-xs">
+        <label className="flex items-center gap-1">
+          <input type="checkbox" checked={allowACH} onChange={(e) => setAllowACH(e.target.checked)} /> ACH
+        </label>
+        <label className="flex items-center gap-1">
+          <input type="checkbox" checked={allowTips} onChange={(e) => setAllowTips(e.target.checked)} /> Tips
+        </label>
+        <input
+          type="number"
+          min="0"
+          step="0.01"
+          value={tipAmount}
+          onChange={(e) => setTipAmount(e.target.value)}
+          disabled={!allowTips}
+          className="w-20 border border-gray-200 rounded px-2 py-1 text-xs disabled:bg-gray-50"
+          placeholder="Tip"
+        />
+        <input
+          type="number"
+          min="0"
+          step="0.01"
+          value={deposit}
+          onChange={(e) => setDeposit(e.target.value)}
+          className="w-24 border border-gray-200 rounded px-2 py-1 text-xs"
+          placeholder="Deposit"
+        />
+      </div>
       <button
         onClick={handlePay}
         disabled={loading}
@@ -422,6 +514,7 @@ export default function PortalDashboard({
   properties,
   workOrders,
   invoices,
+  comments,
   initialTab = "overview",
   paidSuccess = false,
 }: Props) {
@@ -429,10 +522,12 @@ export default function PortalDashboard({
   const [showForm, setShowForm] = useState(properties.length === 0);
   const [recentlySubmitted, setRecentlySubmitted] = useState(false);
   const [propertiesState, setProperties] = useState<Property[]>(properties);
+  const [commentsState, setComments] = useState<Comment[]>(comments);
 
   const openWOs   = workOrders.filter((w) => !["completed", "cancelled"].includes(w.status));
   const unpaidInv = invoices.filter((i) => ["sent", "overdue"].includes(i.status));
   const unpaidTotal = unpaidInv.reduce((s, i) => s + i.total, 0);
+  const hasProperties = propertiesState.length > 0;
 
   const handleSubmitted = () => {
     setShowForm(false);
@@ -491,6 +586,27 @@ export default function PortalDashboard({
       </nav>
 
       <main className="max-w-2xl mx-auto p-4 py-6 space-y-4">
+
+        {!hasProperties && (
+          <div className="bg-white border border-amber/30 rounded-xl p-4 flex flex-col gap-2">
+            <p className="text-sm font-700 text-forge">Welcome to your portal</p>
+            <p className="text-sm text-steel">Add your first property to submit work orders and track invoices.</p>
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => { setTab("work-orders"); setShowForm(true); }}
+                className="bg-amber text-forge font-700 text-sm px-4 py-2 rounded-lg"
+              >
+                Add property
+              </button>
+              <button
+                onClick={() => setTab("invoices")}
+                className="text-sm text-amber font-700"
+              >
+                View invoices →
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ── Overview ── */}
         {tab === "overview" && (
@@ -666,6 +782,7 @@ export default function PortalDashboard({
                 {workOrders.map((wo) => {
                   const s = WO_STATUS[wo.status] ?? WO_STATUS.pending;
                   const prop = Array.isArray(wo.properties) ? wo.properties[0] : wo.properties;
+                  const woComments = commentsState.filter((c) => c.work_order_id === wo.id);
                   return (
                     <div key={wo.id} className="px-4 py-3.5">
                       <div className="flex items-start justify-between gap-2 mb-1">
@@ -679,6 +796,22 @@ export default function PortalDashboard({
                         {prop?.name ? `${prop.name} · ` : ""}
                         {formatDate(wo.created_at.split("T")[0])}
                       </p>
+
+                      {woComments.length > 0 && (
+                        <div className="bg-gray-50 border border-gray-100 rounded-lg p-2 mt-2 space-y-1">
+                          {woComments.map((c) => (
+                            <p key={c.id} className="text-xs text-steel">
+                              <span className="font-700 text-forge">{c.property_managers?.full_name || "You"}:</span> {c.message}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+
+                      <CommentForm
+                        token={token}
+                        workOrderId={wo.id}
+                        onAdded={(c) => setComments((prev) => [...prev, c])}
+                      />
                     </div>
                   );
                 })}

@@ -29,6 +29,8 @@ export async function getOwnerDashboardData(profile: Profile) {
     overdueInvoicesResult,
     uninvoicedResult,
     unsendResult,
+    timeRequestsResult,
+    staleOrdersResult,
   ] = await Promise.all([
     // TODAY'S jobs — full detail for the primary view
     supabase
@@ -52,7 +54,7 @@ export async function getOwnerDashboardData(profile: Profile) {
     // Pending work orders
     supabase
       .from("work_orders")
-      .select("id, title, priority, created_at, properties(name), property_managers(full_name)")
+      .select("id, title, description, priority, property_id, created_at, properties(id, name), property_managers(full_name)")
       .eq("tenant_id", profile.tenant_id)
       .eq("status", "pending")
       .order("created_at", { ascending: false })
@@ -108,6 +110,21 @@ export async function getOwnerDashboardData(profile: Profile) {
       .eq("status", "draft")
       .order("created_at", { ascending: false })
       .limit(10),
+
+    // Pending time change requests (approvals)
+    supabase
+      .from("time_change_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", profile.tenant_id)
+      .eq("status", "pending"),
+
+    // Pending work orders older than 1 day (idle)
+    supabase
+      .from("work_orders")
+      .select("id, title, created_at")
+      .eq("tenant_id", profile.tenant_id)
+      .eq("status", "pending")
+      .lt("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
   ]);
 
   const allInvoices      = (invoicesResult.data ?? []) as any[];
@@ -136,6 +153,8 @@ export async function getOwnerDashboardData(profile: Profile) {
       uninvoicedJobs:  (uninvoicedResult.data       ?? []) as any[],
       draftInvoices:   (unsendResult.data            ?? []) as any[],
       pendingOrders:   (workOrdersResult.data        ?? []) as any[],
+      staleOrders:     (staleOrdersResult.data       ?? []) as any[],
+      pendingTimeRequests: timeRequestsResult.count ?? 0,
     },
   };
 }
@@ -174,7 +193,7 @@ export async function getOwnerInvoices(profile: Profile, status?: string, page =
 
   let query = supabase
     .from("invoices")
-    .select("id, invoice_number, status, total, due_date, job_id, property_manager_id, jobs(title), property_managers(full_name, company)", { count: "exact" })
+    .select("id, invoice_number, status, total, due_date, job_id, property_manager_id, jobs(title), property_managers(full_name, company), created_at", { count: "exact" })
     .eq("tenant_id", profile.tenant_id)
     .order("created_at", { ascending: false })
     .range(start, end);

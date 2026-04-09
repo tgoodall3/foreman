@@ -17,6 +17,29 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
   const managerName = invoice.property_managers?.full_name || "Unknown";
   const jobTitle = invoice.jobs?.title || "Unknown job";
 
+  // Compute reminder timeline (cron sends at 3 and 7 days overdue)
+  const today = new Date();
+  const dueDate = new Date(invoice.due_date + "T00:00:00Z");
+  const daysOverdue = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+  let nextReminder: string | null = null;
+  let lastReminder: string | null = null;
+
+  if (["sent", "overdue"].includes(invoice.status)) {
+    if (daysOverdue >= 7) {
+      lastReminder = "7-day overdue reminder sent (cron)";
+      nextReminder = null;
+    } else if (daysOverdue >= 3) {
+      lastReminder = "3-day overdue reminder sent (cron)";
+      const remindAt = new Date(dueDate);
+      remindAt.setUTCDate(remindAt.getUTCDate() + 7);
+      nextReminder = `Next: 7-day reminder on ${remindAt.toISOString().slice(0,10)}`;
+    } else if (daysOverdue >= 0) {
+      const remindAt = new Date(dueDate);
+      remindAt.setUTCDate(remindAt.getUTCDate() + 3);
+      nextReminder = `Next: 3-day reminder on ${remindAt.toISOString().slice(0,10)}`;
+    }
+  }
+
   return (
     <div className="p-6 max-w-5xl">
       <div className="flex items-center gap-2 mb-6">
@@ -25,30 +48,30 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
         <span className="text-sm text-forge">{invoice.invoice_number}</span>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 mb-6 space-y-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
             <p className="text-xs uppercase tracking-wider text-mist font-600">Invoice</p>
-            <h1 className="font-display font-800 text-3xl text-forge mt-2">{invoice.invoice_number}</h1>
+            <h1 className="font-display font-800 text-2xl sm:text-3xl text-forge mt-2">{invoice.invoice_number}</h1>
             <p className="text-sm text-mist mt-1">Created {formatDate(invoice.created_at)}</p>
           </div>
-          <div className="flex items-center gap-3">
-            <InvoiceActions invoiceId={invoice.id} status={invoice.status} />
+          <div className="flex items-center gap-2 flex-wrap justify-end">
             <span className={`badge ${statusCfg.bg} ${statusCfg.color}`}>{statusCfg.label}</span>
+            <InvoiceActions invoiceId={invoice.id} status={invoice.status} />
           </div>
         </div>
 
-        <div className="grid gap-4 mt-6 sm:grid-cols-3">
-          <div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
             <p className="text-xs uppercase tracking-wider text-mist font-600">Due date</p>
             <p className="font-600 text-forge mt-1">{formatDate(invoice.due_date)}</p>
           </div>
-          <div>
+          <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
             <p className="text-xs uppercase tracking-wider text-mist font-600">Property manager</p>
             <p className="font-600 text-forge mt-1">{managerName}</p>
             {invoice.property_managers?.company && <p className="text-xs text-mist">{invoice.property_managers.company}</p>}
           </div>
-          <div>
+          <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
             <p className="text-xs uppercase tracking-wider text-mist font-600">Job</p>
             <Link href={`/owner/jobs/${invoice.job_id}`} className="font-600 text-amber hover:underline mt-1 block">{jobTitle}</Link>
           </div>
@@ -81,20 +104,32 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
           <p className="text-xs uppercase tracking-wider text-mist font-600">Subtotal</p>
-          <p className="font-800 text-forge text-2xl mt-2">{formatCurrency(invoice.subtotal)}</p>
+          <p className="font-800 text-forge text-2xl mt-1">{formatCurrency(invoice.subtotal)}</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
           <p className="text-xs uppercase tracking-wider text-mist font-600">Tax ({invoice.tax_rate || 0}%)</p>
-          <p className="font-800 text-forge text-2xl mt-2">{formatCurrency(invoice.tax_amount)}</p>
+          <p className="font-800 text-forge text-2xl mt-1">{formatCurrency(invoice.tax_amount)}</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <div className="bg-white rounded-xl border border-gray-200 p-4">
           <p className="text-xs uppercase tracking-wider text-mist font-600">Total</p>
-          <p className="font-800 text-forge text-2xl mt-2">{formatCurrency(invoice.total)}</p>
+          <p className="font-800 text-forge text-2xl mt-1">{formatCurrency(invoice.total)}</p>
         </div>
       </div>
+
+      {(["sent", "overdue"].includes(invoice.status)) && (
+        <div className="bg-white rounded-xl border border-amber/40 mt-6 p-5">
+          <p className="text-xs uppercase tracking-wider text-mist font-600">Payment reminders</p>
+          <p className="text-sm text-forge mt-1">Auto emails at 3 and 7 days overdue.</p>
+          {lastReminder && <p className="text-xs text-steel mt-1">Last: {lastReminder}</p>}
+          {nextReminder && <p className="text-xs text-amber-700 mt-1">{nextReminder}</p>}
+          {!lastReminder && !nextReminder && (
+            <p className="text-xs text-mist mt-1">Not overdue yet. Reminders start after due date.</p>
+          )}
+        </div>
+      )}
 
       {invoice.notes && (
         <div className="bg-white rounded-xl border border-gray-200 p-6 mt-6">

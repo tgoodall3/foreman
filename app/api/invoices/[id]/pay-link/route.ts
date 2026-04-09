@@ -11,6 +11,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const profile = await requireOwner();
   const supabase = await createServerSideClient();
 
+  const body = await req.json().catch(() => ({}));
+  const allowACH = !!body.allowACH;
+  const depositAmount = typeof body.amount === "number" ? body.amount : null;
+  const tipAmount = typeof body.tipAmount === "number" ? body.tipAmount : 0;
+  const allowTips = !!body.allowTips;
+
   const { data: invoice } = await supabase
     .from("invoices")
     .select("*, property_managers(full_name, email), jobs(title)")
@@ -24,17 +30,24 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const pm       = invoice.property_managers as any;
   const jobTitle = (invoice.jobs as any)?.title || "Services";
 
+  const baseAmount = depositAmount && depositAmount > 0 && depositAmount <= invoice.total
+    ? depositAmount
+    : invoice.total;
+
+  const tip = allowTips && tipAmount > 0 ? tipAmount : 0;
+  const amountToPay = baseAmount + tip;
+
   try {
     // Create a one-time Stripe checkout session (not a subscription)
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
+      payment_method_types: allowACH ? ["card", "us_bank_account"] : ["card"],
       mode:                 "payment",
       customer_email:       pm?.email || undefined,
       line_items: [
         {
           price_data: {
             currency:     "usd",
-            unit_amount:  Math.round(invoice.total * 100), // cents
+            unit_amount:  Math.round(baseAmount * 100), // cents
             product_data: {
               name:        `Invoice ${invoice.invoice_number}`,
               description: jobTitle,
@@ -42,12 +55,22 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           },
           quantity: 1,
         },
+        ...(tip > 0 ? [{
+          price_data: {
+            currency: "usd",
+            unit_amount: Math.round(tip * 100),
+            product_data: { name: "Tip" },
+          },
+          quantity: 1,
+        }] : []),
       ],
       success_url: `${process.env.NEXT_PUBLIC_APP_URL}/owner/invoices/${params.id}?paid=true`,
       cancel_url:  `${process.env.NEXT_PUBLIC_APP_URL}/owner/invoices/${params.id}`,
       metadata: {
         invoice_id: params.id,
         tenant_id:  profile.tenant_id,
+        deposit_amount: baseAmount,
+        tip_amount: tip,
       },
     });
 

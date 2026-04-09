@@ -2,6 +2,8 @@ import { requireOwner } from "@/lib/auth";
 import { createServerSideClient } from "@/lib/supabase-server";
 import ScheduleWeekView from "./ScheduleWeekView";
 
+export const dynamic = "force-dynamic";
+
 /** Return the ISO date string (YYYY-MM-DD) for the Monday of the week containing `date`. */
 function getMondayOf(date: Date): string {
   const d = new Date(date);
@@ -36,33 +38,38 @@ export default async function SchedulePage({
   const weekEnd = addDays(weekStart, 6); // Sunday
 
   // Fetch all jobs in this week (scheduled) + unscheduled
-  const [{ data: weekJobs }, { data: unscheduled }, { data: workers }] =
-    await Promise.all([
-      supabase
-        .from("jobs")
-        .select("id, title, status, priority, scheduled_date, scheduled_time, estimated_hours, assigned_workers, properties(name, city, state)")
-        .eq("tenant_id", profile.tenant_id)
-        .gte("scheduled_date", weekStart)
-        .lte("scheduled_date", weekEnd)
-        .not("status", "eq", "cancelled")
-        .order("scheduled_time", { ascending: true, nullsFirst: false }),
+  const [
+    { data: weekJobs, error: weekErr },
+    { data: unscheduled, error: unscheduledErr },
+    { data: workers, error: workersErr },
+  ] = await Promise.all([
+    supabase
+      .from("jobs")
+      .select("id, title, status, priority, scheduled_date, scheduled_time, estimated_hours, assigned_workers, properties(name, city, state)")
+      .eq("tenant_id", profile.tenant_id)
+      .gte("scheduled_date", weekStart)
+      .lte("scheduled_date", weekEnd)
+      .not("status", "eq", "cancelled")
+      .order("scheduled_time", { ascending: true, nullsFirst: false }),
 
-      supabase
-        .from("jobs")
-        .select("id, title, status, priority, assigned_workers, properties(name, city, state)")
-        .eq("tenant_id", profile.tenant_id)
-        .is("scheduled_date", null)
-        .not("status", "in", '("completed","invoiced","cancelled")')
-        .order("created_at", { ascending: false })
-        .limit(20),
+    supabase
+      .from("jobs")
+      .select("id, title, status, priority, assigned_workers, properties(name, city, state)")
+      .eq("tenant_id", profile.tenant_id)
+      .is("scheduled_date", null)
+      .not("status", "in", '("completed","invoiced","cancelled")')
+      .order("created_at", { ascending: false })
+      .limit(20),
 
-      supabase
-        .from("profiles")
-        .select("id, full_name")
-        .eq("tenant_id", profile.tenant_id)
-        .eq("role", "worker")
-        .eq("is_active", true),
-    ]);
+    supabase
+      .from("profiles")
+      .select("id, full_name")
+      .eq("tenant_id", profile.tenant_id)
+      .eq("role", "worker")
+      .eq("is_active", true),
+  ]);
+
+  const hasError = weekErr || unscheduledErr || workersErr;
 
   // Build worker map for fast lookup
   const workerMap: Record<string, string> = {};
@@ -84,6 +91,7 @@ export default async function SchedulePage({
       workerMap={workerMap}
       weekStart={weekStart}
       today={today}
+      hasError={!!hasError}
     />
   );
 }

@@ -2,6 +2,8 @@ import { createServiceClient } from "@/lib/supabase";
 import PortalDashboard from "@/components/portal/PortalDashboard";
 import { notFound } from "next/navigation";
 
+export const dynamic = "force-dynamic";
+
 export default async function PortalPage({ searchParams }: { searchParams: { token?: string; tab?: string; paid?: string } }) {
   if (!searchParams.token) {
     return (
@@ -25,12 +27,23 @@ export default async function PortalPage({ searchParams }: { searchParams: { tok
     .eq("portal_token", searchParams.token)
     .single();
 
-  if (!pm) notFound();
+  if (!pm) {
+    return (
+      <div className="min-h-screen bg-surface flex items-center justify-center p-6">
+        <div className="max-w-md text-center bg-white rounded-2xl border border-gray-200 p-8">
+          <p className="text-4xl mb-3">🔒</p>
+          <h1 className="font-display font-800 text-xl text-forge mb-2">Portal link invalid</h1>
+          <p className="text-mist text-sm">This link may be expired. Contact your contractor for a new portal link.</p>
+        </div>
+      </div>
+    );
+  }
 
   const [
     { data: properties },
     { data: workOrders },
     { data: invoices },
+    { data: comments },
   ] = await Promise.all([
     supabase
       .from("properties")
@@ -49,6 +62,12 @@ export default async function PortalPage({ searchParams }: { searchParams: { tok
       .select("id, invoice_number, status, total, due_date, created_at, jobs(title)")
       .eq("property_manager_id", pm.id)
       .order("created_at", { ascending: false }),
+
+    supabase
+      .from("work_order_comments")
+      .select("id, work_order_id, message, created_at, property_managers(full_name)")
+      .eq("tenant_id", pm.tenant_id)
+      .order("created_at", { ascending: true }),
   ]);
 
   return (
@@ -59,6 +78,7 @@ export default async function PortalPage({ searchParams }: { searchParams: { tok
       properties={properties ?? []}
       workOrders={(workOrders ?? []) as any[]}
       invoices={(invoices ?? []) as any[]}
+      comments={(comments ?? []) as any[]}
       initialTab={(searchParams.tab as any) ?? "overview"}
       paidSuccess={searchParams.paid === "true"}
     />

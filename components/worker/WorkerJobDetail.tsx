@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { formatDate, formatDateTime, JOB_STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/utils";
@@ -25,15 +25,30 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
   const [photoType, setPhotoType] = useState<"before" | "during" | "after" | "general">("general");
   const [photoCaption, setPhotoCaption] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [uploadQueue, setUploadQueue] = useState<any[]>([]);
   const [addingNote, setAddingNote] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [error, setError] = useState("");
   const [showHoursPrompt, setShowHoursPrompt] = useState(false);
   const [hoursWorked, setHoursWorked] = useState("");
+  const [clocking, setClocking] = useState<"in" | "out" | null>(null);
+  const [clockedInEntry, setClockedInEntry] = useState<{ id: string; clocked_in_at: string } | null>(null);
+  const [syncingQueue, setSyncingQueue] = useState(false);
+  const [queuedPhotos, setQueuedPhotos] = useState<any[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const statusCfg = JOB_STATUS_CONFIG[job.status as keyof typeof JOB_STATUS_CONFIG];
   const priorityCfg = PRIORITY_CONFIG[job.priority as keyof typeof PRIORITY_CONFIG];
+  const beforePhotos = photos.filter((p) => p.type === "before").length;
+  const afterPhotos  = photos.filter((p) => p.type === "after").length;
+  const missingChecklist = checklist.some((item) => !item.done);
+  const completionBlocks = [
+    { ok: !missingChecklist, label: "All checklist items done" },
+    { ok: beforePhotos > 0, label: "Before photo" },
+    { ok: afterPhotos > 0, label: "After photo" },
+    { ok: !clockedInEntry, label: "Clocked out" },
+  ];
+  const canComplete = completionBlocks.every((b) => b.ok);
 
   // Status transitions available to workers
   const statusTransitions: Record<string, { label: string; next: string }[]> = {
@@ -43,6 +58,81 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
   };
 
   const transitions = statusTransitions[job.status] || [];
+
+  useEffect(() => {
+    fetch("/api/timesheets/status")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.entry) setClockedInEntry(data.entry);
+      })
+      .catch(() => {});
+
+    // Load any queued photo uploads
+    if (typeof window !== "undefined") {
+      const rawPhotos = localStorage.getItem("photoQueue");
+      if (rawPhotos) {
+        try { setQueuedPhotos(JSON.parse(rawPhotos)); } catch { setQueuedPhotos([]); }
+      }
+    }
+
+    // Attempt to flush any queued clock actions when online
+    const flushQueue = async () => {
+      if (typeof window === "undefined") return;
+      const raw = localStorage.getItem("clockQueue");
+      if (!raw) return;
+      let queue: { dir: "in" | "out"; ts: number }[] = [];
+      try { queue = JSON.parse(raw); } catch { queue = []; }
+      if (!queue.length) return;
+      setSyncingQueue(true);
+      const remaining: typeof queue = [];
+      for (const item of queue) {
+        const res = await fetch(`/api/timesheets/clock-${item.dir}`, { method: "POST" });
+        if (!res.ok) {
+          remaining.push(item); // keep for later
+        }
+      }
+      if (remaining.length) {
+        localStorage.setItem("clockQueue", JSON.stringify(remaining));
+      } else {
+        localStorage.removeItem("clockQueue");
+      }
+      setSyncingQueue(false);
+    };
+
+    flushQueue();
+
+    const onlineHandler = () => flushQueue();
+    window.addEventListener("online", onlineHandler);
+      return () => window.removeEventListener("online", onlineHandler);
+  }, []);
+
+  const handleClock = async (dir: "in" | "out") => {
+    setClocking(dir); setError("");
+    const res = await fetch(`/api/timesheets/clock-${dir}`, { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      // If likely network issue, queue it for retry
+      if (typeof window !== "undefined") {
+        const offline = !navigator.onLine || res.status === 500;
+        if (offline) {
+          const raw = localStorage.getItem("clockQueue");
+          const queue: { dir: "in" | "out"; ts: number }[] = raw ? JSON.parse(raw) : [];
+          queue.push({ dir, ts: Date.now() });
+          localStorage.setItem("clockQueue", JSON.stringify(queue));
+          setError("Offline – queued to sync when back online.");
+          setClocking(null);
+          return;
+        }
+      }
+      setError(data.error || `Failed to clock ${dir}.`);
+      setClocking(null);
+      return;
+    }
+    if (dir === "in") setClockedInEntry(data.entry || null);
+    if (dir === "out") setClockedInEntry(null);
+    setClocking(null);
+    router.refresh();
+  };
 
   const handleStatusUpdate = async (nextStatus: string) => {
     // For "complete", show hours prompt first
@@ -95,46 +185,59 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setUploading(true);
-    setError("");
+    const doUpload = async () => {
+      const ext = file.name.split(".").pop();
+      const filename = `${job.tenant_id}/${job.id}/${Date.now()}.${ext}`;
 
-    const ext = file.name.split(".").pop();
-    const filename = `${job.tenant_id}/${job.id}/${Date.now()}.${ext}`;
+      const { data: uploadData, error: uploadErr } = await supabase.storage
+        .from("job-photos")
+        .upload(filename, file);
 
-    const { data: uploadData, error: uploadErr } = await supabase.storage
-      .from("job-photos")
-      .upload(filename, file);
+      if (uploadErr) throw uploadErr;
 
-    if (uploadErr) {
-      setError("Photo upload failed. Check storage settings.");
+      const { data: { publicUrl } } = supabase.storage
+        .from("job-photos")
+        .getPublicUrl(filename);
+
+      const { data: photo, error: photoErr } = await supabase
+        .from("job_photos")
+        .insert({
+          job_id: job.id,
+          tenant_id: job.tenant_id,
+          url: publicUrl,
+          caption: photoCaption || null,
+          uploaded_by: profile.id,
+          type: photoType,
+        })
+        .select("*, profiles(full_name)")
+        .single();
+
+      if (photoErr) throw photoErr;
+      if (photo) {
+        setPhotos((prev) => [...prev, photo]);
+        setPhotoCaption("");
+        if (fileRef.current) fileRef.current.value = "";
+      }
+    };
+
+    setUploading(true); setError("");
+    try {
+      await doUpload();
+    } catch (err) {
+      // If offline or storage error, queue the file (metadata only; user must re-select file later)
+      if (typeof window !== "undefined" && (!navigator.onLine)) {
+        const raw = localStorage.getItem("photoQueue");
+        const queue = raw ? JSON.parse(raw) : [];
+        queue.push({ jobId: job.id, tenantId: job.tenant_id, type: photoType, caption: photoCaption, ts: Date.now() });
+        localStorage.setItem("photoQueue", JSON.stringify(queue));
+        setUploadQueue(queue);
+        setError("Offline – photo queued. Re-select when back online.");
+      } else {
+        setError("Photo upload failed. Check connection/storage.");
+      }
+    } finally {
       setUploading(false);
-      return;
     }
-
-    const { data: { publicUrl } } = supabase.storage
-      .from("job-photos")
-      .getPublicUrl(filename);
-
-    const { data: photo, error: photoErr } = await supabase
-      .from("job_photos")
-      .insert({
-        job_id: job.id,
-        tenant_id: job.tenant_id,
-        url: publicUrl,
-        caption: photoCaption || null,
-        uploaded_by: profile.id,
-        type: photoType,
-      })
-      .select("*, profiles(full_name)")
-      .single();
-
-    if (!photoErr && photo) {
-      setPhotos((prev) => [...prev, photo]);
-      setPhotoCaption("");
-      if (fileRef.current) fileRef.current.value = "";
-    }
-
-    setUploading(false);
   };
 
   const handleAddNote = async () => {
@@ -179,6 +282,107 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
             <span className="text-xs text-mist">📅 {formatDate(job.scheduled_date)}{job.scheduled_time && ` · ${job.scheduled_time}`}</span>
           )}
         </div>
+      </div>
+
+      {/* Run panel: clock + status actions */}
+      <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
+        <div className="flex flex-wrap gap-3 items-center">
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleClock("in")}
+              disabled={!!clockedInEntry || clocking === "in"}
+              className="px-3 py-2 rounded-lg text-sm font-700 bg-green-600 text-white disabled:opacity-60"
+            >
+              {clocking === "in" ? "Clocking in…" : clockedInEntry ? "Clocked in" : "Clock in"}
+            </button>
+            <button
+              onClick={() => handleClock("out")}
+              disabled={!clockedInEntry || clocking === "out"}
+              className="px-3 py-2 rounded-lg text-sm font-700 border border-gray-300 text-steel hover:border-red-300 hover:text-red-600 disabled:opacity-60"
+            >
+              {clocking === "out" ? "Clocking out…" : "Clock out"}
+            </button>
+          </div>
+          {clockedInEntry && (
+            <p className="text-xs text-mist">
+              Clocked in at {formatDateTime(clockedInEntry.clocked_in_at)}
+            </p>
+          )}
+          {error && <p className="text-xs text-red-600">{error}</p>}
+        </div>
+
+        {/* Status actions */}
+        {transitions.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {transitions.map((t) => (
+              <button
+                key={t.next}
+                onClick={() => handleStatusUpdate(t.next)}
+                disabled={updatingStatus}
+                className="px-3 py-2 rounded-lg text-sm font-700 bg-forge text-white hover:bg-forge-light transition-colors disabled:opacity-60"
+              >
+                {updatingStatus ? "Saving…" : t.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {showHoursPrompt && (
+          <div className="mt-3 bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-2">
+            <p className="text-xs text-forge font-700">Add hours to complete</p>
+            <input
+              type="number"
+              min="0"
+              step="0.25"
+              value={hoursWorked}
+              onChange={(e) => setHoursWorked(e.target.value)}
+              className="w-full text-sm border border-gray-300 rounded-lg px-2 py-1.5"
+              placeholder="Hours worked"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => commitStatusUpdate("completed", Number(hoursWorked) || 0)}
+                className="flex-1 bg-green-600 text-white text-sm font-700 py-2 rounded-lg hover:bg-green-700 transition-colors"
+              >
+                Save & Complete
+              </button>
+              <button
+                onClick={() => setShowHoursPrompt(false)}
+                className="px-3 py-2 text-sm text-mist hover:text-forge"
+                type="button"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Completion readiness */}
+      <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-2">
+        <p className="text-xs text-mist uppercase tracking-wide font-700">Ready to complete</p>
+        <div className="space-y-1">
+          {completionBlocks.map((b) => (
+            <div key={b.label} className="flex items-center gap-2 text-sm">
+              <span className={`inline-flex w-5 h-5 items-center justify-center rounded-full text-white text-[11px] ${b.ok ? "bg-green-500" : "bg-gray-300"}`}>
+                {b.ok ? "✓" : "!"}
+              </span>
+              <span className={`text-${b.ok ? "steel" : "mist"}`}>{b.label}</span>
+            </div>
+          ))}
+        </div>
+        {!canComplete && (
+          <p className="text-xs text-amber-700 mt-1">Complete the missing items above to finish this job.</p>
+        )}
+      </div>
+
+      {/* Queued uploads notice */}
+      {queuedPhotos.length > 0 && (
+        <div className="bg-yellow-50 border border-amber/40 rounded-xl p-3 mb-4">
+          <p className="text-xs text-amber-700 font-700">Queued photos ({queuedPhotos.length})</p>
+          <p className="text-xs text-amber-700 mt-1">Re-select and upload when you’re back online.</p>
+        </div>
+      )}
       </div>
 
       {/* Property */}

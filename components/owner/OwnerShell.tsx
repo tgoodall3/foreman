@@ -1,20 +1,21 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const NAV = [
-  { href: "/owner",            label: "Dashboard",   icon: "⬡" },
-  { href: "/owner/schedule",   label: "Schedule",    icon: "📅" },
-  { href: "/owner/jobs",       label: "Jobs",        icon: "🔨" },
-  { href: "/owner/estimates",  label: "Estimates",   icon: "📝" },
-  { href: "/owner/work-orders",label: "Work Orders", icon: "📋" },
-  { href: "/owner/workers",    label: "Workers",     icon: "👷" },
-  { href: "/owner/timesheets", label: "Timesheets",  icon: "⏱" },
-  { href: "/owner/properties", label: "Properties",  icon: "🏢" },
-  { href: "/owner/invoices",   label: "Invoices",    icon: "💵" },
-  { href: "/owner/settings",   label: "Settings",    icon: "⚙" },
+  { href: "/owner",                  label: "Today",       icon: "🗓" },
+  { href: "/owner/work-orders",      label: "Work Orders", icon: "📄" },
+  { href: "/owner/jobs",             label: "Jobs",        icon: "🛠" },
+  { href: "/owner/schedule",         label: "Schedule",    icon: "📆" },
+  { href: "/owner/timesheets",       label: "Timesheets",  icon: "⏱" },
+  { href: "/owner/invoices",         label: "Invoices",    icon: "💵" },
+  { href: "/owner/estimates",        label: "Estimates",   icon: "📝" },
+  { href: "/owner/properties",       label: "Properties",  icon: "🏠" },
+  { href: "/owner/workers",          label: "Workers",     icon: "👷" },
+  { href: "/owner/settings/billing", label: "Billing",     icon: "💳" },
+  { href: "/owner/settings",         label: "Settings",    icon: "⚙" },
 ];
 
 interface OwnerShellProps {
@@ -26,6 +27,28 @@ interface OwnerShellProps {
 export default function OwnerShell({ profile, tenantName, children }: OwnerShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
+
+  const isActive = (href: string) => {
+    if (href === "/owner") return pathname === "/owner";
+    return pathname === href || pathname.startsWith(href + "/");
+  };
+
+  const NavLink = ({ href, label, icon }: { href: string; label: string; icon: string }) => (
+    <Link
+      key={href}
+      href={href}
+      className={`flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm font-500 transition-colors ${
+        isActive(href)
+          ? "bg-amber text-forge font-600"
+          : "text-mist hover:text-white hover:bg-forge-light"
+      }`}
+      onClick={() => setMobileOpen(false)}
+    >
+      <span className="text-base w-5 text-center" aria-hidden="true">{icon}</span>
+      <span>{label}</span>
+      {isActive(href) && <span className="ml-auto text-xs">✓</span>}
+    </Link>
+  );
 
   return (
     <div className="min-h-screen flex flex-col bg-surface">
@@ -77,26 +100,9 @@ export default function OwnerShell({ profile, tenantName, children }: OwnerShell
             </div>
 
             <nav className="space-y-2">
-              {NAV.map((item) => {
-                const isActive = item.href === "/owner"
-                  ? pathname === "/owner"
-                  : pathname === item.href || pathname.startsWith(item.href + "/");
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setMobileOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm transition-colors ${
-                      isActive
-                        ? 'bg-amber/20 text-white font-600'
-                        : 'text-white hover:bg-forge-light'
-                    }`}
-                  >
-                    <span className="w-5 text-center" aria-hidden="true">{item.icon}</span>
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
+              {NAV.map((item) => (
+                <NavLink key={item.href} {...item} />
+              ))}
             </nav>
 
             <div className="mt-6 border-t border-steel pt-4">
@@ -111,7 +117,7 @@ export default function OwnerShell({ profile, tenantName, children }: OwnerShell
               </div>
               <form action="/api/auth/signout" method="POST" className="mt-4">
                 <button type="submit" className="w-full text-left text-sm text-mist hover:text-white px-3 py-2 rounded-lg transition-colors">
-                  Sign out ↩
+                  Sign out →
                 </button>
               </form>
             </div>
@@ -134,26 +140,9 @@ export default function OwnerShell({ profile, tenantName, children }: OwnerShell
           </div>
 
           <nav className="flex-1 px-3 py-4 space-y-1">
-            {NAV.map((item) => {
-              const isActive = item.href === "/owner"
-                ? pathname === "/owner"
-                : pathname === item.href || pathname.startsWith(item.href + "/");
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm font-500 transition-colors ${
-                    isActive
-                      ? 'bg-amber text-forge font-600'  // Active state
-                      : 'text-mist hover:text-white hover:bg-forge-light'
-                  }`}
-                >
-                  <span className="text-base w-5 text-center" aria-hidden="true">{item.icon}</span>
-                  <span>{item.label}</span>
-                  {isActive && <span className="ml-auto text-xs">✓</span>}
-                </Link>
-              );
-            })}
+            {NAV.map((item) => (
+              <NavLink key={item.href} {...item} />
+            ))}
           </nav>
 
           <div className="px-4 py-4 border-t border-steel">
@@ -167,7 +156,7 @@ export default function OwnerShell({ profile, tenantName, children }: OwnerShell
               </div>
               <form action="/api/auth/signout" method="POST">
                 <button type="submit" className="text-mist hover:text-white text-xs transition-colors" aria-label="Sign out">
-                  ↩
+                  →
                 </button>
               </form>
             </div>

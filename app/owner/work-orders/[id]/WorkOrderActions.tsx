@@ -19,6 +19,13 @@ export default function WorkOrderActions({ workOrderId, tenantId, workOrderTitle
     });
     const data = await res.json();
     if (!res.ok) { setError(data.error || "Action failed"); setLoading(null); return; }
+
+    // If accept created a job, jump straight to schedule/assign
+    if (action === "accept" && data.jobId) {
+      router.push(`/owner/jobs/${data.jobId}/edit`);
+      return;
+    }
+
     router.refresh();
   };
 
@@ -30,7 +37,7 @@ export default function WorkOrderActions({ workOrderId, tenantId, workOrderTitle
         <button
           onClick={() => handle("accept")}
           disabled={!!loading}
-          className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-display font-700 py-2.5 rounded-lg text-sm transition-colors min-h-[44px]"
+          className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-display font-700 py-2.5 rounded-lg text-sm transition-colors min-h-[44px] shadow-sm"
         >
           {loading === "accept" ? "Accepting…" : "✓ Accept & Create Job"}
         </button>

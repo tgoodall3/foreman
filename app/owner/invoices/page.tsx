@@ -51,67 +51,64 @@ export default async function InvoicesPage({ searchParams }: { searchParams: { s
         })}
       </div>
 
-      {/* Invoice table */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      {/* Invoice list */}
+      <div className="space-y-3">
         {!invoices?.length ? (
-          <div className="p-12 text-center">
+          <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
             <p className="text-4xl mb-3">💵</p>
             <p className="font-display font-700 text-xl text-forge mb-1">No invoices yet</p>
             <p className="text-mist text-sm">Complete a job and generate an invoice.</p>
           </div>
         ) : (
-          <>
-            <table className="w-full text-sm" aria-label="Invoices list">
-              <thead>
-                <tr className="border-b border-gray-100 bg-gray-50">
-                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Invoice #</th>
-                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Job</th>
-                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Client</th>
-                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Due</th>
-                  <th scope="col" className="text-right px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Total</th>
-                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {invoices.map((inv: any) => {
-                  const cfg = INVOICE_STATUS_CONFIG[inv.status as keyof typeof INVOICE_STATUS_CONFIG];
-                  return (
-                    <tr key={inv.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-3">
-                        <Link href={`/owner/invoices/${inv.id}`} className="font-mono text-sm text-amber hover:underline">{inv.invoice_number}</Link>
-                      </td>
-                      <td className="px-4 py-3 text-forge font-500">{inv.jobs?.title || "—"}</td>
-                      <td className="px-4 py-3 text-mist">{inv.property_managers?.full_name || "—"}</td>
-                      <td className="px-4 py-3 text-mist">{formatDate(inv.due_date)}</td>
-                      <td className="px-4 py-3 text-right font-600 text-forge">{formatCurrency(inv.total)}</td>
-                      <td className="px-4 py-3"><span className={`badge ${cfg.bg} ${cfg.color}`}>{cfg.label}</span></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {pageCount > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 bg-gray-50">
-                <Link
-                  href={`/owner/invoices?status=${status || ""}&page=${Math.max(1, page - 1)}`}
-                  className={`text-sm font-semibold ${page === 1 ? "text-gray-400 pointer-events-none" : "text-forge hover:text-amber"}`}
-                >
-                  ← Previous
-                </Link>
-                <p className="text-xs text-mist">
-                  Page {page} of {pageCount}
-                </p>
-                <Link
-                  href={`/owner/invoices?status=${status || ""}&page=${Math.min(pageCount, page + 1)}`}
-                  className={`text-sm font-semibold ${page === pageCount ? "text-gray-400 pointer-events-none" : "text-forge hover:text-amber"}`}
-                >
-                  Next →
-                </Link>
+          invoices.map((inv: any) => {
+            const cfg = INVOICE_STATUS_CONFIG[inv.status as keyof typeof INVOICE_STATUS_CONFIG];
+            const dueDate = new Date(inv.due_date + "T00:00:00Z");
+            const daysOverdue = Math.floor((Date.now() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+            let reminderBadge = "—";
+            if (["sent","overdue"].includes(inv.status)) {
+              if (daysOverdue >= 7) reminderBadge = "7-day sent";
+              else if (daysOverdue >= 3) reminderBadge = "3-day sent";
+              else if (daysOverdue >= 0) reminderBadge = "Next 3-day";
+            }
+            return (
+              <div key={inv.id} className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <Link href={`/owner/invoices/${inv.id}`} className="font-display font-700 text-forge hover:text-amber text-sm">
+                    {inv.invoice_number}
+                  </Link>
+                  <p className="text-xs text-mist">{inv.jobs?.title || "—"}</p>
+                  <p className="text-xs text-mist">{inv.property_managers?.full_name || "—"}</p>
+                  <p className="text-xs text-steel">Due {formatDate(inv.due_date)}</p>
+                  <p className="text-[11px] text-steel">Reminders: {reminderBadge}</p>
+                </div>
+                <div className="flex items-center gap-2 sm:flex-col sm:items-end">
+                  <p className="font-700 text-forge text-lg">{formatCurrency(inv.total)}</p>
+                  <span className={`badge ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
+                </div>
               </div>
-            )}
-          </>
+            );
+          })
         )}
       </div>
+
+      {/* Pagination */}
+      {pageCount > 1 && (
+        <div className="flex items-center justify-between px-1 py-3 text-sm">
+          <Link
+            href={`/owner/invoices?status=${status || ""}&page=${Math.max(1, page - 1)}`}
+            className={`font-700 ${page === 1 ? "text-gray-400 pointer-events-none" : "text-forge hover:text-amber"}`}
+          >
+            ← Previous
+          </Link>
+          <p className="text-xs text-mist">Page {page} of {pageCount}</p>
+          <Link
+            href={`/owner/invoices?status=${status || ""}&page=${Math.min(pageCount, page + 1)}`}
+            className={`font-700 ${page === pageCount ? "text-gray-400 pointer-events-none" : "text-forge hover:text-amber"}`}
+          >
+            Next →
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

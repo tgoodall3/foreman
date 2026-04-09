@@ -409,7 +409,7 @@ function JobCard({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function ScheduleWeekView({ days, unscheduled, workerMap, weekStart, today }: Props) {
+export default function ScheduleWeekView({ days, unscheduled, workerMap, weekStart, today, hasError }: Props) {
   const router = useRouter();
   const [activeJob, setActiveJob] = useState<Job | null>(null);
 
@@ -424,6 +424,17 @@ export default function ScheduleWeekView({ days, unscheduled, workerMap, weekSta
     setActiveJob(null);
     router.refresh();
   };
+
+  if (hasError) {
+    return (
+      <div className="p-6 max-w-5xl">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+          <p className="text-sm text-red-700 font-700">Unable to load schedule right now.</p>
+          <p className="text-xs text-red-700">Refresh to retry; we hit a temporary data error.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl">
@@ -481,7 +492,7 @@ export default function ScheduleWeekView({ days, unscheduled, workerMap, weekSta
       </div>
 
       {/* ── Day columns ── */}
-      <div className="space-y-3 lg:grid lg:grid-cols-7 lg:gap-3 lg:space-y-0">
+      <div className="space-y-3 lg:space-y-0 lg:grid lg:grid-cols-7 lg:gap-3 overflow-x-auto pb-2">
         {days.map(({ date, jobs }, i) => {
           const isToday  = date === today;
           const dayNum   = new Date(date + "T00:00:00Z").getUTCDate();
@@ -490,7 +501,7 @@ export default function ScheduleWeekView({ days, unscheduled, workerMap, weekSta
           return (
             <div
               key={date}
-              className={`rounded-xl border ${
+              className={`min-w-[220px] rounded-xl border ${
                 isToday
                   ? "border-amber bg-amber/5"
                   : isWeekend

@@ -51,14 +51,16 @@ export async function POST(req: NextRequest) {
       // Verify work order and get details
       const { data: wo } = await supabase
         .from("work_orders")
-        .select("title, description, property_id")
+        .select("title, description, property_id, priority")
         .eq("id", workOrderId)
         .eq("tenant_id", tenantId)
         .single();
 
       if (!wo) return errorResponse("Work order not found", 404);
 
-      // Create job from work order
+      // Smart-ish defaults: carry over priority, schedule for today, start as scheduled
+      const today = new Date().toISOString().split("T")[0];
+
       const { data: job, error: jobError } = await supabase
         .from("jobs")
         .insert({
@@ -67,8 +69,9 @@ export async function POST(req: NextRequest) {
           property_id: propertyId || wo.property_id,
           title: title || wo.title,
           description: description || wo.description,
-          status: "pending",
-          priority: "normal",
+          status: "scheduled",
+          priority: wo.priority || "normal",
+          scheduled_date: today,
           assigned_workers: [],
         })
         .select()
