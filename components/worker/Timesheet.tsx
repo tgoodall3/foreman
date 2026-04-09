@@ -58,6 +58,7 @@ const STATUS_STYLES: Record<Request["status"], { bg: string; text: string }> = {
 export default function Timesheet({ weekStart, entries, requests }: Props) {
   const [localRequests, setLocalRequests] = useState<Request[]>(requests);
   const [modalOpen, setModalOpen] = useState(false);
+  const [requestsOpen, setRequestsOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(weekStart);
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [inTime, setInTime] = useState("");
@@ -71,6 +72,7 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
   const prevWeek = addDays(weekStart, -7);
   const nextWeek = addDays(weekStart, 7);
   const today = new Date().toISOString().split("T")[0];
+  const requestCount = localRequests.length;
 
   const entriesByDate = useMemo(() => {
     const map: Record<string, Entry[]> = {};
@@ -90,6 +92,9 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
     }
     return map;
   }, [localRequests]);
+
+  // Close requests panel when navigating weeks
+  useEffect(() => { setRequestsOpen(false); }, [weekStart]);
 
   const openModal = (date: string, entryId: string | null) => {
     setSelectedDate(date);
@@ -171,6 +176,15 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
               This week
             </a>
           )}
+          {requestCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setRequestsOpen(true)}
+              className="px-3 py-2 text-sm font-600 text-amber border border-amber/40 rounded-lg hover:border-amber hover:bg-amber/10 transition-colors"
+            >
+              Requests ({requestCount})
+            </button>
+          )}
         </div>
       </div>
 
@@ -228,7 +242,7 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
                       <div
                         key={e.id}
                         className={`flex items-start justify-between gap-2 rounded-lg border px-3 py-2 ${
-                          style ? `${style.bg} ${style.text} border-transparent` : "border-gray-100"
+                          style ? `${style.bg} ${style.text}` : "border-gray-100"
                         }`}
                       >
                         <div>
@@ -237,9 +251,15 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
                           </p>
                           {e.notes && <p className="text-xs text-mist mt-0.5">{e.notes}</p>}
                           {req && (
-                            <p className="text-[11px] font-700 mt-1">
-                              Change {req.status}
-                            </p>
+                            <span className={`inline-flex items-center text-[11px] font-700 mt-1 px-2 py-0.5 rounded border ${
+                              req.status === "approved"
+                                ? "border-green-200 text-green-700 bg-green-50"
+                                : req.status === "declined"
+                                  ? "border-red-200 text-red-700 bg-red-50"
+                                  : "border-amber/40 text-amber-dark bg-amber/10"
+                            }`}>
+                              {req.status}
+                            </span>
                           )}
                         </div>
                         <button
@@ -325,6 +345,38 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
                 {saving ? "Sending…" : "Send to owner"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {requestsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setRequestsOpen(false)} aria-hidden="true" />
+          <div className="relative bg-white rounded-xl shadow-2xl max-w-md w-full p-5 border border-gray-200">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-display font-700 text-lg text-forge">Requests this week</h2>
+              <button onClick={() => setRequestsOpen(false)} className="text-sm text-mist hover:text-forge">Close</button>
+            </div>
+            {requestCount === 0 ? (
+              <p className="text-sm text-mist">No requests this week.</p>
+            ) : (
+              <div className="space-y-2 max-h-80 overflow-auto pr-1">
+                {localRequests.map((r) => (
+                  <div key={r.id} className="border border-gray-100 rounded-lg px-3 py-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-700 text-forge">{fmtDate(r.requested_date)}</p>
+                      <span className={`text-[11px] font-700 px-2 py-0.5 rounded border ${STATUS_STYLES[r.status].bg} ${STATUS_STYLES[r.status].text}`}>
+                        {r.status}
+                      </span>
+                    </div>
+                    <p className="text-xs text-mist mt-1">
+                      {r.requested_clocked_in_at ? fmtTime(r.requested_clocked_in_at) : "—"} – {r.requested_clocked_out_at ? fmtTime(r.requested_clocked_out_at) : "—"}
+                    </p>
+                    <p className="text-xs text-steel mt-1 leading-snug">{r.reason}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
