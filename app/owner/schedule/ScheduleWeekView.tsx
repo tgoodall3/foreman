@@ -31,6 +31,7 @@ interface Props {
   workerMap: Record<string, string>;
   weekStart: string;   // YYYY-MM-DD (Monday)
   today: string;       // YYYY-MM-DD
+  hasError?: boolean;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

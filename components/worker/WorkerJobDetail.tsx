@@ -383,8 +383,6 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
           <p className="text-xs text-amber-700 mt-1">Re-select and upload when you’re back online.</p>
         </div>
       )}
-      </div>
-
       {/* Property */}
       {job.properties && (
         <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">

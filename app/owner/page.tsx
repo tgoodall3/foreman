@@ -68,7 +68,7 @@ export default async function OwnerToday() {
             body="Pending >24h"
             href="/owner/work-orders"
             cta="Follow up"
-            tone="amber"
+            tone="gray"
           />
         )}
         <ActionCard
