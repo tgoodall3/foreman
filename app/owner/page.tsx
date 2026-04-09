@@ -26,6 +26,13 @@ export default async function OwnerDashboard() {
 
   const overdueCount = actions.overdueInvoices.length;
   const overdueTotal = actions.overdueInvoices.reduce((s: number, i: any) => s + (i.total ?? 0), 0);
+  const unassignedToday = todayJobs.filter((j: any) => !j.assigned_workers || j.assigned_workers.length === 0).length;
+
+  const { count: clockedInCount } = await supabase
+    .from("time_entries")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", profile.tenant_id)
+    .is("clocked_out_at", null);
 
   const actionCount =
     overdueCount +
@@ -47,6 +54,13 @@ export default async function OwnerDashboard() {
         >
           + New Job
         </Link>
+      </div>
+
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <StripCard label="Jobs today" value={todayJobs.length} tone="forge" />
+        <StripCard label="Unassigned today" value={unassignedToday} tone={unassignedToday > 0 ? "amber" : "steel"} />
+        <StripCard label="Workers clocked in" value={clockedInCount ?? 0} tone={(clockedInCount ?? 0) > 0 ? "green" : "steel"} />
+        <StripCard label="Overdue invoices" value={overdueCount} tone={overdueCount > 0 ? "red" : "steel"} />
       </div>
 
       {/* ── Action-needed rail ─────────────────────────────────── */}
@@ -368,3 +382,28 @@ function StatCard({
     </div>
   );
 }
+
+function StripCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number | string;
+  tone: "forge" | "amber" | "green" | "red" | "steel";
+}) {
+  const styles = {
+    forge: "bg-forge text-white",
+    amber: "bg-amber text-forge",
+    green: "bg-green-100 text-green-800",
+    red:   "bg-red-100 text-red-700",
+    steel: "bg-steel text-white",
+  } as const;
+  return (
+    <div className={`rounded-xl px-4 py-3 border border-transparent ${styles[tone]}`}>
+      <p className="text-[11px] uppercase tracking-wider font-700 opacity-80">{label}</p>
+      <p className="font-display font-800 text-2xl">{value}</p>
+    </div>
+  );
+}
+

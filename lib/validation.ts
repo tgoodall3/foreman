@@ -14,8 +14,8 @@ export const notesSchema = z.string().max(1000).optional();
 // UUID validation
 export const uuidSchema = z.string().uuid();
 
-// Priority enum
-export const prioritySchema = z.enum(["low", "normal", "urgent", "emergency"]);
+// Priority enum (include "high" to align with tests and UI expectations)
+export const prioritySchema = z.enum(["low", "normal", "high", "urgent", "emergency"]);
 
 // Status enums
 export const jobStatusSchema = z.enum(["pending", "in_progress", "completed", "cancelled"]);
