@@ -1,8 +1,8 @@
-import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireOwner } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase";
 import { formatDate, PRIORITY_CONFIG } from "@/lib/utils";
+import WorkOrderActions from "./WorkOrderActions";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +13,7 @@ export default async function WorkOrderDetailPage({ params }: { params: { id: st
 
   const { data: wo, error } = await supabase
     .from("work_orders")
-    .select("id, title, description, status, priority, created_at, tenant_id, property_managers(full_name, email, company, phone), properties(name, address, city, state), jobs(id, title, status)")
+    .select("id, title, description, status, priority, created_at, tenant_id, property_id, property_managers(full_name, email, company, phone), properties(id, name, address, city, state), jobs(id, title, status)")
     .eq("id", params.id)
     .maybeSingle();
 
@@ -81,6 +81,15 @@ export default async function WorkOrderDetailPage({ params }: { params: { id: st
         </div>
 
         <div className="space-y-4">
+          {wo.status === "pending" && (
+            <WorkOrderActions
+              workOrderId={wo.id}
+              tenantId={wo.tenant_id}
+              workOrderTitle={wo.title}
+              workOrderDescription={wo.description || ""}
+              propertyId={prop?.id || (wo as any).property_id || ""}
+            />
+          )}
           <section className="bg-white rounded-xl border border-gray-200 p-4">
             <h3 className="font-display font-700 text-base text-forge mb-2">Property</h3>
             {prop ? (
