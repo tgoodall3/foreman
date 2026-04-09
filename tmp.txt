@@ -55,30 +55,15 @@ export default async function JobDetailPage({ params }: { params: { id: string }
             )}
           </div>
         </div>
-      <Link
-        href={`/owner/jobs/${job.id}/edit`}
-        className="bg-forge hover:bg-forge-light text-white font-display font-700 px-4 py-2 rounded-lg text-sm transition-colors"
-      >
-        Edit Job
-      </Link>
-    </div>
-
-    {job.status === "completed" && !job.invoice_id && (
-      <div className="mb-4 bg-amber/10 border border-amber/30 text-forge rounded-xl px-4 py-3 flex items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-700">Job completed — ready to invoice</p>
-          <p className="text-xs text-mist">Generate an invoice now to collect payment.</p>
-        </div>
         <Link
-          href={`/owner/invoices/new?job=${job.id}`}
-          className="bg-forge text-white text-xs font-700 px-3 py-2 rounded-lg hover:bg-forge-light transition-colors"
+          href={`/owner/jobs/${job.id}/edit`}
+          className="bg-forge hover:bg-forge-light text-white font-display font-700 px-4 py-2 rounded-lg text-sm transition-colors"
         >
-          Create Invoice
+          Edit Job
         </Link>
       </div>
-    )}
 
-    <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid lg:grid-cols-3 gap-6">
         {/* Left: main details */}
         <div className="lg:col-span-2 space-y-6">
           {/* Description */}
@@ -272,4 +257,5 @@ export default async function JobDetailPage({ params }: { params: { id: string }
     </div>
   );
 }
+
 

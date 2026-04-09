@@ -98,3 +98,5 @@ function WorkOrderCard({ wo }: { wo: any }) {
     </Link>
   );
 }
+// Force dynamic rendering to avoid static 404s when data/env missing at build time
+export const dynamic = "force-dynamic";

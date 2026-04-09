@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createServiceClient } from "@/lib/supabase";
+import { Resend } from "resend";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
@@ -58,6 +60,26 @@ export async function POST(req: NextRequest) {
           .from("invoices")
           .update({ status: "paid", paid_at: new Date().toISOString() })
           .eq("id", invoiceId);
+
+        if (process.env.RESEND_API_KEY) {
+          const { data: inv } = await supabase
+            .from("invoices")
+            .select("invoice_number, property_managers(email, full_name), tenants(name, email)")
+            .eq("id", invoiceId)
+            .maybeSingle();
+          const pmEmail = (inv as any)?.property_managers?.email;
+          const tenantEmail = (inv as any)?.tenants?.email;
+          const tenantName = (inv as any)?.tenants?.name ?? "Your contractor";
+          const recipients = [pmEmail, tenantEmail].filter(Boolean);
+          if (recipients.length) {
+            await resend.emails.send({
+              from: process.env.EMAIL_FROM!,
+              to: recipients as string[],
+              subject: `Payment received for invoice ${inv?.invoice_number ?? invoiceId}`,
+              html: `<p style="font-family: Arial, sans-serif;">Payment received for invoice ${inv?.invoice_number ?? invoiceId}. Thank you!</p>`,
+            }).catch(() => {});
+          }
+        }
       }
       break;
     }

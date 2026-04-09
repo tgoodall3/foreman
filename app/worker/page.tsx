@@ -20,6 +20,9 @@ export default async function WorkerDashboard() {
   const todayJobs = jobs?.filter((j) => j.scheduled_date === today) || [];
   const upcomingJobs = jobs?.filter((j) => j.scheduled_date && j.scheduled_date > today) || [];
   const unscheduled = jobs?.filter((j) => !j.scheduled_date) || [];
+  const nextJob = [...todayJobs, ...upcomingJobs]
+    .filter((j) => j.scheduled_date)
+    .sort((a, b) => (a.scheduled_date || "").localeCompare(b.scheduled_date || ""))[0];
 
   const summary = [
     { label: "Today", value: todayJobs.length },
@@ -54,6 +57,36 @@ export default async function WorkerDashboard() {
       </div>
 
       <ClockWidget />
+
+      {/* Next up card */}
+      <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-700 text-forge">Next up</p>
+          {nextJob ? (
+            <span className="text-xs text-mist">
+              {nextJob.scheduled_date ? formatDate(nextJob.scheduled_date) : "Not scheduled"}
+              {nextJob.scheduled_time ? ` · ${nextJob.scheduled_time}` : ""}
+            </span>
+          ) : (
+            <span className="text-xs text-mist">No upcoming jobs</span>
+          )}
+        </div>
+        {nextJob ? (
+          <Link
+            href={`/worker/jobs/${nextJob.id}`}
+            className="block mt-2 p-3 rounded-lg border border-gray-100 hover:border-amber transition-colors"
+          >
+            <p className="font-600 text-forge">{nextJob.title}</p>
+            {nextJob.properties && (
+              <p className="text-xs text-mist mt-0.5">
+                {nextJob.properties.name} · {nextJob.properties.city}, {nextJob.properties.state}
+              </p>
+            )}
+          </Link>
+        ) : (
+          <p className="text-xs text-mist mt-1">Enjoy the downtime or check the schedule.</p>
+        )}
+      </div>
 
       {/* Today */}
       {todayJobs.length > 0 && (
