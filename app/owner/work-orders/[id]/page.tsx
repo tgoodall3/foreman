@@ -13,15 +13,20 @@ export default async function WorkOrderDetailPage({ params }: { params: { id: st
 
   const { data: wo, error } = await supabase
     .from("work_orders")
-    .select("id, title, description, status, priority, created_at, property_managers(full_name, email, company, phone), properties(name, address, city, state), jobs(id, title, status)")
+    .select("id, title, description, status, priority, created_at, tenant_id, property_managers(full_name, email, company, phone), properties(name, address, city, state), jobs(id, title, status)")
     .eq("id", params.id)
-    .eq("tenant_id", profile.tenant_id)
     .maybeSingle();
 
   if (!wo) {
-    // Distinguish access vs missing to aid debugging (still a 404 for users)
     if (process.env.NODE_ENV !== "production") {
-      console.warn("Work order not found or inaccessible", { id: params.id, error });
+      console.warn("Work order missing", { id: params.id, error });
+    }
+    notFound();
+  }
+
+  if (wo.tenant_id !== profile.tenant_id) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("Work order tenant mismatch", { id: params.id, woTenant: wo.tenant_id, userTenant: profile.tenant_id });
     }
     notFound();
   }
