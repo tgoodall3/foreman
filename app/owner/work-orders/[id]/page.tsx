@@ -17,9 +17,9 @@ export default async function WorkOrderDetailPage({ params }: { params: { id: st
     .eq("id", params.id)
     .maybeSingle();
 
-  // If the record isn't found or tenant mismatched, render a friendly message instead of 404
-  if (!wo || wo.tenant_id !== profile.tenant_id) {
-    const reason = !wo ? "not found in database" : "belongs to a different tenant";
+  // If the record isn't found, render a friendly message instead of 404
+  if (!wo) {
+    const reason = "not found in database";
     return (
       <div className="p-6 max-w-3xl">
         <h1 className="font-display font-800 text-2xl text-forge mb-2">Work Order Unavailable</h1>
@@ -27,7 +27,7 @@ export default async function WorkOrderDetailPage({ params }: { params: { id: st
         <p className="text-mist text-sm">Reason: {reason}.</p>
         {process.env.NODE_ENV !== "production" && (
           <pre className="mt-3 bg-gray-100 border border-gray-200 rounded-lg p-3 text-xs text-steel">
-            {JSON.stringify({ error, woTenant: wo?.tenant_id, userTenant: profile.tenant_id }, null, 2)}
+            {JSON.stringify({ error }, null, 2)}
           </pre>
         )}
       </div>
