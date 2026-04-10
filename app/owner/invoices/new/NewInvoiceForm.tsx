@@ -13,6 +13,7 @@ interface LineItemInput {
 interface JobOption {
   id: string;
   title: string;
+  property_manager_id?: string | null;
   line_items?: any[];
 }
 
@@ -33,7 +34,9 @@ const blankLineItem = (): LineItemInput => ({ description: "", quantity: 1, unit
 export default function NewInvoiceForm({ jobs, propertyManagers, selectedJob }: NewInvoiceFormProps) {
   const router = useRouter();
   const [jobId, setJobId] = useState(selectedJob?.id || jobs[0]?.id || "");
-  const [propertyManagerId, setPropertyManagerId] = useState(propertyManagers[0]?.id || "");
+  const [propertyManagerId, setPropertyManagerId] = useState(
+    selectedJob?.property_manager_id || jobs[0]?.property_manager_id || propertyManagers[0]?.id || ""
+  );
   const [status, setStatus] = useState("draft");
   const [dueDate, setDueDate] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");

@@ -17,7 +17,7 @@ export default async function WorkerLayout({ children }: { children: React.React
         <div className="flex items-center gap-3">
           <span className="text-mist text-sm">{profile.full_name}</span>
           <form action="/api/auth/signout" method="POST">
-            <button type="submit" className="text-mist hover:text-white text-sm transition-colors" aria-label="Sign out">←</button>
+            <button type="submit" className="text-mist hover:text-white text-sm transition-colors" aria-label="Sign out">â†©</button>
           </form>
         </div>
       </header>
@@ -29,9 +29,9 @@ export default async function WorkerLayout({ children }: { children: React.React
       {/* Bottom nav */}
       <nav className="bg-white border-t border-gray-200 flex sticky bottom-0" aria-label="Worker navigation">
         {[
-          { href: "/worker", label: "My Jobs", icon: "🛠" },
-          { href: "/worker/timesheets", label: "Timesheets", icon: "⏱" },
-          { href: "/worker/settings", label: "Settings", icon: "⚙" },
+          { href: "/worker", label: "My Jobs", icon: "ðŸ”¨" },
+          { href: "/worker/completed", label: "Completed", icon: "âœ…" },
+          { href: "/worker/settings", label: "Settings", icon: "âš™ï¸" },
         ].map((item) => (
           <Link
             key={item.href}
@@ -46,3 +46,4 @@ export default async function WorkerLayout({ children }: { children: React.React
     </div>
   );
 }
+

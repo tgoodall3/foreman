@@ -1,4 +1,4 @@
-import { requireWorker } from "@/lib/auth";
+﻿import { requireWorker } from "@/lib/auth";
 import { createServerSideClient } from "@/lib/supabase-server";
 import { formatDate, JOB_STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/utils";
 import Link from "next/link";
@@ -43,7 +43,7 @@ export default async function WorkerDashboard() {
             href="/worker/timesheets"
             className="inline-flex items-center gap-2 bg-white text-forge font-700 px-3 py-2 rounded-xl text-sm shadow-sm hover:shadow transition"
           >
-            ⏱ View timesheet
+            ? View timesheet
           </Link>
         </div>
         <div className="grid grid-cols-3 gap-3 mt-4">
@@ -65,7 +65,7 @@ export default async function WorkerDashboard() {
           {nextJob ? (
             <span className="text-xs text-mist">
               {nextJob.scheduled_date ? formatDate(nextJob.scheduled_date) : "Not scheduled"}
-              {nextJob.scheduled_time ? ` · ${nextJob.scheduled_time}` : ""}
+              {nextJob.scheduled_time ? ` � ${nextJob.scheduled_time}` : ""}
             </span>
           ) : (
             <span className="text-xs text-mist">No upcoming jobs</span>
@@ -78,9 +78,14 @@ export default async function WorkerDashboard() {
           >
             <p className="font-600 text-forge">{nextJob.title}</p>
             {nextJob.properties && (
-              <p className="text-xs text-mist mt-0.5">
-                {nextJob.properties.name} · {nextJob.properties.city}, {nextJob.properties.state}
-              </p>
+              <div className="text-xs text-mist mt-0.5 space-y-0.5">
+                {nextJob.properties.address && (
+                  <p className="font-600 text-forge/90">{nextJob.properties.address}</p>
+                )}
+                <p>
+                  {nextJob.properties.name} · {nextJob.properties.city}, {nextJob.properties.state}
+                </p>
+              </div>
             )}
           </Link>
         ) : (
@@ -125,7 +130,7 @@ export default async function WorkerDashboard() {
 
       {!jobs?.length && (
         <div className="text-center py-16">
-          <p className="text-4xl mb-3">🎉</p>
+          <p className="text-4xl mb-3">??</p>
           <p className="font-display font-700 text-xl text-forge">All caught up!</p>
           <p className="text-mist text-sm mt-1">No jobs assigned right now</p>
         </div>
@@ -152,11 +157,11 @@ function WorkerJobCard({ job, highlight }: { job: any; highlight?: boolean }) {
         <span className={`badge shrink-0 ${priorityCfg.bg} ${priorityCfg.color}`}>{priorityCfg.label}</span>
       </div>
       {job.properties && (
-        <p className="text-sm text-mist">{job.properties.name} · {job.properties.city}, {job.properties.state}</p>
+        <p className="text-sm text-mist">{job.properties.name} � {job.properties.city}, {job.properties.state}</p>
       )}
       <div className="flex items-center justify-between mt-3">
         <span className="text-xs text-mist">
-          {job.scheduled_date ? `📅 ${formatDate(job.scheduled_date)}` : "No date set"}
+          {job.scheduled_date ? `?? ${formatDate(job.scheduled_date)}` : "No date set"}
           {job.scheduled_time && ` at ${job.scheduled_time}`}
         </span>
         <span className={`badge ${statusCfg.bg} ${statusCfg.color}`}>{statusCfg.label}</span>

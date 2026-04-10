@@ -57,7 +57,9 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
           </div>
           <div className="flex items-center gap-2 flex-wrap justify-end">
             <span className={`badge ${statusCfg.bg} ${statusCfg.color}`}>{statusCfg.label}</span>
-            <InvoiceActions invoiceId={invoice.id} status={invoice.status} />
+            {invoice.status !== "paid" && (
+              <InvoiceActions invoiceId={invoice.id} status={invoice.status} />
+            )}
           </div>
         </div>
 
@@ -136,6 +138,10 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
           <h2 className="font-display font-700 text-lg text-forge mb-3">Notes</h2>
           <p className="text-sm text-steel leading-relaxed">{invoice.notes}</p>
         </div>
+      )}
+
+      {invoice.status !== "paid" && (
+        <InvoiceActions invoiceId={invoice.id} status={invoice.status} />
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -9,7 +9,7 @@ interface Props {
   tenantName: string;
 }
 
-type Step = "welcome" | "worker" | "pm" | "done";
+type Step = "welcome" | "worker" | "pm" | "property" | "done";
 
 const inp = "w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-amber";
 
@@ -30,6 +30,13 @@ export default function OnboardingWizard({ tenantId, tenantName }: Props) {
   const [pmPhone,   setPmPhone]   = useState("");
   const [pmCompany, setPmCompany] = useState("");
   const [pmDone,    setPmDone]    = useState(false);
+
+  // Property form
+  const [propName,    setPropName]    = useState("");
+  const [propAddress, setPropAddress] = useState("");
+  const [propCity,    setPropCity]    = useState("");
+  const [propState,   setPropState]   = useState("");
+  const [propZip,     setPropZip]     = useState("");
 
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState("");
@@ -65,10 +72,33 @@ export default function OnboardingWizard({ tenantId, tenantName }: Props) {
     setLoading(false);
     if (!res.ok) { setError(data.error || "Failed to add property manager."); return; }
     setPmDone(true);
-    setTimeout(() => setStep("done"), 800);
+    setTimeout(() => setStep("property"), 800);
   };
 
-  // ── Step: Welcome ──────────────────────────────────────────────────────────
+  const addProperty = async () => {
+    if (!propName || !propAddress || !propCity || !propState || !propZip) {
+      setError("All fields are required."); return;
+    }
+    setLoading(true); setError("");
+    const res = await fetch("/api/properties/add-property", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tenant_id: tenantId,
+        name: propName,
+        address: propAddress,
+        city: propCity,
+        state: propState,
+        zip: propZip,
+      }),
+    });
+    const data = await res.json();
+    setLoading(false);
+    if (!res.ok) { setError(data.error || "Failed to add property."); return; }
+    setStep("done");
+  };
+
+  // — Step: Welcome —
   if (step === "welcome") return (
     <div className="min-h-screen bg-surface flex items-center justify-center p-4">
       <div className="max-w-lg w-full">
@@ -77,13 +107,14 @@ export default function OnboardingWizard({ tenantId, tenantName }: Props) {
             <span className="font-display font-800 text-forge text-3xl">F</span>
           </div>
           <h1 className="font-display font-800 text-3xl text-forge">Welcome to Foreman</h1>
-          <p className="text-mist mt-2">Let&apos;s get <strong>{tenantName}</strong> set up in 2 quick steps.</p>
+          <p className="text-mist mt-2">Let&amp;apos;s get <strong>{tenantName}</strong> set up in 3 quick steps.</p>
         </div>
 
         <div className="space-y-3 mb-8">
           {[
             { num: "1", title: "Add your first worker", desc: "Someone who will do the work on the ground." },
             { num: "2", title: "Add a property manager", desc: "A client who will submit work orders and receive invoices." },
+            { num: "3", title: "Link a property", desc: "So your PM can submit a work order right away." },
           ].map((item) => (
             <div key={item.num} className="bg-white border border-gray-200 rounded-xl p-4 flex items-start gap-4">
               <div className="w-8 h-8 bg-amber rounded-full flex items-center justify-center shrink-0">
@@ -112,14 +143,14 @@ export default function OnboardingWizard({ tenantId, tenantName }: Props) {
     </div>
   );
 
-  // ── Step: Worker ───────────────────────────────────────────────────────────
+  // — Step: Worker —
   if (step === "worker") return (
     <div className="min-h-screen bg-surface flex items-center justify-center p-4">
       <div className="max-w-md w-full">
         <StepIndicator current={1} />
         <div className="bg-white rounded-2xl border border-gray-200 p-6">
           <h2 className="font-display font-800 text-2xl text-forge mb-1">Add your first worker</h2>
-          <p className="text-mist text-sm mb-5">They&apos;ll log in at <strong>/worker</strong> to see and manage their jobs.</p>
+          <p className="text-mist text-sm mb-5">They&amp;apos;ll log in at <strong>/worker</strong> to see and manage their jobs.</p>
 
           <div className="space-y-3">
             <div>
@@ -165,14 +196,14 @@ export default function OnboardingWizard({ tenantId, tenantName }: Props) {
     </div>
   );
 
-  // ── Step: Property Manager ─────────────────────────────────────────────────
+  // — Step: Property Manager —
   if (step === "pm") return (
     <div className="min-h-screen bg-surface flex items-center justify-center p-4">
       <div className="max-w-md w-full">
         <StepIndicator current={2} />
         <div className="bg-white rounded-2xl border border-gray-200 p-6">
           <h2 className="font-display font-800 text-2xl text-forge mb-1">Add a property manager</h2>
-          <p className="text-mist text-sm mb-5">They&apos;ll submit work orders and receive invoices via a secure portal link.</p>
+          <p className="text-mist text-sm mb-5">They&amp;apos;ll submit work orders and receive invoices via a secure portal link.</p>
 
           <div className="space-y-3">
             <div>
@@ -202,7 +233,7 @@ export default function OnboardingWizard({ tenantId, tenantName }: Props) {
           )}
 
           <div className="flex gap-3 mt-5">
-            <button onClick={() => setStep("done")} className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-600 hover:bg-gray-50 transition-colors">
+            <button onClick={() => setStep("property")} className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-600 hover:bg-gray-50 transition-colors">
               Skip
             </button>
             <button
@@ -218,7 +249,60 @@ export default function OnboardingWizard({ tenantId, tenantName }: Props) {
     </div>
   );
 
-  // ── Step: Done ─────────────────────────────────────────────────────────────
+  // — Step: Property —
+  if (step === "property") return (
+    <div className="min-h-screen bg-surface flex items-center justify-center p-4">
+      <div className="max-w-md w-full">
+        <StepIndicator current={3} />
+        <div className="bg-white rounded-2xl border border-gray-200 p-6">
+          <h2 className="font-display font-800 text-2xl text-forge mb-1">Link your first property</h2>
+          <p className="text-mist text-sm mb-5">This lets your PM submit their first work order immediately.</p>
+
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Name *</label>
+              <input type="text" value={propName} onChange={(e) => setPropName(e.target.value)} className={inp} placeholder="River Oaks Apt 12" />
+            </div>
+            <div>
+              <label className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Address *</label>
+              <input type="text" value={propAddress} onChange={(e) => setPropAddress(e.target.value)} className={inp} placeholder="123 Main St" />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">City *</label>
+                <input type="text" value={propCity} onChange={(e) => setPropCity(e.target.value)} className={inp} placeholder="Indianapolis" />
+              </div>
+              <div>
+                <label className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">State *</label>
+                <input type="text" value={propState} onChange={(e) => setPropState(e.target.value)} className={inp} placeholder="IN" />
+              </div>
+              <div>
+                <label className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">ZIP *</label>
+                <input type="text" value={propZip} onChange={(e) => setPropZip(e.target.value)} className={inp} placeholder="46201" />
+              </div>
+            </div>
+          </div>
+
+          {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mt-3">{error}</p>}
+
+          <div className="flex gap-3 mt-5">
+            <button onClick={() => setStep("done")} className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-600 hover:bg-gray-50 transition-colors">
+              Skip
+            </button>
+            <button
+              onClick={addProperty}
+              disabled={loading}
+              className="flex-1 bg-amber hover:bg-amber-dark disabled:opacity-50 text-forge font-display font-700 py-2.5 rounded-xl text-sm transition-colors"
+            >
+              {loading ? "Adding…" : "Save property →"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // — Step: Done —
   return (
     <div className="min-h-screen bg-surface flex items-center justify-center p-4">
       <div className="max-w-md w-full text-center">
@@ -227,22 +311,22 @@ export default function OnboardingWizard({ tenantId, tenantName }: Props) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h2 className="font-display font-800 text-3xl text-forge mb-2">You&apos;re all set!</h2>
+        <h2 className="font-display font-800 text-3xl text-forge mb-2">You&amp;apos;re all set!</h2>
         <p className="text-mist mb-8">
-          {tenantName} is ready. Create your first job or explore the dashboard.
+          {tenantName} is ready. Head to your dashboard or create your first job.
         </p>
         <div className="flex flex-col gap-3">
           <Link
-            href="/owner/jobs/new"
+            href="/owner"
             className="w-full bg-amber hover:bg-amber-dark text-forge font-display font-700 py-3 rounded-xl text-base transition-colors"
           >
-            Create First Job →
+            Go to Dashboard
           </Link>
           <Link
-            href="/owner"
+            href="/owner/jobs/new"
             className="w-full border border-gray-300 text-forge font-600 py-3 rounded-xl text-sm hover:bg-gray-50 transition-colors"
           >
-            Go to Dashboard
+            Create First Job
           </Link>
         </div>
       </div>
@@ -250,18 +334,18 @@ export default function OnboardingWizard({ tenantId, tenantName }: Props) {
   );
 }
 
-function StepIndicator({ current }: { current: 1 | 2 }) {
+function StepIndicator({ current }: { current: 1 | 2 | 3 }) {
   return (
     <div className="flex items-center justify-center gap-2 mb-5">
-      {[1, 2].map((n) => (
+      {[1, 2, 3].map((n) => (
         <div key={n} className="flex items-center gap-2">
           <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-700 ${
             n < current ? "bg-green-500 text-white" :
             n === current ? "bg-amber text-forge" : "bg-gray-200 text-mist"
           }`}>
-            {n < current ? "✓" : n}
+            {n}
           </div>
-          {n < 2 && <div className={`w-8 h-0.5 ${n < current ? "bg-green-500" : "bg-gray-200"}`} />}
+          {n < 3 && <div className="w-8 h-px bg-gray-300" />}
         </div>
       ))}
     </div>

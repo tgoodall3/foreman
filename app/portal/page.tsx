@@ -70,13 +70,28 @@ export default async function PortalPage({ searchParams }: { searchParams: { tok
       .order("created_at", { ascending: true }),
   ]);
 
+  // Stitch job statuses onto work orders so PMs can see progress/completion
+  const workOrderIds = (workOrders ?? []).map((w: any) => w.id);
+  let jobStatusMap: Record<string, string> = {};
+  if (workOrderIds.length) {
+    const { data: woJobs } = await supabase
+      .from("jobs")
+      .select("id, status, work_order_id")
+      .in("work_order_id", workOrderIds);
+    jobStatusMap = Object.fromEntries((woJobs ?? []).map((j: any) => [j.work_order_id, j.status]));
+  }
+  const workOrdersWithJobs = (workOrders ?? []).map((w: any) => ({
+    ...w,
+    job_status: jobStatusMap[w.id],
+  }));
+
   return (
     <PortalDashboard
       token={searchParams.token}
       propertyManager={pm}
       tenantName={(pm.tenants as any)?.name ?? "Your Contractor"}
       properties={properties ?? []}
-      workOrders={(workOrders ?? []) as any[]}
+      workOrders={workOrdersWithJobs as any[]}
       invoices={(invoices ?? []) as any[]}
       comments={(comments ?? []) as any[]}
       initialTab={(searchParams.tab as any) ?? "overview"}

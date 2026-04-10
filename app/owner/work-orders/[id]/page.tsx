@@ -3,6 +3,7 @@ import { requireOwner } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase";
 import { formatDate, PRIORITY_CONFIG } from "@/lib/utils";
 import WorkOrderActions from "./WorkOrderActions";
+import MessagePM from "@/components/owner/MessagePM";
 
 export const dynamic = "force-dynamic";
 
@@ -131,6 +132,7 @@ export default async function WorkOrderDetailPage({ params }: { params: { id: st
                 {pm.company && <p className="text-xs text-mist">{pm.company}</p>}
                 {pm.email && <a className="text-xs text-amber hover:underline" href={`mailto:${pm.email}`}>{pm.email}</a>}
                 {pm.phone && <p className="text-xs text-mist mt-1">{pm.phone}</p>}
+                <MessagePM workOrderId={wo.id} pmName={pm.full_name} />
               </>
             ) : (
               <p className="text-sm text-mist">No manager linked.</p>

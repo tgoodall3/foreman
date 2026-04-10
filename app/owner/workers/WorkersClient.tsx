@@ -17,6 +17,8 @@ export default function WorkersClient({ workers: initial, tenantId }: { workers:
   const [toggling, setToggling] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [showCreds, setShowCreds] = useState(false);
+  const [hideTimer, setHideTimer] = useState<NodeJS.Timeout | null>(null);
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,7 +43,10 @@ export default function WorkersClient({ workers: initial, tenantId }: { workers:
       setError(data.error || "Failed to invite worker");
     } else {
       setWorkers((prev) => [data.profile, ...prev]);
-      setSuccess(`${inviteName} has been added. Share their login: ${inviteEmail} / ${invitePassword}`);
+      setSuccess(`${inviteName} added. Copy credentials now (hidden after 30s).`);
+      setShowCreds(true);
+      if (hideTimer) clearTimeout(hideTimer);
+      setHideTimer(setTimeout(() => setShowCreds(false), 30000));
       setInviteName(""); setInviteEmail(""); setInvitePhone(""); setInvitePassword("");
       addToast("Worker invited successfully.", "success");
     }
@@ -108,7 +113,23 @@ export default function WorkersClient({ workers: initial, tenantId }: { workers:
                 <p className="text-xs text-mist mt-1">Share this with the worker so they can log in.</p>
               </div>
               {error && <div role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</div>}
-              {success && <div role="status" className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2 font-mono text-xs">{success}</div>}
+              {success && (
+                <div role="status" className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2 space-y-1">
+                  <p>{success}</p>
+                  {showCreds && (
+                    <div className="flex items-center gap-2">
+                      <code className="bg-white border border-green-200 rounded px-2 py-1 text-[11px] text-forge">{inviteEmail} / {invitePassword}</code>
+                      <button
+                        type="button"
+                        onClick={() => navigator.clipboard.writeText(`${inviteEmail} / ${invitePassword}`)}
+                        className="text-amber font-700 hover:underline"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowInvite(false)}
                   className="flex-1 border border-gray-300 text-forge font-display font-700 py-2.5 rounded-lg text-sm hover:bg-gray-50 transition-colors">

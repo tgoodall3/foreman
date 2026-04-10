@@ -26,6 +26,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!pm?.email) return badRequest("Property manager email not available.");
 
   const tenantName = (estimate.tenants as any)?.name || "Your Contractor";
+  const approvalUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/portal/estimate?token=${estimate.approval_token}`;
   const prop       = estimate.properties as any;
 
   const lineItemsHtml = (estimate.line_items as any[])
@@ -79,9 +80,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
         ${estimate.notes ? `<div style="margin-top: 20px; background: #fffbeb; border-left: 4px solid #f59e0b; padding: 12px 16px; border-radius: 4px; font-size: 14px;">${estimate.notes}</div>` : ""}
 
-        <p style="font-size: 13px; color: #9ca3af; margin-top: 24px;">
-          To approve or discuss this estimate, reply to this email or contact ${tenantName} directly.
-        </p>
+        <div style="margin-top: 20px; display: flex; gap: 10px;">
+          <a href="${approvalUrl}&status=approved" style="background:#16a34a;color:#fff;padding:10px 16px;border-radius:8px;font-weight:700;text-decoration:none;font-size:14px;">Approve</a>
+          <a href="${approvalUrl}&status=declined" style="border:1px solid #d1d5db;color:#0f1923;padding:10px 16px;border-radius:8px;font-weight:700;text-decoration:none;font-size:14px;">Decline</a>
+        </div>
+        <p style="font-size: 13px; color: #9ca3af; margin-top: 12px;">Or view this estimate in your portal.</p>
       </div>
     </div>
   `;

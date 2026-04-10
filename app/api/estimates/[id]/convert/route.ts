@@ -23,13 +23,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const { data: job, error: jobError } = await supabase
     .from("jobs")
     .insert({
-      tenant_id:   profile.tenant_id,
-      property_id: estimate.property_id ?? null,
-      title:       estimate.title,
-      description: estimate.description ?? null,
-      status:      "pending",
-      priority:    "normal",
-      line_items:  estimate.line_items,
+      tenant_id:           profile.tenant_id,
+      property_id:         estimate.property_id ?? null,
+      property_manager_id: (estimate as any).property_manager_id ?? null,
+      title:               estimate.title,
+      description:         estimate.description ?? null,
+      status:              "pending",
+      priority:            "normal",
+      line_items:          estimate.line_items,
     })
     .select("id")
     .single();

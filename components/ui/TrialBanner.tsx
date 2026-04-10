@@ -1,4 +1,4 @@
-import { createServerSideClient } from "@/lib/supabase-server";
+﻿import { createServerSideClient } from "@/lib/supabase-server";
 import { getProfile } from "@/lib/auth";
 import { differenceInDays, parseISO } from "date-fns";
 import Link from "next/link";
@@ -18,7 +18,7 @@ export default async function TrialBanner() {
 
   const daysLeft = differenceInDays(parseISO(tenant.trial_ends_at), new Date());
 
-  if (daysLeft > 7) return null; // Only show banner in last 7 days
+  if (daysLeft > 10) return null; // Show banner starting 10 days before end
 
   const isExpired = daysLeft < 0;
 
@@ -35,8 +35,9 @@ export default async function TrialBanner() {
           isExpired ? "bg-white text-red-600 hover:bg-red-50" : "bg-forge text-white hover:bg-forge-light"
         }`}
       >
-        Upgrade Now →
+        Upgrade Now â†’
       </Link>
     </div>
   );
 }
+

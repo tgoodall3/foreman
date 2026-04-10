@@ -29,6 +29,7 @@ export default function EditJobPage() {
   const [propertyId, setPropertyId]     = useState("");
   const [recurrence, setRecurrence]     = useState("none");
   const [assignedWorkers, setAssignedWorkers] = useState<string[]>([]);
+  const [originalWorkers, setOriginalWorkers] = useState<string[]>([]);
   const [status, setStatus]             = useState("pending");
 
   const [properties, setProperties]     = useState<any[]>([]);
@@ -66,13 +67,14 @@ export default function EditJobPage() {
       setPropertyId(job.property_id ?? "");
       setRecurrence(job.recurrence ?? "none");
       setAssignedWorkers(job.assigned_workers ?? []);
+      setOriginalWorkers(job.assigned_workers ?? []);
       setStatus(job.status ?? "pending");
       setProperties(props ?? []);
       setWorkers(wrks ?? []);
       setLoading(false);
     };
     load();
-  }, [params.id]);
+  }, [params.id, supabase, router]);
 
   const toggleWorker = (id: string) =>
     setAssignedWorkers((prev) => prev.includes(id) ? prev.filter((w) => w !== id) : [...prev, id]);
@@ -106,6 +108,16 @@ export default function EditJobPage() {
     // Auto-create draft invoice when job is marked complete (fire and forget)
     if (newStatus === "completed") {
       fetch(`/api/jobs/${params.id}/auto-invoice`, { method: "POST" });
+    }
+
+    // Notify newly added workers (best-effort)
+    const added = assignedWorkers.filter((id) => !originalWorkers.includes(id));
+    if (added.length > 0) {
+      fetch("/api/jobs/notify-assigned", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobId: params.id, workerIds: added }),
+      }).catch(() => {});
     }
 
     router.push(`/owner/jobs/${params.id}`);

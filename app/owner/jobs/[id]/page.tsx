@@ -3,7 +3,10 @@ import { createServerSideClient } from "@/lib/supabase-server";
 import { formatDate, formatDateTime, JOB_STATUS_CONFIG, PRIORITY_CONFIG, formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import Image from "next/image";
 import JobChecklist from "@/components/jobs/JobChecklist";
+import JobStatusActions from "@/components/owner/JobStatusActions";
+import QuickAssign from "@/components/owner/QuickAssign";
 
 export default async function JobDetailPage({ params }: { params: { id: string } }) {
   const profile = await requireOwner();
@@ -62,6 +65,15 @@ export default async function JobDetailPage({ params }: { params: { id: string }
         Edit Job
       </Link>
     </div>
+    <div className="mb-4">
+      <QuickAssign
+        jobId={job.id}
+        scheduledDate={job.scheduled_date}
+        scheduledTime={job.scheduled_time}
+        assignedWorkers={job.assigned_workers}
+        workers={workers ?? []}
+      />
+    </div>
 
     {job.status === "completed" && !job.invoice_id && (
       <div className="mb-4 bg-amber/10 border border-amber/30 text-forge rounded-xl px-4 py-3 flex items-center justify-between gap-3">
@@ -114,9 +126,11 @@ export default async function JobDetailPage({ params }: { params: { id: string }
                 {photos.map((photo: any) => (
                   <div key={photo.id} className="group relative">
                     <a href={photo.url} target="_blank" rel="noopener noreferrer" aria-label={`View photo: ${photo.caption || photo.type}`}>
-                      <img
+                      <Image
                         src={photo.url}
                         alt={photo.caption || `${photo.type} photo`}
+                        width={480}
+                        height={280}
                         className="w-full h-28 object-cover rounded-lg border border-gray-200 group-hover:opacity-90 transition-opacity"
                       />
                     </a>
@@ -199,6 +213,8 @@ export default async function JobDetailPage({ params }: { params: { id: string }
 
         {/* Right: sidebar */}
         <div className="space-y-4">
+          <JobStatusActions jobId={job.id} status={job.status} />
+
           {/* Property */}
           {job.properties && (
             <div className="bg-white rounded-xl border border-gray-200 p-4">

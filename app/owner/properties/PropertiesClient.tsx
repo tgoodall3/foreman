@@ -12,6 +12,7 @@ export default function PropertiesClient({ propertyManagers: initial, tenantId, 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [sendingId, setSendingId] = useState<string | null>(null);
 
   // PM form
   const [pmName, setPmName]       = useState("");
@@ -68,6 +69,24 @@ export default function PropertiesClient({ propertyManagers: initial, tenantId, 
     setView("list");
     addToast("Property added successfully.", "success");
     setSubmitting(false);
+  };
+
+  const handleSendPortalLink = async (pm: any) => {
+    setSendingId(pm.id);
+    setError("");
+    const res = await fetch("/api/properties/send-portal-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ propertyManagerId: pm.id }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setSendingId(null);
+    if (!res.ok) {
+      setError(data.error || "Failed to send portal link");
+      addToast(data.error || "Failed to send portal link", "error");
+      return;
+    }
+    addToast(`Portal link emailed to ${pm.email}`, "success");
   };
 
   const inp = "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber";
@@ -178,6 +197,13 @@ export default function PropertiesClient({ propertyManagers: initial, tenantId, 
                     aria-label={`Copy portal link for ${pm.full_name}`}
                   >
                     {copiedToken === pm.portal_token ? "✓ Copied!" : "Copy Portal Link"}
+                  </button>
+                  <button
+                    onClick={() => handleSendPortalLink(pm)}
+                    disabled={sendingId === pm.id}
+                    className="text-xs bg-white border border-gray-200 hover:border-forge text-forge font-600 px-3 py-1.5 rounded-lg transition-colors min-h-[32px] disabled:opacity-60"
+                  >
+                    {sendingId === pm.id ? "Sending…" : "Email Portal Link"}
                   </button>
                   <button
                     onClick={() => { setSelectedPm(pm); setView("add-property"); setError(""); }}

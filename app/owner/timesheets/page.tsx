@@ -82,6 +82,15 @@ export default async function TimesheetsPage({
       .order("clocked_in_at"),
   ]);
 
+  // Jobs scheduled this week for utilization
+  const { data: weekJobs } = await supabase
+    .from("jobs")
+    .select("id, scheduled_date, assigned_workers")
+    .eq("tenant_id", profile.tenant_id)
+    .gte("scheduled_date", weekStart)
+    .lte("scheduled_date", weekEnd)
+    .not("status", "in", '("cancelled")');
+
   const { data: requests } = await supabase
     .from("time_change_requests")
     .select("id, worker_id, time_entry_id, requested_date, requested_clocked_in_at, requested_clocked_out_at, reason, status, created_at, profiles!time_change_requests_worker_id_fkey(full_name)")
@@ -104,6 +113,14 @@ export default async function TimesheetsPage({
     const h = hoursWorked(e.clocked_in_at, e.clocked_out_at);
     if (h != null) {
       workerTotals[e.worker_id] = (workerTotals[e.worker_id] ?? 0) + h;
+    }
+  }
+
+  // Jobs per worker (scheduled this week)
+  const workerJobs: Record<string, number> = {};
+  for (const j of weekJobs ?? []) {
+    for (const w of j.assigned_workers ?? []) {
+      workerJobs[w] = (workerJobs[w] ?? 0) + 1;
     }
   }
 
@@ -155,6 +172,37 @@ export default async function TimesheetsPage({
           }))}
         />
       </div>
+
+      {/* Utilization summary */}
+      {workers?.length ? (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-6">
+          {workers.map((w: any) => {
+            const hours = (workerTotals[w.id] ?? 0).toFixed(1);
+            const jobs = workerJobs[w.id] ?? 0;
+            return (
+              <div key={w.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-steel text-white rounded-full flex items-center justify-center text-sm font-700">
+                      {w.full_name[0]}
+                    </div>
+                    <div>
+                      <p className="font-700 text-forge text-sm">{w.full_name}</p>
+                      <p className="text-xs text-mist">Jobs this week: {jobs}</p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-700 text-forge bg-amber/30 px-2 py-1 rounded-lg">
+                    {hours}h
+                  </span>
+                </div>
+                <p className="text-xs text-mist">
+                  Hours logged vs. scheduled jobs helps catch under- or over-loading.
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
 
       {!workers?.length ? (
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">

@@ -44,7 +44,7 @@ export default function NewEstimatePage() {
       if (pmList?.length) setPmId(pmList[0].id);
     };
     load();
-  }, []);
+  }, [supabase]);
 
   // Filter properties to selected PM
   const filteredProps = properties.filter((p) => !pmId || p.property_manager_id === pmId);

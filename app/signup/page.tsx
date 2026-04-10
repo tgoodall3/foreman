@@ -64,16 +64,9 @@ export default function SignupPage() {
       return;
     }
 
-    // 3. Redirect to Stripe checkout to collect payment
-    const checkoutRes = await fetch("/api/billing/checkout", { method: "POST" });
-    const checkoutData = await checkoutRes.json();
-    if (checkoutData.url) {
-      window.location.href = checkoutData.url;
-    } else {
-      // Fallback: go to billing page if checkout URL is missing
-      router.refresh();
-      router.push("/owner/settings/billing");
-    }
+    // 3. Go to onboarding (trial already set server-side)
+    router.refresh();
+    router.push("/owner/onboarding");
   };
 
   return (
@@ -166,9 +159,9 @@ export default function SignupPage() {
               {error && <div role="alert" className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">{error}</div>}
               <button type="submit" disabled={loading}
                 className="w-full bg-amber hover:bg-amber-dark disabled:opacity-50 text-forge font-display font-700 py-2.5 rounded-lg text-base transition-colors min-h-[44px]">
-                {loading ? "Setting up account…" : "Continue to Payment →"}
+                {loading ? "Setting up account…" : "Finish setup →"}
               </button>
-              <p className="text-xs text-mist text-center">$50/month · Cancel anytime</p>
+              <p className="text-xs text-mist text-center">14-day free trial · No card required until it ends</p>
             </form>
           )}
         </div>

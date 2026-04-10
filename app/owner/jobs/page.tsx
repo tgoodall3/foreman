@@ -68,7 +68,7 @@ export default async function JobsPage({ searchParams }: { searchParams: { statu
         ) : null;
       })()}
 
-      {/* Table */}
+      {/* List */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {!jobs?.length ? (
           <div className="p-12 text-center">
@@ -79,12 +79,48 @@ export default async function JobsPage({ searchParams }: { searchParams: { statu
           </div>
         ) : (
           <>
-            <table className="w-full text-sm" role="grid" aria-label="Jobs list">
+            <div className="divide-y divide-gray-100 md:hidden">
+              {(jobs as any[]).map((job) => {
+                const statusCfg   = JOB_STATUS_CONFIG[job.status as keyof typeof JOB_STATUS_CONFIG];
+                const priorityCfg = PRIORITY_CONFIG[job.priority as keyof typeof PRIORITY_CONFIG];
+                const needsInvoice = job.status === "completed" && !job.invoice_id;
+                return (
+                  <div key={job.id} className={`p-4 space-y-2 ${needsInvoice ? "bg-amber/5" : "bg-white"}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <Link href={`/owner/jobs/${job.id}`} className="font-600 text-forge hover:text-amber">{job.title}</Link>
+                        <p className="text-xs text-mist mt-0.5">{job.properties?.name || "—"}</p>
+                        {job.scheduled_date && (
+                          <p className="text-xs text-mist mt-0.5">📅 {formatDate(job.scheduled_date)}</p>
+                        )}
+                        <span className={`badge mt-1 ${priorityCfg.bg} ${priorityCfg.color}`}>{priorityCfg.label}</span>
+                      </div>
+                      <span className={`badge ${statusCfg.bg} ${statusCfg.color}`}>{statusCfg.label}</span>
+                    </div>
+                    {showInvoiceCta && needsInvoice && (
+                      <Link
+                        href={`/owner/invoices/new?job=${job.id}`}
+                        className="inline-flex items-center gap-1 bg-amber hover:bg-amber-dark text-forge font-display font-700 px-3 py-1.5 rounded-lg text-xs transition-colors"
+                      >
+                        Invoice →
+                      </Link>
+                    )}
+                    {showInvoiceCta && job.invoice_id && (
+                      <Link href={`/owner/invoices/${job.invoice_id}`} className="text-xs text-amber hover:underline">
+                        View invoice
+                      </Link>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <table className="w-full text-sm hidden md:table" role="grid" aria-label="Jobs list">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
                   <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Job</th>
-                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider hidden sm:table-cell">Property</th>
-                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider hidden md:table-cell">Scheduled</th>
+                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Property</th>
+                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Scheduled</th>
                   <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Status</th>
                   {showInvoiceCta && (
                     <th scope="col" className="px-4 py-3" aria-label="Invoice action" />
@@ -113,10 +149,10 @@ export default async function JobsPage({ searchParams }: { searchParams: { statu
                           {priorityCfg.label}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-mist hidden sm:table-cell">
+                      <td className="px-4 py-3 text-mist">
                         {job.properties?.name || "—"}
                       </td>
-                      <td className="px-4 py-3 text-mist hidden md:table-cell">
+                      <td className="px-4 py-3 text-mist">
                         {job.scheduled_date ? formatDate(job.scheduled_date) : "—"}
                       </td>
                       <td className="px-4 py-3">

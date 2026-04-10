@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 
@@ -28,6 +28,7 @@ interface WorkOrder {
   priority: string;
   created_at: string;
   properties?: { name: string } | null;
+  job_status?: string | null;
 }
 
 interface Invoice {
@@ -74,8 +75,9 @@ function formatDate(dateStr: string) {
 
 const WO_STATUS: Record<string, { label: string; bg: string; color: string }> = {
   pending:     { label: "Pending",     bg: "bg-yellow-100", color: "text-yellow-800" },
+  accepted:    { label: "Accepted",    bg: "bg-blue-100",   color: "text-blue-800"   },
   in_progress: { label: "In Progress", bg: "bg-blue-100",   color: "text-blue-800"   },
-  completed:   { label: "Completed",   bg: "bg-green-100",  color: "text-green-800"  },
+  completed:   { label: "Work completed", bg: "bg-green-100",  color: "text-green-800"  },
   cancelled:   { label: "Cancelled",   bg: "bg-gray-100",   color: "text-gray-500"   },
 };
 
@@ -252,12 +254,14 @@ function PortalHeader({ tenantName, pmName }: { tenantName: string; pmName: stri
     <header className="bg-forge px-4 py-4">
       <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-amber rounded flex items-center justify-center shrink-0">
-            <span className="font-display font-800 text-forge text-lg">F</span>
+          <div className="w-9 h-9 bg-amber rounded-lg flex items-center justify-center shrink-0">
+            <span className="font-display font-800 text-forge text-lg">
+              {tenantName?.[0] ?? "F"}
+            </span>
           </div>
           <div>
-            <p className="font-display font-800 text-white text-lg leading-none tracking-wide">FOREMAN</p>
-            <p className="text-mist text-xs">{tenantName}</p>
+            <p className="font-display font-800 text-white text-lg leading-none tracking-wide">{tenantName || "Your contractor"}</p>
+            <p className="text-mist text-xs">Managed by {tenantName || "your contractor"}</p>
           </div>
         </div>
         <p className="text-mist text-xs text-right">Hi, {pmName.split(" ")[0]}</p>
@@ -505,7 +509,7 @@ function PayButton({ invoiceId, token }: { invoiceId: string; token: string }) {
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
-type Tab = "overview" | "work-orders" | "invoices";
+type Tab = "home" | "work-orders" | "invoices";
 
 export default function PortalDashboard({
   token,
@@ -515,7 +519,7 @@ export default function PortalDashboard({
   workOrders,
   invoices,
   comments,
-  initialTab = "overview",
+  initialTab = "home",
   paidSuccess = false,
 }: Props) {
   const [tab, setTab] = useState<Tab>(initialTab);
@@ -524,7 +528,13 @@ export default function PortalDashboard({
   const [propertiesState, setProperties] = useState<Property[]>(properties);
   const [commentsState, setComments] = useState<Comment[]>(comments);
 
-  const openWOs   = workOrders.filter((w) => !["completed", "cancelled"].includes(w.status));
+  const deriveStatus = (wo: WorkOrder) => {
+    if (wo.job_status === "completed") return "completed";
+    if (wo.job_status === "in_progress" || wo.job_status === "scheduled") return "in_progress";
+    return wo.status;
+  };
+
+  const openWOs   = workOrders.filter((w) => !["completed", "cancelled"].includes(deriveStatus(w)));
   const unpaidInv = invoices.filter((i) => ["sent", "overdue"].includes(i.status));
   const unpaidTotal = unpaidInv.reduce((s, i) => s + i.total, 0);
   const hasProperties = propertiesState.length > 0;
@@ -549,9 +559,9 @@ export default function PortalDashboard({
       {/* Tab nav */}
       <nav className="bg-white border-b border-gray-200 sticky top-0 z-10" aria-label="Portal sections">
         <div className="max-w-2xl mx-auto flex">
-          {(["overview", "work-orders", "invoices"] as Tab[]).map((t) => (
-            <button
-              key={t}
+          {(["home", "work-orders", "invoices"] as Tab[]).map((t) => (
+              <button
+                key={t}
               onClick={() => { setTab(t); setShowForm(propertiesState.length === 0 ? true : false); }}
               className={`flex-1 py-3 text-sm font-600 transition-colors border-b-2 ${
                 tab === t
@@ -559,7 +569,7 @@ export default function PortalDashboard({
                   : "border-transparent text-mist hover:text-forge"
               }`}
             >
-              {t === "overview"     ? "Overview"      : null}
+              {t === "home"     ? "Home"      : null}
               {t === "work-orders"  ? (
                 <span className="flex items-center justify-center gap-1.5">
                   Work Orders
@@ -609,7 +619,7 @@ export default function PortalDashboard({
         )}
 
         {/* ── Overview ── */}
-        {tab === "overview" && (
+        {tab === "home" && (
           <>
             {/* Summary cards */}
             <div className="grid grid-cols-2 gap-3">
@@ -691,6 +701,9 @@ export default function PortalDashboard({
                         <p className="text-xs text-mist mt-0.5">
                           {prop?.name ?? ""}
                           {wo.created_at ? ` · ${formatDate(wo.created_at.split("T")[0])}` : ""}
+                      {wo.job_status === "completed" && (
+                        <p className="text-xs text-green-700 font-700 mt-1">Work completed</p>
+                      )}
                         </p>
                       </div>
                     );
@@ -780,7 +793,8 @@ export default function PortalDashboard({
             ) : (
               <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
                 {workOrders.map((wo) => {
-                  const s = WO_STATUS[wo.status] ?? WO_STATUS.pending;
+                  const derived = deriveStatus(wo);
+                  const s = WO_STATUS[derived] ?? WO_STATUS.pending;
                   const prop = Array.isArray(wo.properties) ? wo.properties[0] : wo.properties;
                   const woComments = commentsState.filter((c) => c.work_order_id === wo.id);
                   return (
@@ -800,9 +814,13 @@ export default function PortalDashboard({
                       {woComments.length > 0 && (
                         <div className="bg-gray-50 border border-gray-100 rounded-lg p-2 mt-2 space-y-1">
                           {woComments.map((c) => (
-                            <p key={c.id} className="text-xs text-steel">
-                              <span className="font-700 text-forge">{c.property_managers?.full_name || "You"}:</span> {c.message}
-                            </p>
+                            <div key={c.id} className="text-xs text-steel flex items-start gap-2">
+                              <span className="font-700 text-forge shrink-0">{c.property_managers?.full_name || "You"}:</span>
+                              <div className="space-y-0.5">
+                                <p>{c.message}</p>
+                                <p className="text-[11px] text-mist">{formatDate(c.created_at.split("T")[0])}</p>
+                              </div>
+                            </div>
                           ))}
                         </div>
                       )}

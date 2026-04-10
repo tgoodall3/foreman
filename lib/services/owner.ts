@@ -31,6 +31,8 @@ export async function getOwnerDashboardData(profile: Profile) {
     unsendResult,
     timeRequestsResult,
     staleOrdersResult,
+
+    estimatesResult,
   ] = await Promise.all([
     // TODAY'S jobs — full detail for the primary view
     supabase
@@ -125,11 +127,21 @@ export async function getOwnerDashboardData(profile: Profile) {
       .eq("tenant_id", profile.tenant_id)
       .eq("status", "pending")
       .lt("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
+
+    // Estimate conversion: sent/approved/converted vs total
+    supabase
+      .from("estimates")
+      .select("status")
+      .eq("tenant_id", profile.tenant_id),
   ]);
 
   const allInvoices      = (invoicesResult.data ?? []) as any[];
   const completedMonth   = monthJobsResult.data ?? [];
   const jobsWithHours    = completedMonth.filter((j: any) => j.actual_hours != null);
+  const allEstimates     = (estimatesResult.data ?? []) as any[];
+  const estimateTotals   = allEstimates.length;
+  const estimateWins     = allEstimates.filter((e: any) => ["approved", "converted"].includes(e.status)).length;
+  const estimateWinRate  = estimateTotals ? Math.round((estimateWins / estimateTotals) * 100) : 0;
 
   return {
     today:          today,
@@ -145,6 +157,8 @@ export async function getOwnerDashboardData(profile: Profile) {
       avgJobHours:        jobsWithHours.length ? jobsWithHours.reduce((s: number, j: any) => s + j.actual_hours, 0) / jobsWithHours.length : null,
       activeWorkers:      workersResult.data?.length ?? 0,
       pendingWorkOrders:  workOrdersResult.data?.length ?? 0,
+      estimateWinRate,
+      estimateTotals,
     },
 
     // Action-needed items
@@ -280,7 +294,7 @@ export async function getOwnerInvoiceJob(profile: Profile, jobId: string) {
   const supabase = await createServerSideClient();
   const { data, error } = await supabase
     .from("jobs")
-    .select("id, title, line_items")
+    .select("id, title, line_items, property_manager_id")
     .eq("tenant_id", profile.tenant_id)
     .eq("id", jobId)
     .eq("status", "completed")
@@ -295,7 +309,7 @@ export async function getOwnerInvoiceJob(profile: Profile, jobId: string) {
     return null;
   }
 
-  return data as { id: string; title: string; line_items: any[] };
+  return data as { id: string; title: string; line_items: any[]; property_manager_id?: string | null };
 }
 
 export async function getOwnerInvoice(profile: Profile, invoiceId: string) {

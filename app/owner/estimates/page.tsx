@@ -37,7 +37,10 @@ export default async function EstimatesPage({
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="font-display font-800 text-3xl text-forge">Estimates</h1>
-          <p className="text-mist text-sm mt-1">{estimates?.length ?? 0} shown</p>
+          <p className="text-mist text-sm mt-1">
+            {countsAll(allForCount)} total
+            {searchParams.status ? ` · ${estimates?.length ?? 0} shown` : ""}
+          </p>
         </div>
         <Link
           href="/owner/estimates/new"
@@ -142,4 +145,8 @@ export default async function EstimatesPage({
       </div>
     </div>
   );
+}
+
+function countsAll(rows: any[] | null | undefined) {
+  return rows?.length ?? 0;
 }

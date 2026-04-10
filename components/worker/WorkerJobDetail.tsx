@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase";
 import { formatDate, formatDateTime, JOB_STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/utils";
 import Link from "next/link";
@@ -106,7 +107,7 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
       return () => window.removeEventListener("online", onlineHandler);
   }, []);
 
-  const handleClock = async (dir: "in" | "out") => {
+  const handleClock = async (dir: "in" | "out"): Promise<boolean> => {
     setClocking(dir); setError("");
     const res = await fetch(`/api/timesheets/clock-${dir}`, { method: "POST" });
     const data = await res.json().catch(() => ({}));
@@ -121,20 +122,26 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
           localStorage.setItem("clockQueue", JSON.stringify(queue));
           setError("Offline – queued to sync when back online.");
           setClocking(null);
-          return;
+          return false;
         }
       }
       setError(data.error || `Failed to clock ${dir}.`);
       setClocking(null);
-      return;
+      return false;
     }
     if (dir === "in") setClockedInEntry(data.entry || null);
     if (dir === "out") setClockedInEntry(null);
     setClocking(null);
     router.refresh();
+    return true;
   };
 
   const handleStatusUpdate = async (nextStatus: string) => {
+    // If starting a job, ensure we clock in first
+    if (nextStatus === "in_progress" && !clockedInEntry) {
+      const ok = await handleClock("in");
+      if (!ok) return;
+    }
     // For "complete", show hours prompt first
     if (nextStatus === "completed") {
       setShowHoursPrompt(true);
@@ -282,7 +289,14 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
             <span className="text-xs text-mist">📅 {formatDate(job.scheduled_date)}{job.scheduled_time && ` · ${job.scheduled_time}`}</span>
           )}
         </div>
-      </div>
+        </div>
+
+        <button
+          onClick={() => handleStatusUpdate("in_progress")}
+          className="w-full mb-4 bg-amber text-forge font-display font-700 py-3 rounded-xl text-sm shadow hover:bg-amber-dark transition-colors"
+        >
+          Start Job (clock in + begin)
+        </button>
 
       {/* Run panel: clock + status actions */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
@@ -495,9 +509,11 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
             {photos.map((photo) => (
               <div key={photo.id}>
                 <a href={photo.url} target="_blank" rel="noopener noreferrer" aria-label={`View ${photo.type} photo`}>
-                  <img
+                  <Image
                     src={photo.url}
                     alt={photo.caption || `${photo.type} photo`}
+                    width={320}
+                    height={180}
                     className="w-full h-24 object-cover rounded-lg border border-gray-200"
                   />
                 </a>

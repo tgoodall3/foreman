@@ -1,0 +1,88 @@
+import Link from "next/link";
+import { requireOwner } from "@/lib/auth";
+import { createServerSideClient } from "@/lib/supabase-server";
+import { formatDate } from "@/lib/utils";
+
+export const dynamic = "force-dynamic";
+
+const RECURRENCE_MAP: Record<string, number> = {
+  daily: 1,
+  weekly: 7,
+  biweekly: 14,
+  monthly: 31, // simple heuristic
+};
+
+export default async function RecurringHealthPage() {
+  const profile = await requireOwner();
+  const supabase = await createServerSideClient();
+  const today = new Date().toISOString().split("T")[0];
+
+  const { data: jobs } = await supabase
+    .from("jobs")
+    .select("id, title, status, recurrence, scheduled_date, updated_at, properties(name)")
+    .eq("tenant_id", profile.tenant_id)
+    .neq("recurrence", "none")
+    .order("scheduled_date", { ascending: true });
+
+  const flagged = (jobs ?? []).filter((job: any) => {
+    if (!job.scheduled_date) return false;
+    const days = RECURRENCE_MAP[job.recurrence as keyof typeof RECURRENCE_MAP] ?? 7;
+    const dueDate = new Date(job.scheduled_date + "T00:00:00Z");
+    const cutoff = new Date();
+    cutoff.setUTCDate(cutoff.getUTCDate() - days);
+    return job.status !== "completed" && dueDate < new Date(today) && dueDate < cutoff;
+  });
+
+  return (
+    <div className="p-6 max-w-5xl space-y-4">
+      <div>
+        <p className="text-xs uppercase tracking-[0.2em] text-mist font-700">Reports</p>
+        <h1 className="font-display font-800 text-3xl text-forge leading-tight">Recurring Job Health</h1>
+        <p className="text-mist text-sm mt-1">Recurring jobs that are overdue or likely missed.</p>
+      </div>
+
+      {!flagged.length ? (
+        <div className="bg-white border border-gray-200 rounded-xl p-8 text-center text-mist text-sm">
+          No overdue recurring jobs. 🎯
+        </div>
+      ) : (
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-100">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">Job</th>
+                <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">Recurrence</th>
+                <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">Scheduled</th>
+                <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">Status</th>
+                <th className="px-4 py-3 text-right text-xs font-700 text-mist uppercase tracking-wide">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {flagged.map((job: any) => {
+                const prop = Array.isArray(job.properties) ? job.properties[0] : job.properties;
+                return (
+                  <tr key={job.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3">
+                      <Link href={`/owner/jobs/${job.id}`} className="text-forge font-600 hover:text-amber">
+                        {job.title}
+                      </Link>
+                      {prop?.name && <p className="text-xs text-mist mt-0.5">{prop.name}</p>}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-steel capitalize">{job.recurrence}</td>
+                    <td className="px-4 py-3 text-sm text-steel">{job.scheduled_date ? formatDate(job.scheduled_date) : "—"}</td>
+                    <td className="px-4 py-3 text-sm text-steel">{job.status}</td>
+                    <td className="px-4 py-3 text-right">
+                      <Link href={`/owner/jobs/${job.id}/edit`} className="text-xs font-700 text-amber hover:underline">
+                        Reschedule
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}

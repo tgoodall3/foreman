@@ -41,7 +41,7 @@ export default function NewJobPage() {
       setWorkers(wrks || []);
     };
     load();
-  }, []);
+  }, [supabase]);
 
   const toggleWorker = (id: string) => {
     setAssignedWorkers((prev) => prev.includes(id) ? prev.filter((w) => w !== id) : [...prev, id]);

@@ -73,6 +73,7 @@ function WorkOrderCard({ wo }: { wo: any }) {
     accepted: "bg-green-100 text-green-700",
     declined: "bg-gray-100 text-gray-500",
   };
+  const job = Array.isArray(wo.jobs) ? wo.jobs[0] : (wo as any).jobs?.[0];
 
   return (
     <Link
@@ -92,6 +93,13 @@ function WorkOrderCard({ wo }: { wo: any }) {
             {" · "}{wo.properties?.name}
           </p>
           <p className="text-xs text-mist mt-1">{formatDate(wo.created_at)}</p>
+          {job && (
+            <div className="mt-2">
+              <Link href={`/owner/jobs/${job.id}`} className="text-xs font-700 text-amber hover:underline">
+                View job →
+              </Link>
+            </div>
+          )}
         </div>
         <span className="text-mist text-sm shrink-0">→</span>
       </div>

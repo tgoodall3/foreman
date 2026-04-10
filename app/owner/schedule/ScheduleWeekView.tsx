@@ -139,6 +139,17 @@ function JobActionSheet({
       .eq("id", job.id);
     setSavingWorkers(false);
     if (err) { setError("Failed to update workers."); return; }
+
+    // Notify newly added workers (best-effort)
+    const added = selectedWorkers.filter((id) => !(job.assigned_workers ?? []).includes(id));
+    if (added.length > 0) {
+      fetch("/api/jobs/notify-assigned", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobId: job.id, workerIds: added }),
+      }).catch(() => {});
+    }
+
     setSaved("Workers updated");
     setTimeout(() => { setSaved(""); onSaved(); }, 800);
   };
@@ -493,7 +504,7 @@ export default function ScheduleWeekView({ days, unscheduled, workerMap, weekSta
       </div>
 
       {/* ── Day columns ── */}
-      <div className="space-y-3 lg:space-y-0 lg:grid lg:grid-cols-7 lg:gap-3 overflow-x-auto pb-2">
+      <div className="space-y-3 pb-2">
         {days.map(({ date, jobs }, i) => {
           const isToday  = date === today;
           const dayNum   = new Date(date + "T00:00:00Z").getUTCDate();
@@ -502,24 +513,22 @@ export default function ScheduleWeekView({ days, unscheduled, workerMap, weekSta
           return (
             <div
               key={date}
-              className={`min-w-[220px] rounded-xl border ${
+              className={`w-full rounded-xl border ${
                 isToday
                   ? "border-amber bg-amber/5"
-                  : isWeekend
-                  ? "border-gray-100 bg-gray-50/50"
                   : "border-gray-200 bg-white"
-              }`}
+              } shadow-sm`}
             >
               {/* Day header */}
               <div
                 className={`flex items-center justify-between px-3 py-2 border-b ${
                   isToday ? "border-amber/30" : "border-gray-100"
-                }`}
+                } bg-white sticky top-0 z-10`}
               >
                 <div className="flex items-center gap-2">
                   <span
                     className={`font-display font-700 text-sm ${
-                      isToday ? "text-amber" : isWeekend ? "text-mist" : "text-forge"
+                      isToday ? "text-amber" : "text-forge"
                     }`}
                   >
                     {DAY_NAMES[i]}
@@ -528,8 +537,8 @@ export default function ScheduleWeekView({ days, unscheduled, workerMap, weekSta
                     className={
                       isToday
                         ? "w-6 h-6 bg-amber text-forge font-700 rounded-full flex items-center justify-center text-xs"
-                        : "text-sm text-mist"
-                    }
+                        : "text-sm text-steel"
+                  }
                   >
                     {dayNum}
                   </span>
