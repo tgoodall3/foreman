@@ -107,7 +107,7 @@ export default function OnboardingWizard({ tenantId, tenantName }: Props) {
             <span className="font-display font-800 text-forge text-3xl">F</span>
           </div>
           <h1 className="font-display font-800 text-3xl text-forge">Welcome to Foreman</h1>
-          <p className="text-mist mt-2">Let&amp;apos;s get <strong>{tenantName}</strong> set up in 3 quick steps.</p>
+          <p className="text-mist mt-2">Let&apos;s get <strong>{tenantName}</strong> set up in 3 quick steps.</p>
         </div>
 
         <div className="space-y-3 mb-8">
