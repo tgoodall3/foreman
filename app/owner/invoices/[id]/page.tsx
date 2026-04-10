@@ -4,6 +4,7 @@ import { requireOwner } from "@/lib/auth";
 import { getOwnerInvoice } from "@/lib/services/owner";
 import { formatDate, formatCurrency, INVOICE_STATUS_CONFIG } from "@/lib/utils";
 import InvoiceActions from "./InvoiceActions";
+import SendInvoiceWithEmail from "@/components/owner/SendInvoiceWithEmail";
 
 export default async function InvoiceDetailPage({ params }: { params: { id: string } }) {
   const profile = await requireOwner();
@@ -41,29 +42,26 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
   }
 
   return (
-    <div className="p-6 max-w-5xl">
-      <div className="flex items-center gap-2 mb-6">
+    <div className="p-6 max-w-3xl mx-auto">
+      <div className="flex items-center gap-2 mb-6 justify-center">
         <Link href="/owner/invoices" className="text-mist hover:text-forge text-sm transition-colors">Invoices</Link>
         <span className="text-mist">/</span>
         <span className="text-sm text-forge">{invoice.invoice_number}</span>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 mb-6 space-y-4">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div>
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:text-left text-center">
+          <div className="w-full">
             <p className="text-xs uppercase tracking-wider text-mist font-600">Invoice</p>
             <h1 className="font-display font-800 text-2xl sm:text-3xl text-forge mt-2">{invoice.invoice_number}</h1>
             <p className="text-sm text-mist mt-1">Created {formatDate(invoice.created_at)}</p>
           </div>
-          <div className="flex items-center gap-2 flex-wrap justify-end">
+          <div className="flex items-center gap-2 flex-wrap justify-center md:justify-end">
             <span className={`badge ${statusCfg.bg} ${statusCfg.color}`}>{statusCfg.label}</span>
-            {invoice.status !== "paid" && (
-              <InvoiceActions invoiceId={invoice.id} status={invoice.status} />
-            )}
           </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-3 text-center sm:text-left">
           <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
             <p className="text-xs uppercase tracking-wider text-mist font-600">Due date</p>
             <p className="font-600 text-forge mt-1">{formatDate(invoice.due_date)}</p>
@@ -82,8 +80,8 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
 
       <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
         <h2 className="font-display font-700 text-lg text-forge mb-4">Line items</h2>
-        <div className="overflow-hidden rounded-xl border border-gray-100">
-          <table className="min-w-full text-sm" aria-label="Invoice line items">
+        <div className="overflow-x-auto rounded-xl border border-gray-100">
+          <table className="min-w-full text-sm text-left md:text-left" aria-label="Invoice line items">
             <thead className="bg-gray-50 text-left text-xs uppercase tracking-wider text-mist">
               <tr>
                 <th className="px-4 py-3">Description</th>
@@ -141,7 +139,13 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
       )}
 
       {invoice.status !== "paid" && (
-        <InvoiceActions invoiceId={invoice.id} status={invoice.status} />
+        <div className="space-y-4 mt-6">
+          <InvoiceActions invoiceId={invoice.id} status={invoice.status} />
+          <SendInvoiceWithEmail
+            invoiceId={invoice.id}
+            defaultEmail={invoice.property_managers?.email || ""}
+          />
+        </div>
       )}
     </div>
   );

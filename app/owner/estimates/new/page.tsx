@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -10,23 +10,25 @@ interface LineItem { description: string; quantity: number; unit_price: number }
 const inp = "w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-amber";
 
 export default function NewEstimatePage() {
-  const router  = useRouter();
+  const router = useRouter();
   const supabase = createClient();
 
-  const [pms, setPms]               = useState<any[]>([]);
+  const [pms, setPms] = useState<any[]>([]);
   const [properties, setProperties] = useState<any[]>([]);
-  const [pmId, setPmId]             = useState("");
+  const [usePm, setUsePm] = useState(true);
+  const [pmId, setPmId] = useState("");
   const [propertyId, setPropertyId] = useState("");
-  const [title, setTitle]           = useState("");
+  const [clientName, setClientName] = useState("");
+  const [clientEmail, setClientEmail] = useState("");
+  const [clientPhone, setClientPhone] = useState("");
+  const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [taxRate, setTaxRate]       = useState(0);
+  const [taxRate, setTaxRate] = useState(0);
   const [validUntil, setValidUntil] = useState("");
-  const [notes, setNotes]           = useState("");
-  const [lineItems, setLineItems]   = useState<LineItem[]>([
-    { description: "", quantity: 1, unit_price: 0 },
-  ]);
-  const [loading, setLoading]       = useState(false);
-  const [error, setError]           = useState("");
+  const [notes, setNotes] = useState("");
+  const [lineItems, setLineItems] = useState<LineItem[]>([{ description: "", quantity: 1, unit_price: 0 }]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const load = async () => {
@@ -46,23 +48,23 @@ export default function NewEstimatePage() {
     load();
   }, [supabase]);
 
-  // Filter properties to selected PM
   const filteredProps = properties.filter((p) => !pmId || p.property_manager_id === pmId);
 
   const addLineItem = () => setLineItems((prev) => [...prev, { description: "", quantity: 1, unit_price: 0 }]);
   const removeLineItem = (i: number) => setLineItems((prev) => prev.filter((_, idx) => idx !== i));
   const updateLineItem = (i: number, field: keyof LineItem, value: string | number) => {
-    setLineItems((prev) => prev.map((item, idx) => idx === i ? { ...item, [field]: value } : item));
+    setLineItems((prev) => prev.map((item, idx) => (idx === i ? { ...item, [field]: value } : item)));
   };
 
   const subtotal = lineItems.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
-  const taxAmount = Math.round(subtotal * taxRate / 100 * 100) / 100;
+  const taxAmount = Math.round((subtotal * taxRate) / 100 * 100) / 100;
   const total = subtotal + taxAmount;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) { setError("Title is required"); return; }
-    if (!pmId)         { setError("Select a property manager"); return; }
+    if (usePm && !pmId) { setError("Select a property manager"); return; }
+    if (!usePm && !clientName.trim()) { setError("Client name is required"); return; }
     if (lineItems.some((l) => !l.description.trim())) { setError("All line items need a description"); return; }
 
     setLoading(true); setError("");
@@ -71,14 +73,18 @@ export default function NewEstimatePage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        propertyManagerId: pmId,
+        usePm,
+        propertyManagerId: usePm ? pmId : undefined,
         propertyId: propertyId || undefined,
+        clientName: usePm ? undefined : clientName.trim(),
+        clientEmail: usePm ? undefined : (clientEmail.trim() || undefined),
+        clientPhone: usePm ? undefined : (clientPhone.trim() || undefined),
         title: title.trim(),
         description: description.trim() || undefined,
         lineItems: lineItems.map((l) => ({
           description: l.description,
-          quantity:    Number(l.quantity),
-          unit_price:  Number(l.unit_price),
+          quantity: Number(l.quantity),
+          unit_price: Number(l.unit_price),
         })),
         taxRate: taxRate || undefined,
         validUntil: validUntil || undefined,
@@ -91,8 +97,7 @@ export default function NewEstimatePage() {
     router.push(`/owner/estimates/${data.estimateId}`);
   };
 
-  const fmt = (n: number) =>
-    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
+  const fmt = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
 
   return (
     <div className="p-6 max-w-3xl">
@@ -104,32 +109,65 @@ export default function NewEstimatePage() {
       <h1 className="font-display font-800 text-3xl text-forge mb-6">New Estimate</h1>
 
       <form onSubmit={handleSubmit} noValidate className="space-y-5">
-        {/* Client */}
         <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-          <h2 className="font-display font-700 text-lg text-forge">Client</h2>
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="pm" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">
-                Property Manager *
-              </label>
-              <select id="pm" value={pmId} onChange={(e) => { setPmId(e.target.value); setPropertyId(""); }} className={inp}>
-                <option value="">— Select —</option>
-                {pms.map((pm) => <option key={pm.id} value={pm.id}>{pm.full_name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="property" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">
-                Property
-              </label>
-              <select id="property" value={propertyId} onChange={(e) => setPropertyId(e.target.value)} className={inp}>
-                <option value="">— None —</option>
-                {filteredProps.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-            </div>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <h2 className="font-display font-700 text-lg text-forge">Client</h2>
+            <label className="flex items-center gap-2 text-sm text-forge font-600">
+              <input
+                type="checkbox"
+                checked={usePm}
+                onChange={(e) => {
+                  const next = e.target.checked;
+                  setUsePm(next);
+                  if (next && pms[0]) setPmId(pms[0].id);
+                }}
+                className="rounded border-gray-300 text-amber focus:ring-amber"
+              />
+              Estimate is for a property manager
+            </label>
           </div>
+
+          {usePm ? (
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="pm" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">
+                  Property Manager *
+                </label>
+                <select id="pm" value={pmId} onChange={(e) => { setPmId(e.target.value); setPropertyId(""); }} className={inp}>
+                  <option value="">— Select —</option>
+                  {pms.map((pm) => (
+                    <option key={pm.id} value={pm.id}>{pm.full_name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="property" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Property</label>
+                <select id="property" value={propertyId} onChange={(e) => setPropertyId(e.target.value)} className={inp} disabled={!pmId}>
+                  <option value="">— None —</option>
+                  {filteredProps.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div className="sm:col-span-2">
+                <label htmlFor="client-name" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Client name *</label>
+                <input id="client-name" value={clientName} onChange={(e) => setClientName(e.target.value)} className={inp} placeholder="Customer full name" />
+              </div>
+              <div>
+                <label htmlFor="client-email" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Client email</label>
+                <input id="client-email" type="email" value={clientEmail} onChange={(e) => setClientEmail(e.target.value)} className={inp} placeholder="customer@example.com" />
+              </div>
+              <div>
+                <label htmlFor="client-phone" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Client phone</label>
+                <input id="client-phone" type="tel" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} className={inp} placeholder="(555) 123-4567" />
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Details */}
         <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
           <h2 className="font-display font-700 text-lg text-forge">Details</h2>
           <div>
@@ -138,7 +176,7 @@ export default function NewEstimatePage() {
           </div>
           <div>
             <label htmlFor="desc" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Scope of Work</label>
-            <textarea id="desc" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className={inp + " resize-none"} placeholder="Describe what will be done…" />
+            <textarea id="desc" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className={inp + " resize-none"} placeholder="Describe what will be done..." />
           </div>
           <div className="grid sm:grid-cols-2 gap-3">
             <div>
@@ -152,13 +190,10 @@ export default function NewEstimatePage() {
           </div>
         </div>
 
-        {/* Line Items */}
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-display font-700 text-lg text-forge">Line Items</h2>
-            <button type="button" onClick={addLineItem} className="text-sm text-amber hover:underline font-600">
-              + Add item
-            </button>
+            <button type="button" onClick={addLineItem} className="text-sm text-amber hover:underline font-600">+ Add item</button>
           </div>
 
           <div className="space-y-3">
@@ -170,7 +205,7 @@ export default function NewEstimatePage() {
                     type="text"
                     value={item.description}
                     onChange={(e) => updateLineItem(i, "description", e.target.value)}
-                    placeholder="Labor, materials…"
+                    placeholder="Labor, materials..."
                     className={inp}
                     required
                   />
@@ -201,21 +236,13 @@ export default function NewEstimatePage() {
                 <div className="col-span-1 flex items-end pb-0.5">
                   {i === 0 && <p className="text-xs text-mist mb-1 uppercase tracking-wider font-600 invisible">x</p>}
                   {lineItems.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeLineItem(i)}
-                      className="text-mist hover:text-red-500 transition-colors p-2"
-                      aria-label="Remove item"
-                    >
-                      ✕
-                    </button>
+                    <button type="button" onClick={() => removeLineItem(i)} className="text-mist hover:text-red-500 transition-colors p-2" aria-label="Remove item">×</button>
                   )}
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Totals */}
           <div className="mt-5 pt-4 border-t border-gray-100 space-y-1 text-sm">
             <div className="flex justify-between text-mist">
               <span>Subtotal</span><span className="font-600">{fmt(subtotal)}</span>
@@ -231,30 +258,17 @@ export default function NewEstimatePage() {
           </div>
         </div>
 
-        {/* Notes */}
         <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <label htmlFor="notes" className="block text-xs font-600 text-mist uppercase tracking-wider mb-2">
-            Notes (visible to client)
-          </label>
-          <textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className={inp + " resize-none"} placeholder="Payment terms, warranty info, special conditions…" />
+          <label htmlFor="notes" className="block text-xs font-600 text-mist uppercase tracking-wider mb-2">Notes (visible to client)</label>
+          <textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className={inp + " resize-none"} placeholder="Payment terms, warranty info, special conditions..." />
         </div>
 
-        {error && (
-          <div role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-            {error}
-          </div>
-        )}
+        {error && <div role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</div>}
 
         <div className="flex gap-3">
-          <Link href="/owner/estimates" className="px-5 py-2.5 border border-gray-300 rounded-lg text-sm font-600 hover:bg-gray-50 transition-colors">
-            Cancel
-          </Link>
-          <button
-            type="submit"
-            disabled={loading || !title.trim() || !pmId}
-            className="flex-1 bg-amber hover:bg-amber-dark disabled:opacity-50 text-forge font-display font-700 py-2.5 rounded-lg text-base transition-colors min-h-[44px]"
-          >
-            {loading ? "Creating…" : "Create Estimate"}
+          <Link href="/owner/estimates" className="px-5 py-2.5 border border-gray-300 rounded-lg text-sm font-600 hover:bg-gray-50 transition-colors">Cancel</Link>
+          <button type="submit" disabled={loading || !title.trim() || (usePm && !pmId) || (!usePm && !clientName.trim())} className="flex-1 bg-amber hover:bg-amber-dark disabled:opacity-50 text-forge font-display font-700 py-2.5 rounded-lg text-base transition-colors min-h-[44px]">
+            {loading ? "Creating..." : "Create Estimate"}
           </button>
         </div>
       </form>

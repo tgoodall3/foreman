@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -21,6 +21,7 @@ interface PropertyManagerOption {
   id: string;
   full_name: string;
   company?: string;
+  email?: string | null;
 }
 
 interface NewInvoiceFormProps {
@@ -53,8 +54,8 @@ export default function NewInvoiceForm({ jobs, propertyManagers, selectedJob }: 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const selectedJobTitle = jobs.find((job) => job.id === jobId)?.title;
   const selectedManager = propertyManagers.find((manager) => manager.id === propertyManagerId);
+  const [sendTo, setSendTo] = useState(selectedManager?.email || propertyManagers[0]?.email || "");
 
   const subtotal = useMemo(() => {
     return lineItems.reduce((sum, item) => {
@@ -84,22 +85,10 @@ export default function NewInvoiceForm({ jobs, propertyManagers, selectedJob }: 
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!jobId) {
-      setError("Select a completed job before creating an invoice.");
-      return;
-    }
-    if (!propertyManagerId) {
-      setError("Choose a property manager.");
-      return;
-    }
-    if (!dueDate) {
-      setError("A due date is required.");
-      return;
-    }
-    if (!lineItemsAreValid) {
-      setError("Please add at least one valid line item.");
-      return;
-    }
+    if (!jobId) { setError("Select a completed job before creating an invoice."); return; }
+    if (!propertyManagerId) { setError("Choose a property manager."); return; }
+    if (!dueDate) { setError("A due date is required."); return; }
+    if (!lineItemsAreValid) { setError("Please add at least one valid line item."); return; }
 
     setLoading(true);
     setError("");
@@ -115,6 +104,7 @@ export default function NewInvoiceForm({ jobs, propertyManagers, selectedJob }: 
           dueDate,
           notes: notes.trim(),
           taxRate: Number(taxRate),
+          emailOverride: sendTo?.trim() || undefined,
           lineItems: lineItems.map((item) => ({
             description: item.description.trim(),
             quantity: Number(item.quantity),
@@ -163,6 +153,19 @@ export default function NewInvoiceForm({ jobs, propertyManagers, selectedJob }: 
             <p className="text-xs text-mist mt-2">Billing contact: {selectedManager.full_name}</p>
           )}
         </div>
+
+        <div className="md:col-span-2">
+          <label htmlFor="send-to" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Send to (optional)</label>
+          <input
+            id="send-to"
+            type="email"
+            value={sendTo}
+            onChange={(e) => setSendTo(e.target.value)}
+            placeholder="customer@example.com"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-amber"
+          />
+          <p className="text-[11px] text-mist mt-1">Overrides the PM email on file when you send.</p>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-5 grid gap-5 md:grid-cols-2">
@@ -193,9 +196,12 @@ export default function NewInvoiceForm({ jobs, propertyManagers, selectedJob }: 
           </button>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-5">
           {lineItems.map((item, index) => (
-            <div key={index} className="grid gap-3 md:grid-cols-[2fr_1fr_1fr_auto] items-end">
+            <div
+              key={index}
+              className="grid gap-3 sm:grid-cols-[2fr_1fr_1fr_auto] items-start sm:items-end border border-gray-100 rounded-lg p-3 sm:p-0"
+            >
               <div>
                 <label className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Description</label>
                 <input type="text" value={item.description} onChange={(event) => updateLineItem(index, "description", event.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-amber" placeholder="Item description" />
@@ -208,9 +214,15 @@ export default function NewInvoiceForm({ jobs, propertyManagers, selectedJob }: 
                 <label className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Unit Price</label>
                 <input type="number" min="0" step="0.01" value={item.unit_price} onChange={(event) => updateLineItem(index, "unit_price", event.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-amber" />
               </div>
-              <div className="flex items-center gap-2">
-                <div className="text-xs text-mist">{((Number(item.quantity) || 0) * (Number(item.unit_price) || 0)).toFixed(2)}</div>
-                <button type="button" onClick={() => removeLineItem(index)} className="text-red-600 text-sm hover:underline">
+              <div className="flex sm:flex-col items-center sm:items-end gap-2 sm:gap-1">
+                <div className="text-xs text-mist w-full text-right sm:text-left">
+                  ${((Number(item.quantity) || 0) * (Number(item.unit_price) || 0)).toFixed(2)}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeLineItem(index)}
+                  className="text-red-600 text-sm font-600 hover:underline w-full sm:w-auto text-right sm:text-left"
+                >
                   Remove
                 </button>
               </div>
@@ -219,7 +231,7 @@ export default function NewInvoiceForm({ jobs, propertyManagers, selectedJob }: 
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-5 grid gap-4 md:grid-cols-3">
+      <div className="bg-white rounded-xl border border-gray-200 p-5 grid gap-3 sm:grid-cols-2 md:grid-cols-3">
         <div className="p-4 rounded-lg bg-gray-50 border border-gray-200">
           <p className="text-xs text-mist uppercase tracking-wider font-600">Subtotal</p>
           <p className="font-800 text-forge text-2xl mt-2">${subtotal.toFixed(2)}</p>
@@ -244,7 +256,7 @@ export default function NewInvoiceForm({ jobs, propertyManagers, selectedJob }: 
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Link href="/owner/invoices" className="text-sm font-semibold text-mist hover:text-forge">Cancel</Link>
-        <button type="submit" disabled={loading || !jobId || !propertyManagerId} className="bg-amber hover:bg-amber-dark disabled:opacity-50 text-forge font-display font-700 py-3 px-5 rounded-lg text-sm transition-colors">
+        <button type="submit" disabled={loading || !jobId || !propertyManagerId || !lineItemsAreValid} className="bg-amber hover:bg-amber-dark disabled:opacity-50 text-forge font-display font-700 py-3 px-5 rounded-lg text-sm transition-colors">
           {loading ? "Saving…" : "Create Invoice"}
         </button>
       </div>

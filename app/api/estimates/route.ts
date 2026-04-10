@@ -18,18 +18,53 @@ export async function POST(req: NextRequest) {
   const validation = validateInput(createEstimateSchema, body);
   if (!validation.success) return badRequest((validation as { error: string }).error);
 
-  const { propertyManagerId, propertyId, title, description, lineItems, taxRate, validUntil, notes } = validation.data;
+  const { usePm, propertyManagerId, propertyId, clientName, clientEmail, clientPhone, title, description, lineItems, taxRate, validUntil, notes } = validation.data as any;
   const supabase = await createServerSideClient();
 
-  // Verify PM belongs to this tenant
-  const { data: pm } = await supabase
-    .from("property_managers")
-    .select("id")
-    .eq("id", propertyManagerId)
-    .eq("tenant_id", profile.tenant_id)
-    .single();
+  // Resolve or create property manager
+  let pmId = propertyManagerId as string | null;
+  if (usePm) {
+    const { data: pm } = await supabase
+      .from("property_managers")
+      .select("id")
+      .eq("id", propertyManagerId)
+      .eq("tenant_id", profile.tenant_id)
+      .single();
+    if (!pm) return badRequest("Property manager not found.");
+  } else {
+    // Try to re-use an existing PM by email; otherwise create a lightweight contact record
+    if (!clientName) return badRequest("Client name is required.");
+    let existingId: string | null = null;
+    if (clientEmail) {
+      const { data: existingList } = await supabase
+        .from("property_managers")
+        .select("id")
+        .eq("tenant_id", profile.tenant_id)
+        .eq("email", clientEmail)
+        .limit(1);
+      existingId = existingList?.[0]?.id ?? null;
+    }
 
-  if (!pm) return badRequest("Property manager not found.");
+    if (existingId) {
+      pmId = existingId;
+    } else {
+      const { data: inserted, error: pmInsertError } = await supabase
+        .from("property_managers")
+        .insert({
+          tenant_id: profile.tenant_id,
+          full_name: clientName,
+          email: clientEmail || null,
+          phone: clientPhone || null,
+        })
+        .select("id")
+        .single();
+      if (pmInsertError || !inserted) {
+        logError("Failed to create client contact for estimate", pmInsertError);
+        return errorResponse("Unable to save client.", 500);
+      }
+      pmId = inserted.id;
+    }
+  }
 
   // Get tenant slug for estimate number
   const { data: tenant } = await supabase
@@ -64,7 +99,7 @@ export async function POST(req: NextRequest) {
     .from("estimates")
     .insert({
       tenant_id:           profile.tenant_id,
-      property_manager_id: propertyManagerId,
+      property_manager_id: pmId,
       property_id:         propertyId ?? null,
       estimate_number:     estimateNumber,
       status:              "draft",

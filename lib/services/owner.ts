@@ -276,7 +276,7 @@ export async function getOwnerInvoiceFormData(profile: Profile) {
       .order("created_at", { ascending: false }),
     supabase
       .from("property_managers")
-      .select("id, full_name, company")
+      .select("id, full_name, company, email")
       .eq("tenant_id", profile.tenant_id)
       .order("full_name"),
   ]);

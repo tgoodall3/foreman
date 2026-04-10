@@ -47,6 +47,7 @@ export default async function EstimateDetailPage({ params }: { params: { id: str
           estimateId={estimate.id}
           status={estimate.status}
           jobId={estimate.job_id}
+          pmEmail={pm?.email || ""}
         />
       </div>
 

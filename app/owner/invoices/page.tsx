@@ -3,6 +3,7 @@ import { getOwnerInvoiceTotals, getOwnerInvoices } from "@/lib/services/owner";
 import { formatDate, formatCurrency, INVOICE_STATUS_CONFIG } from "@/lib/utils";
 import Link from "next/link";
 import ResendInvoiceButton from "@/components/owner/ResendInvoiceButton";
+import SendInvoiceButton from "@/components/owner/SendInvoiceButton";
 
 export default async function InvoicesPage({ searchParams }: { searchParams: { status?: string; page?: string } }) {
   const profile = await requireOwner();
@@ -81,11 +82,18 @@ export default async function InvoicesPage({ searchParams }: { searchParams: { s
                   <p className="text-xs text-mist">{inv.property_managers?.full_name || "—"}</p>
                   <p className="text-xs text-steel">Due {formatDate(inv.due_date)}</p>
                   <p className="text-[11px] text-steel">Reminders: {reminderBadge}</p>
-                  <div className="mt-1">
-                    <ResendInvoiceButton
-                      invoiceId={inv.id}
-                      disabled={inv.status === "paid"}
-                    />
+                  <div className="mt-1 flex items-center gap-3">
+                    {inv.status === "draft" ? (
+                      <SendInvoiceButton invoiceId={inv.id} disabled={inv.status === "paid"} label="Send invoice" />
+                    ) : (
+                      <ResendInvoiceButton
+                        invoiceId={inv.id}
+                        disabled={inv.status === "paid"}
+                      />
+                    )}
+                    <Link href={`/owner/invoices/${inv.id}`} className="text-xs text-mist hover:text-amber font-700">
+                      Edit
+                    </Link>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 sm:flex-col sm:items-end">

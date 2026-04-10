@@ -84,14 +84,14 @@ export default function InvoiceActions({ invoiceId, status }: InvoiceActionsProp
   }
 
   return (
-    <div className="flex flex-col gap-2 items-end">
+    <div className="flex flex-col gap-2 items-center md:items-end w-full">
       {justPaid && (
         <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-1.5 font-600">
           Payment received!
         </p>
       )}
 
-      <div className="flex flex-wrap gap-2 justify-end">
+      <div className="flex flex-wrap gap-2 justify-center md:justify-end">
         <button
           onClick={sendInvoice}
           disabled={sending}

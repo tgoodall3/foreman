@@ -10,13 +10,18 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const profile = await requireOwner();
+  let emailOverride: string | undefined;
+  try {
+    const body = await req.json().catch(() => null);
+    emailOverride = body?.email || undefined;
+  } catch {}
   const invoice = await getOwnerInvoice(profile, params.id);
 
   if (!invoice) return badRequest("Invoice not found.");
-  if (!invoice.property_managers?.email) return badRequest("Property manager email not available.");
+  const managerEmail = emailOverride || invoice.property_managers?.email;
+  if (!managerEmail) return badRequest("Recipient email not provided.");
 
-  const managerEmail = invoice.property_managers.email;
-  const managerName = invoice.property_managers.full_name;
+  const managerName = invoice.property_managers?.full_name ?? "Customer";
   const invoiceNumber = invoice.invoice_number;
   const total = formatCurrency(invoice.total);
   const dueDate = formatDate(invoice.due_date);

@@ -10,6 +10,11 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const profile = await requireOwner();
+  let emailOverride: string | undefined;
+  try {
+    const body = await req.json().catch(() => null);
+    emailOverride = body?.email || undefined;
+  } catch {}
   const supabase = await createServerSideClient();
 
   const { data: estimate } = await supabase
@@ -23,7 +28,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (estimate.status === "converted") return badRequest("Estimate has already been converted to a job.");
 
   const pm = estimate.property_managers as any;
-  if (!pm?.email) return badRequest("Property manager email not available.");
+  const toEmail = emailOverride || pm?.email;
+  if (!toEmail) return badRequest("Property manager email not available.");
 
   const tenantName = (estimate.tenants as any)?.name || "Your Contractor";
   const approvalUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/portal/estimate?token=${estimate.approval_token}`;
@@ -92,7 +98,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   try {
     const { error: emailError } = await resend.emails.send({
       from: process.env.EMAIL_FROM!,
-      to:   pm.email,
+        to:   toEmail,
       subject: `Estimate ${estimate.estimate_number} from ${tenantName} — ${formatCurrency(estimate.total)}`,
       html,
     });

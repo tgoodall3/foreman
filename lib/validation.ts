@@ -86,6 +86,7 @@ export const createInvoiceSchema = z.object({
   status: z.enum(["draft", "sent", "paid", "overdue"]).default("draft"),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   notes: notesSchema,
+  emailOverride: emailSchema.optional(),
   taxRate: z.number().min(0).max(100).optional(),
   lineItems: z.array(invoiceLineItemSchema).min(1),
 });
@@ -96,13 +97,31 @@ export const updateAccountSchema = z.object({
   address: addressSchema.optional(),
 });
 
-export const createEstimateSchema = z.object({
-  propertyManagerId: uuidSchema,
-  propertyId:        uuidSchema.optional(),
-  title:             nameSchema,
-  description:       z.string().max(2000).trim().optional(),
-  lineItems:         z.array(invoiceLineItemSchema).min(1),
-  taxRate:           z.number().min(0).max(100).optional(),
-  validUntil:        z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  notes:             notesSchema,
-});
+const estimateCommon = {
+  propertyId:  uuidSchema.optional(),
+  title:       nameSchema,
+  description: z.string().max(2000).trim().optional(),
+  lineItems:   z.array(invoiceLineItemSchema).min(1),
+  taxRate:     z.number().min(0).max(100).optional(),
+  validUntil:  z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  notes:       notesSchema,
+};
+
+export const createEstimateSchema = z.discriminatedUnion("usePm", [
+  z.object({
+    usePm: z.literal(true),
+    propertyManagerId: uuidSchema,
+    ...estimateCommon,
+  }),
+  z.object({
+    usePm: z.literal(false),
+    clientName: nameSchema,
+    clientEmail: emailSchema.optional(),
+    clientPhone: phoneSchema,
+    ...estimateCommon,
+  }),
+]).transform((data) => ({
+  // Provide defaults so downstream code can treat missing fields safely
+  ...data,
+  usePm: data.usePm ?? true,
+}));
