@@ -1,8 +1,8 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// --- Types --------------------------------------------------------------------
 
 interface PropertyManager {
   id: string;
@@ -36,23 +36,9 @@ interface Invoice {
   invoice_number: string;
   status: string;
   total: number;
-  subtotal?: number | null;
-  tax_rate?: number | null;
-  tax_amount?: number | null;
   due_date: string | null;
   created_at: string;
-  notes?: string | null;
-  line_items?: any[] | null;
   jobs?: { title: string } | null;
-}
-
-interface Estimate {
-  id: string;
-  estimate_number: string;
-  status: string;
-  total: number;
-  title: string;
-  created_at: string;
 }
 
 interface Comment {
@@ -71,12 +57,11 @@ interface Props {
   workOrders: WorkOrder[];
   invoices: Invoice[];
   comments: Comment[];
-  estimates: Estimate[];
   initialTab?: Tab;
   paidSuccess?: boolean;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// --- Helpers ------------------------------------------------------------------
 
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount);
@@ -101,14 +86,6 @@ const INV_STATUS: Record<string, { label: string; bg: string; color: string }> =
   sent:    { label: "Due",     bg: "bg-blue-100",   color: "text-blue-800"   },
   overdue: { label: "Overdue", bg: "bg-red-100",    color: "text-red-700"    },
   paid:    { label: "Paid",    bg: "bg-green-100",  color: "text-green-800"  },
-};
-
-const EST_STATUS: Record<string, { label: string; bg: string; color: string }> = {
-  draft:     { label: "Draft",     bg: "bg-gray-100",   color: "text-gray-500" },
-  sent:      { label: "Sent",      bg: "bg-blue-100",   color: "text-blue-800" },
-  approved:  { label: "Approved",  bg: "bg-green-100",  color: "text-green-800" },
-  declined:  { label: "Declined",  bg: "bg-red-100",    color: "text-red-700" },
-  converted: { label: "Converted", bg: "bg-amber-100",  color: "text-amber-800" },
 };
 
 const PRIORITY_LABEL: Record<string, string> = {
@@ -215,7 +192,7 @@ function PropertyCreate({
               disabled={saving || !name || !address || !city || !state || !zip}
               className="bg-amber text-forge font-display font-700 px-4 py-2 rounded-lg text-sm disabled:opacity-50"
             >
-              {saving ? "Saving…" : "Save & link"}
+              {saving ? "Saving�" : "Save & link"}
             </button>
           </div>
         </form>
@@ -225,7 +202,7 @@ function PropertyCreate({
   );
 }
 
-// ─── Comment Form ──────────────────────────────────────────────────────────────
+// --- Comment Form --------------------------------------------------------------
 function CommentForm({ token, workOrderId, onAdded }: { token: string; workOrderId: string; onAdded: (c: Comment) => void }) {
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -253,7 +230,7 @@ function CommentForm({ token, workOrderId, onAdded }: { token: string; workOrder
         onChange={(e) => setMessage(e.target.value)}
         rows={2}
         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs"
-        placeholder="Add a comment…"
+        placeholder="Add a comment�"
       />
       <div className="flex items-center gap-2">
         <button
@@ -262,7 +239,7 @@ function CommentForm({ token, workOrderId, onAdded }: { token: string; workOrder
           disabled={submitting}
           className="bg-forge text-white text-xs font-700 px-3 py-1.5 rounded-lg disabled:opacity-60"
         >
-          {submitting ? "Posting…" : "Post"}
+          {submitting ? "Posting�" : "Post"}
         </button>
         {error && <p className="text-xs text-red-600">{error}</p>}
       </div>
@@ -270,7 +247,7 @@ function CommentForm({ token, workOrderId, onAdded }: { token: string; workOrder
   );
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// --- Sub-components -----------------------------------------------------------
 
 function PortalHeader({ tenantName, pmName }: { tenantName: string; pmName: string }) {
   return (
@@ -293,7 +270,7 @@ function PortalHeader({ tenantName, pmName }: { tenantName: string; pmName: stri
   );
 }
 
-// ─── Work Order Form ──────────────────────────────────────────────────────────
+// --- Work Order Form ----------------------------------------------------------
 
 function WorkOrderForm({
   pmId,
@@ -309,7 +286,7 @@ function WorkOrderForm({
   tenantName: string;
   token: string;
   properties: Property[];
-  onSubmitted: (wo: WorkOrder) => void;
+  onSubmitted: () => void;
   onPropertyAdded: (p: Property) => void;
 }) {
   const [title, setTitle]           = useState("");
@@ -340,7 +317,7 @@ function WorkOrderForm({
     const data = await res.json();
     setSubmitting(false);
     if (!res.ok) { setError(data.error ?? "Failed to submit. Please try again."); return; }
-    onSubmitted(data.workOrder);
+    onSubmitted();
   };
 
   // When properties list changes (e.g., PM adds one), preselect the first.
@@ -379,7 +356,7 @@ function WorkOrderForm({
             className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-amber"
           >
             {properties.map((p) => (
-              <option key={p.id} value={p.id}>{p.name} — {p.address}</option>
+              <option key={p.id} value={p.id}>{p.name} � {p.address}</option>
             ))}
           </select>
         </div>
@@ -404,7 +381,7 @@ function WorkOrderForm({
           onChange={(e) => setDescription(e.target.value)}
           required
           rows={4}
-          placeholder="Describe the issue in detail — location, what you observed, any safety concerns."
+          placeholder="Describe the issue in detail � location, what you observed, any safety concerns."
           className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm resize-none focus:outline-none focus:border-amber"
         />
       </div>
@@ -452,13 +429,13 @@ function WorkOrderForm({
         disabled={submitting || !title.trim() || !description.trim()}
         className="w-full bg-amber hover:bg-amber-dark disabled:opacity-50 text-forge font-display font-700 py-3 rounded-xl text-sm transition-colors"
       >
-        {submitting ? "Submitting…" : "Submit Work Order"}
+        {submitting ? "Submitting�" : "Submit Work Order"}
       </button>
     </form>
   );
 }
 
-// ─── Pay button ───────────────────────────────────────────────────────────────
+// --- Pay button ---------------------------------------------------------------
 
 function PayButton({ invoiceId, token }: { invoiceId: string; token: string }) {
   const [loading, setLoading] = useState(false);
@@ -523,118 +500,16 @@ function PayButton({ invoiceId, token }: { invoiceId: string; token: string }) {
         disabled={loading}
         className="bg-amber hover:bg-amber-dark disabled:opacity-50 text-forge font-display font-700 px-4 py-1.5 rounded-lg text-sm transition-colors"
       >
-        {loading ? "…" : "Pay Now"}
+        {loading ? "�" : "Pay Now"}
       </button>
       {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
     </div>
   );
 }
 
-// ─── Invoice Card ─────────────────────────────────────────────────────────────
+// --- Main Dashboard -----------------------------------------------------------
 
-function InvoiceCard({
-  inv, s, job, payable, items, token,
-}: {
-  inv: Invoice;
-  s: { label: string; bg: string; color: string };
-  job: { title: string } | null | undefined;
-  payable: boolean;
-  items: any[];
-  token: string;
-}) {
-  const [expanded, setExpanded] = useState(false);
-
-  return (
-    <div className={`bg-white rounded-xl border overflow-hidden ${inv.status === "overdue" ? "border-red-200" : "border-gray-200"}`}>
-      {/* Header row */}
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-3 mb-2">
-          <div>
-            <p className="font-700 text-forge text-sm">{inv.invoice_number}</p>
-            {job?.title && <p className="text-xs text-mist mt-0.5">{job.title}</p>}
-          </div>
-          <span className={`badge text-xs ${s.bg} ${s.color}`}>{s.label}</span>
-        </div>
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="font-display font-800 text-2xl text-forge">{formatCurrency(inv.total)}</p>
-            {inv.due_date && (
-              <p className={`text-xs mt-0.5 ${inv.status === "overdue" ? "text-red-600 font-600" : "text-mist"}`}>
-                {inv.status === "overdue" ? "Overdue since " : "Due "}
-                {formatDate(inv.due_date)}
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-2 flex-col sm:flex-row">
-            {items.length > 0 && (
-              <button
-                onClick={() => setExpanded((v) => !v)}
-                className="text-xs text-amber font-600 hover:underline"
-              >
-                {expanded ? "Hide details" : "View details"}
-              </button>
-            )}
-            {payable && <PayButton invoiceId={inv.id} token={token} />}
-            {inv.status === "paid" && (
-              <span className="text-xs text-green-700 font-700 bg-green-50 border border-green-200 rounded-lg px-3 py-1.5">
-                ✓ Paid
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Expandable line items */}
-      {expanded && items.length > 0 && (
-        <div className="border-t border-gray-100 px-4 pb-4 pt-3">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="text-mist">
-                <th className="text-left pb-1.5 font-600 uppercase tracking-wider">Description</th>
-                <th className="text-right pb-1.5 font-600 uppercase tracking-wider">Qty</th>
-                <th className="text-right pb-1.5 font-600 uppercase tracking-wider">Unit</th>
-                <th className="text-right pb-1.5 font-600 uppercase tracking-wider">Total</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {items.map((item: any, i: number) => (
-                <tr key={i}>
-                  <td className="py-1.5 text-forge">{item.description}</td>
-                  <td className="py-1.5 text-right text-mist">{item.quantity}</td>
-                  <td className="py-1.5 text-right text-mist">{formatCurrency(item.unit_price)}</td>
-                  <td className="py-1.5 text-right font-600 text-forge">{formatCurrency(item.total)}</td>
-                </tr>
-              ))}
-            </tbody>
-            {(inv.tax_rate ?? 0) > 0 && (
-              <tfoot>
-                <tr>
-                  <td colSpan={3} className="pt-2 text-right text-mist">Subtotal</td>
-                  <td className="pt-2 text-right text-mist">{formatCurrency(inv.subtotal ?? 0)}</td>
-                </tr>
-                <tr>
-                  <td colSpan={3} className="text-right text-mist">Tax ({inv.tax_rate}%)</td>
-                  <td className="text-right text-mist">{formatCurrency(inv.tax_amount ?? 0)}</td>
-                </tr>
-                <tr className="border-t border-gray-200">
-                  <td colSpan={3} className="pt-2 text-right font-700 text-forge">Total</td>
-                  <td className="pt-2 text-right font-700 text-forge">{formatCurrency(inv.total)}</td>
-                </tr>
-              </tfoot>
-            )}
-          </table>
-          {inv.notes && (
-            <p className="mt-3 text-xs text-steel bg-gray-50 rounded-lg px-3 py-2 leading-relaxed">{inv.notes}</p>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Main Dashboard ───────────────────────────────────────────────────────────
-
-type Tab = "home" | "work-orders" | "invoices" | "estimates";
+type Tab = "home" | "work-orders" | "invoices";
 
 export default function PortalDashboard({
   token,
@@ -644,7 +519,6 @@ export default function PortalDashboard({
   workOrders,
   invoices,
   comments,
-  estimates,
   initialTab = "home",
   paidSuccess = false,
 }: Props) {
@@ -653,38 +527,30 @@ export default function PortalDashboard({
   const [recentlySubmitted, setRecentlySubmitted] = useState(false);
   const [propertiesState, setProperties] = useState<Property[]>(properties);
   const [commentsState, setComments] = useState<Comment[]>(comments);
-  const [estimatesState] = useState<Estimate[]>(estimates);
-  const [workOrdersState, setWorkOrdersState] = useState<WorkOrder[]>(workOrders);
-  const [showPast, setShowPast] = useState(false);
 
-  const deriveStatus = (wo: WorkOrder): string => {
+  const deriveStatus = (wo: WorkOrder) => {
     if (wo.job_status === "completed") return "completed";
     if (wo.job_status === "in_progress" || wo.job_status === "scheduled") return "in_progress";
     return wo.status;
   };
 
-  const openWOs   = workOrdersState.filter((w) => !["completed", "cancelled"].includes(deriveStatus(w)));
+  const openWOs   = workOrders.filter((w) => !["completed", "cancelled"].includes(deriveStatus(w)));
   const unpaidInv = invoices.filter((i) => ["sent", "overdue"].includes(i.status));
   const unpaidTotal = unpaidInv.reduce((s, i) => s + i.total, 0);
   const hasProperties = propertiesState.length > 0;
-  const now = Date.now();
-  const toMs = (days: number) => days * 24 * 60 * 60 * 1000;
-  const isOld = (dateStr: string, days: number) => (now - new Date(dateStr).getTime()) > toMs(days);
-  const woPast = workOrdersState.filter((w) => ["accepted", "declined", "completed"].includes(deriveStatus(w)) && isOld(w.created_at, 14));
-  const invPast = invoices.filter((i) => i.status === "paid" && isOld(i.created_at, 30));
-  const estPast = estimatesState.filter((e) => ["approved", "declined", "converted"].includes(e.status) && isOld(e.created_at, 7));
-  const woActive = workOrdersState.filter((w) => !woPast.includes(w));
-  const invActive = invoices.filter((i) => !invPast.includes(i));
-  const estActive = estimatesState.filter((e) => !estPast.includes(e));
 
-  const handleSubmitted = (wo: WorkOrder) => {
-    if (wo) setWorkOrdersState((prev) => [wo, ...prev]);
+  const handleSubmitted = () => {
     setShowForm(false);
     setRecentlySubmitted(true);
     setTab("work-orders");
     setTimeout(() => setRecentlySubmitted(false), 4000);
   };
 
+  const handlePropertyCreated = (p: Property) => {
+    setProperties((prev) => [...prev, p]);
+    setShowForm(true);
+    setTab("work-orders");
+  };
 
   return (
     <div className="min-h-screen bg-surface">
@@ -693,7 +559,7 @@ export default function PortalDashboard({
       {/* Tab nav */}
       <nav className="bg-white border-b border-gray-200 sticky top-0 z-10" aria-label="Portal sections">
         <div className="max-w-2xl mx-auto flex">
-          {(["home", "work-orders", "invoices", "estimates"] as Tab[]).map((t) => (
+          {(["home", "work-orders", "invoices"] as Tab[]).map((t) => (
               <button
                 key={t}
               onClick={() => { setTab(t); setShowForm(propertiesState.length === 0 ? true : false); }}
@@ -731,20 +597,28 @@ export default function PortalDashboard({
 
       <main className="max-w-2xl mx-auto p-4 py-6 space-y-4">
 
-        {!hasProperties && tab !== "work-orders" && (
-          <div className="bg-amber/10 border border-amber/30 rounded-xl p-4">
-            <p className="text-sm font-700 text-forge mb-1">Welcome to your portal</p>
-            <p className="text-sm text-steel mb-3">Add your first property under <strong>Work Orders</strong> to start submitting requests.</p>
-            <button
-              onClick={() => { setTab("work-orders"); setShowForm(true); }}
-              className="bg-amber text-forge font-700 text-sm px-4 py-2 rounded-lg"
-            >
-              Get started →
-            </button>
+        {!hasProperties && (
+          <div className="bg-white border border-amber/30 rounded-xl p-4 flex flex-col gap-2">
+            <p className="text-sm font-700 text-forge">Welcome to your portal</p>
+            <p className="text-sm text-steel">Add your first property to submit work orders and track invoices.</p>
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => { setTab("work-orders"); setShowForm(true); }}
+                className="bg-amber text-forge font-700 text-sm px-4 py-2 rounded-lg"
+              >
+                Add property
+              </button>
+              <button
+                onClick={() => setTab("invoices")}
+                className="text-sm text-amber font-700"
+              >
+                View invoices ?
+              </button>
+            </div>
           </div>
         )}
 
-        {/* ── Overview ── */}
+        {/* -- Overview -- */}
         {tab === "home" && (
           <>
             {/* Summary cards */}
@@ -763,32 +637,59 @@ export default function PortalDashboard({
 
             {/* Submit CTA */}
             <div className="bg-white rounded-xl border border-gray-200 p-5">
-              <h2 className="font-display font-700 text-lg text-forge mb-1">Submit a Work Order</h2>
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="font-display font-700 text-lg text-forge">Submit a Work Order</h2>
+              </div>
               <p className="text-sm text-mist mb-4">Report an issue or request maintenance at one of your properties.</p>
               {recentlySubmitted && (
-                <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2 mb-3 font-600">
-                  ✓ Work order submitted! {tenantName} has been notified.
+                <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2 mb-4 font-600">
+                  ? Work order submitted! {tenantName} has been notified.
                 </div>
               )}
-              <button
-                onClick={() => { setTab("work-orders"); setShowForm(true); }}
-                className="w-full bg-amber hover:bg-amber-dark text-forge font-display font-700 py-3 rounded-xl text-sm transition-colors"
-              >
-                + New Work Order
-              </button>
+              {propertiesState.length === 0 && (
+                <div className="bg-amber/10 border border-amber/30 rounded-lg px-3 py-2 text-sm text-amber font-600 mb-3">
+                  No properties are linked to your account yet. Add one below to get started.
+                </div>
+              )}
+              {showForm ? (
+                <>
+                  <WorkOrderForm
+                    pmId={propertyManager.id}
+                    tenantId={propertyManager.tenant_id}
+                    tenantName={tenantName}
+                    token={token}
+                    properties={propertiesState}
+                    onSubmitted={handleSubmitted}
+                    onPropertyAdded={(p) => setProperties((prev) => [...prev, p])}
+                  />
+                  <button
+                    onClick={() => setShowForm(false)}
+                    className="mt-3 text-sm text-mist hover:text-forge transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setShowForm(true)}
+                  className="w-full bg-amber hover:bg-amber-dark text-forge font-display font-700 py-3 rounded-xl text-sm transition-colors"
+                >
+                  + New Work Order
+                </button>
+              )}
             </div>
 
             {/* Recent work orders */}
-            {workOrdersState.length > 0 && (
+            {workOrders.length > 0 && (
               <section>
                 <div className="flex items-center justify-between mb-2">
                   <h2 className="font-display font-700 text-base text-forge">Recent Work Orders</h2>
                   <button onClick={() => setTab("work-orders")} className="text-xs text-amber hover:underline font-600">
-                    View all →
+                    View all ?
                   </button>
                 </div>
                 <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
-                  {workOrdersState.slice(0, 4).map((wo) => {
+                  {workOrders.slice(0, 4).map((wo) => {
                     const s = WO_STATUS[wo.status] ?? WO_STATUS.pending;
                     const prop = Array.isArray(wo.properties) ? wo.properties[0] : wo.properties;
                     return (
@@ -799,7 +700,7 @@ export default function PortalDashboard({
                         </div>
                         <p className="text-xs text-mist mt-0.5">
                           {prop?.name ?? ""}
-                          {wo.created_at ? ` · ${formatDate(wo.created_at.split("T")[0])}` : ""}
+                          {wo.created_at ? ` � ${formatDate(wo.created_at.split("T")[0])}` : ""}
                       {wo.job_status === "completed" && (
                         <p className="text-xs text-green-700 font-700 mt-1">Work completed</p>
                       )}
@@ -817,7 +718,7 @@ export default function PortalDashboard({
                 <div className="flex items-center justify-between mb-2">
                   <h2 className="font-display font-700 text-base text-forge">Outstanding Invoices</h2>
                   <button onClick={() => setTab("invoices")} className="text-xs text-amber hover:underline font-600">
-                    View all →
+                    View all ?
                   </button>
                 </div>
                 <div className="bg-white rounded-xl border border-red-200 divide-y divide-gray-100">
@@ -830,7 +731,7 @@ export default function PortalDashboard({
                           <p className="text-sm font-600 text-forge">{inv.invoice_number}</p>
                           <p className="text-xs text-mist mt-0.5">
                             {job?.title ?? ""}
-                            {inv.due_date ? ` · Due ${formatDate(inv.due_date)}` : ""}
+                            {inv.due_date ? ` � Due ${formatDate(inv.due_date)}` : ""}
                           </p>
                         </div>
                         <div className="flex items-center gap-3 shrink-0">
@@ -847,21 +748,12 @@ export default function PortalDashboard({
           </>
         )}
 
-        {/* ── Work Orders ── */}
+        {/* -- Work Orders -- */}
         {tab === "work-orders" && (
           <>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-700 text-forge">Work Orders</h2>
-              <button
-                onClick={() => setShowPast((p) => !p)}
-                className="text-xs text-amber font-700 hover:underline"
-              >
-                {showPast ? "Hide past" : "Show past"}
-              </button>
-            </div>
             {recentlySubmitted && (
               <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2 font-600">
-                ✓ Work order submitted! {tenantName} has been notified.
+                ? Work order submitted! {tenantName} has been notified.
               </div>
             )}
 
@@ -892,15 +784,15 @@ export default function PortalDashboard({
               </button>
             )}
 
-            {(showPast ? workOrders : woActive).length === 0 ? (
+            {workOrders.length === 0 ? (
               <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-                <p className="text-4xl mb-3">📋</p>
+                <p className="text-4xl mb-3">??</p>
                 <p className="font-display font-700 text-lg text-forge">No work orders yet</p>
                 <p className="text-mist text-sm mt-1">Submit your first work order above.</p>
               </div>
             ) : (
               <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
-                {(showPast ? workOrders : woActive).map((wo) => {
+                {workOrders.map((wo) => {
                   const derived = deriveStatus(wo);
                   const s = WO_STATUS[derived] ?? WO_STATUS.pending;
                   const prop = Array.isArray(wo.properties) ? wo.properties[0] : wo.properties;
@@ -915,7 +807,7 @@ export default function PortalDashboard({
                         </div>
                       </div>
                       <p className="text-xs text-mist">
-                        {prop?.name ? `${prop.name} · ` : ""}
+                        {prop?.name ? `${prop.name} � ` : ""}
                         {formatDate(wo.created_at.split("T")[0])}
                       </p>
 
@@ -946,87 +838,56 @@ export default function PortalDashboard({
           </>
         )}
 
-        {/* ── Invoices ── */}
+        {/* -- Invoices -- */}
         {tab === "invoices" && (
           <>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-700 text-forge">Invoices</h2>
-              <button
-                onClick={() => setShowPast((p) => !p)}
-                className="text-xs text-amber font-700 hover:underline"
-              >
-                {showPast ? "Hide past" : "Show past"}
-              </button>
-            </div>
             {paidSuccess && (
               <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2 font-600">
-                ✓ Payment received — thank you!
+                ? Payment received � thank you!
               </div>
             )}
-            {(showPast ? invoices : invActive).length === 0 ? (
+            {invoices.length === 0 ? (
               <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-                <p className="text-4xl mb-3">💵</p>
+                <p className="text-4xl mb-3">??</p>
                 <p className="font-display font-700 text-lg text-forge">No invoices yet</p>
                 <p className="text-mist text-sm mt-1">Invoices from {tenantName} will appear here.</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {(showPast ? invoices : invActive).map((inv) => {
-                  const s        = INV_STATUS[inv.status] ?? INV_STATUS.sent;
-                  const job      = Array.isArray(inv.jobs) ? inv.jobs[0] : inv.jobs;
-                  const payable  = ["sent", "overdue"].includes(inv.status);
-                  const items: any[] = Array.isArray(inv.line_items) ? inv.line_items : [];
+              <div className="space-y-2">
+                {invoices.map((inv) => {
+                  const s   = INV_STATUS[inv.status] ?? INV_STATUS.sent;
+                  const job = Array.isArray(inv.jobs) ? inv.jobs[0] : inv.jobs;
+                  const payable = ["sent", "overdue"].includes(inv.status);
                   return (
-                    <InvoiceCard
+                    <div
                       key={inv.id}
-                      inv={inv}
-                      s={s}
-                      job={job}
-                      payable={payable}
-                      items={items}
-                      token={token}
-                    />
-                  );
-                })}
-              </div>
-            )}
-          </>
-        )}
-
-        {/* ── Estimates ── */}
-        {tab === "estimates" && (
-          <>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-700 text-forge">Estimates</h2>
-              <button
-                onClick={() => setShowPast((p) => !p)}
-                className="text-xs text-amber font-700 hover:underline"
-              >
-                {showPast ? "Hide past" : "Show past"}
-              </button>
-            </div>
-            {(showPast ? estimatesState : estActive).length === 0 ? (
-              <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-                <p className="text-4xl mb-3">📑</p>
-                <p className="font-display font-700 text-lg text-forge">No estimates yet</p>
-                <p className="text-mist text-sm mt-1">Your contractor hasn’t sent you any estimates.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {(showPast ? estimatesState : estActive).map((est) => {
-                  const s = EST_STATUS[est.status] ?? EST_STATUS.draft;
-                  return (
-                    <div key={est.id} className="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-mist">#{est.estimate_number}</p>
-                        <p className="font-700 text-forge line-clamp-1">{est.title}</p>
-                        <p className="text-xs text-mist">{formatDate(est.created_at.split("T")[0])}</p>
+                      className={`bg-white rounded-xl border p-4 ${
+                        inv.status === "overdue" ? "border-red-200" : "border-gray-200"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div>
+                          <p className="font-700 text-forge text-sm">{inv.invoice_number}</p>
+                          {job?.title && <p className="text-xs text-mist mt-0.5">{job.title}</p>}
+                        </div>
+                        <span className={`badge text-xs ${s.bg} ${s.color}`}>{s.label}</span>
                       </div>
-                      <div className="text-right">
-                        <p className="font-700 text-forge">{formatCurrency(est.total)}</p>
-                        <span className={`inline-block mt-1 px-2 py-1 rounded-full text-[11px] ${s.bg} ${s.color}`}>
-                          {s.label}
-                        </span>
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="font-display font-800 text-2xl text-forge">{formatCurrency(inv.total)}</p>
+                          {inv.due_date && (
+                            <p className={`text-xs mt-0.5 ${inv.status === "overdue" ? "text-red-600 font-600" : "text-mist"}`}>
+                              {inv.status === "overdue" ? "Overdue since " : "Due "}
+                              {formatDate(inv.due_date)}
+                            </p>
+                          )}
+                        </div>
+                        {payable && <PayButton invoiceId={inv.id} token={token} />}
+                        {inv.status === "paid" && (
+                          <span className="text-xs text-green-700 font-700 bg-green-50 border border-green-200 rounded-lg px-3 py-1.5">
+                            ? Paid
+                          </span>
+                        )}
                       </div>
                     </div>
                   );
@@ -1037,7 +898,7 @@ export default function PortalDashboard({
         )}
 
         <p className="text-center text-xs text-mist pt-2">
-          Powered by Foreman · {tenantName}
+          Powered by Foreman � {tenantName}
         </p>
       </main>
     </div>

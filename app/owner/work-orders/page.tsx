@@ -7,9 +7,16 @@ export default async function WorkOrdersPage() {
   const profile = await requireOwner();
   const workOrders = await getOwnerWorkOrders(profile);
 
-  const pending   = workOrders?.filter((w) => w.status === "pending") || [];
-  const accepted  = workOrders?.filter((w) => w.status === "accepted") || [];
-  const declined  = workOrders?.filter((w) => w.status === "declined") || [];
+  const now = Date.now();
+  const ageDays = (iso: string) => (now - new Date(iso).getTime()) / (1000 * 60 * 60 * 24);
+  const isPast = (w: any) => ["accepted", "declined"].includes(w.status) && ageDays(w.created_at) > 14;
+
+  const active    = workOrders?.filter((w) => !isPast(w)) || [];
+  const archived  = workOrders?.filter((w) => isPast(w)) || [];
+
+  const pending   = active.filter((w) => w.status === "pending");
+  const accepted  = active.filter((w) => w.status === "accepted");
+  const declined  = active.filter((w) => w.status === "declined");
 
   return (
     <div className="p-6 max-w-5xl">
@@ -55,6 +62,16 @@ export default async function WorkOrdersPage() {
         </section>
       )}
 
+      {/* Archived */}
+      {archived.length > 0 && (
+        <section aria-labelledby="archived-heading" className="mb-6">
+          <h2 id="archived-heading" className="font-display font-700 text-xl text-mist mb-3">Past (14+ days)</h2>
+          <div className="space-y-3">
+            {archived.map((wo: any) => <WorkOrderCard key={wo.id} wo={wo} muted />)}
+          </div>
+        </section>
+      )}
+
       {!workOrders?.length && (
         <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
           <p className="text-4xl mb-3">📋</p>
@@ -66,7 +83,7 @@ export default async function WorkOrdersPage() {
   );
 }
 
-function WorkOrderCard({ wo }: { wo: any }) {
+function WorkOrderCard({ wo, muted = false }: { wo: any; muted?: boolean }) {
   const priorityCfg = PRIORITY_CONFIG[wo.priority as keyof typeof PRIORITY_CONFIG];
   const statusColors: Record<string, string> = {
     pending:  "bg-yellow-100 text-yellow-700",
@@ -78,7 +95,9 @@ function WorkOrderCard({ wo }: { wo: any }) {
   return (
     <Link
       href={`/owner/work-orders/${wo.id}`}
-      className="block bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-all hover:border-amber/30"
+      className={`block bg-white rounded-xl border p-4 hover:shadow-md transition-all ${
+        muted ? "border-gray-200 text-mist" : "border-gray-200 hover:border-amber/30"
+      }`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">

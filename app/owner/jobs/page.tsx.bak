@@ -1,4 +1,4 @@
-﻿import { requireOwner } from "@/lib/auth";
+import { requireOwner } from "@/lib/auth";
 import { getOwnerJobs } from "@/lib/services/owner";
 import { formatDate, JOB_STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/utils";
 import Link from "next/link";
@@ -9,12 +9,8 @@ export default async function JobsPage({ searchParams }: { searchParams: { statu
   const status  = searchParams.status;
   const { jobs, count, pageSize } = await getOwnerJobs(profile, status, page);
 
-  const pageCount = Math.ceil(count / pageSize);
-  const now = Date.now();
-  const ageDays = (iso: string) => (now - new Date(iso).getTime()) / (1000 * 60 * 60 * 24);
-  const archived = jobs.filter((j: any) => j.status === "completed" && ageDays(j.updated_at ?? j.created_at) > 14);
-  const activeJobs = jobs.filter((j: any) => !(j.status === "completed" && ageDays(j.updated_at ?? j.created_at) > 14));
-  const statuses = Object.keys(JOB_STATUS_CONFIG) as (keyof typeof JOB_STATUS_CONFIG)[];
+  const pageCount     = Math.ceil(count / pageSize);
+  const statuses      = Object.keys(JOB_STATUS_CONFIG) as (keyof typeof JOB_STATUS_CONFIG)[];
   const showInvoiceCta = status === "completed";
 
   return (
@@ -62,7 +58,7 @@ export default async function JobsPage({ searchParams }: { searchParams: { statu
 
       {/* Uninvoiced callout when filtering completed */}
       {showInvoiceCta && (() => {
-        const uninvoiced = (activeJobs as any[]).filter((j) => !j.invoice_id);
+        const uninvoiced = (jobs as any[]).filter((j) => !j.invoice_id);
         return uninvoiced.length > 0 ? (
           <div className="mb-4 bg-amber/10 border border-amber/30 rounded-xl px-4 py-3 flex items-center justify-between gap-4">
             <p className="text-sm font-600 text-forge">
@@ -74,7 +70,7 @@ export default async function JobsPage({ searchParams }: { searchParams: { statu
 
       {/* List */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        {!activeJobs?.length ? (
+        {!jobs?.length ? (
           <div className="p-12 text-center">
             <p className="text-mist text-sm mb-3">No jobs found</p>
             <Link href="/owner/jobs/new" className="text-amber hover:underline text-sm">
@@ -84,7 +80,7 @@ export default async function JobsPage({ searchParams }: { searchParams: { statu
         ) : (
           <>
             <div className="divide-y divide-gray-100 md:hidden">
-              {(activeJobs as any[]).map((job) => {
+              {(jobs as any[]).map((job) => {
                 const statusCfg   = JOB_STATUS_CONFIG[job.status as keyof typeof JOB_STATUS_CONFIG];
                 const priorityCfg = PRIORITY_CONFIG[job.priority as keyof typeof PRIORITY_CONFIG];
                 const needsInvoice = job.status === "completed" && !job.invoice_id;
@@ -132,7 +128,7 @@ export default async function JobsPage({ searchParams }: { searchParams: { statu
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {(activeJobs as any[]).map((job) => {
+                {(jobs as any[]).map((job) => {
                   const statusCfg   = JOB_STATUS_CONFIG[job.status as keyof typeof JOB_STATUS_CONFIG];
                   const priorityCfg = PRIORITY_CONFIG[job.priority as keyof typeof PRIORITY_CONFIG];
                   const needsInvoice = job.status === "completed" && !job.invoice_id;
@@ -207,23 +203,6 @@ export default async function JobsPage({ searchParams }: { searchParams: { statu
           </>
         )}
       </div>
-
-      {archived.length > 0 && (
-        <div className="mt-6">
-          <h2 className="font-display font-700 text-lg text-mist mb-2">Past jobs (14+ days after completed)</h2>
-          <div className="space-y-2">
-            {archived.map((job: any) => (
-              <div key={job.id} className="bg-white rounded-xl border border-gray-200 p-3 text-mist flex items-center justify-between">
-                <div>
-                  <p className="font-600">{job.title}</p>
-                  <p className="text-xs">Updated {formatDate(job.updated_at ?? job.created_at)}</p>
-                </div>
-                <span className="badge bg-green-100 text-green-700">Completed</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

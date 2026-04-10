@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+﻿import { NextRequest } from "next/server";
 import { Resend } from "resend";
 import { badRequest, errorResponse, jsonResponse } from "@/lib/api";
 import { requireOwner } from "@/lib/auth";
@@ -6,15 +6,21 @@ import { createServerSideClient } from "@/lib/supabase-server";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { logError } from "@/lib/logger";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resendApiKey = process.env.RESEND_API_KEY;
+const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const profile = await requireOwner();
+  if (!resend) return errorResponse("Email service not configured.", 500);
+  const fromAddress = process.env.EMAIL_FROM;
+  if (!fromAddress) return errorResponse("EMAIL_FROM is not set.", 500);
+
   let emailOverride: string | undefined;
   try {
     const body = await req.json().catch(() => null);
     emailOverride = body?.email || undefined;
   } catch {}
+
   const supabase = await createServerSideClient();
 
   const { data: estimate } = await supabase
@@ -33,7 +39,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const tenantName = (estimate.tenants as any)?.name || "Your Contractor";
   const approvalUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/portal/estimate?token=${estimate.approval_token}`;
-  const prop       = estimate.properties as any;
+  const prop = estimate.properties as any;
 
   const lineItemsHtml = (estimate.line_items as any[])
     .map(
@@ -96,9 +102,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   `;
 
   try {
-    const { error: emailError } = await resend.emails.send({
-      from: process.env.EMAIL_FROM!,
-        to:   toEmail,
+    const { error: emailError } = await resend!.emails.send({
+      from: `${tenantName} <${fromAddress}>`,
+      to:   toEmail,
+      reply_to: pm?.email || undefined,
       subject: `Estimate ${estimate.estimate_number} from ${tenantName} — ${formatCurrency(estimate.total)}`,
       html,
     });
@@ -112,7 +119,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return errorResponse("Email service error.", 500);
   }
 
-  // Mark as sent
   await supabase
     .from("estimates")
     .update({ status: "sent" })

@@ -291,14 +291,7 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
         </div>
         </div>
 
-        <button
-          onClick={() => handleStatusUpdate("in_progress")}
-          className="w-full mb-4 bg-amber text-forge font-display font-700 py-3 rounded-xl text-sm shadow hover:bg-amber-dark transition-colors"
-        >
-          Start Job (clock in + begin)
-        </button>
-
-      {/* Run panel: clock + status actions */}
+      {/* Clock in/out panel */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
         <div className="flex flex-wrap gap-3 items-center">
           <div className="flex gap-2">
@@ -324,52 +317,6 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
           )}
           {error && <p className="text-xs text-red-600">{error}</p>}
         </div>
-
-        {/* Status actions */}
-        {transitions.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {transitions.map((t) => (
-              <button
-                key={t.next}
-                onClick={() => handleStatusUpdate(t.next)}
-                disabled={updatingStatus}
-                className="px-3 py-2 rounded-lg text-sm font-700 bg-forge text-white hover:bg-forge-light transition-colors disabled:opacity-60"
-              >
-                {updatingStatus ? "Saving…" : t.label}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {showHoursPrompt && (
-          <div className="mt-3 bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-2">
-            <p className="text-xs text-forge font-700">Add hours to complete</p>
-            <input
-              type="number"
-              min="0"
-              step="0.25"
-              value={hoursWorked}
-              onChange={(e) => setHoursWorked(e.target.value)}
-              className="w-full text-sm border border-gray-300 rounded-lg px-2 py-1.5"
-              placeholder="Hours worked"
-            />
-            <div className="flex gap-2">
-              <button
-                onClick={() => commitStatusUpdate("completed", Number(hoursWorked) || 0)}
-                className="flex-1 bg-green-600 text-white text-sm font-700 py-2 rounded-lg hover:bg-green-700 transition-colors"
-              >
-                Save & Complete
-              </button>
-              <button
-                onClick={() => setShowHoursPrompt(false)}
-                className="px-3 py-2 text-sm text-mist hover:text-forge"
-                type="button"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Completion readiness */}

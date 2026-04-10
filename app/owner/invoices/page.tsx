@@ -13,6 +13,10 @@ export default async function InvoicesPage({ searchParams }: { searchParams: { s
   const totals = await getOwnerInvoiceTotals(profile);
 
   const pageCount = Math.ceil(count / pageSize);
+  const now = Date.now();
+  const ageDays = (iso: string) => (now - new Date(iso).getTime()) / (1000 * 60 * 60 * 24);
+  const archived = invoices.filter((inv: any) => inv.status === "paid" && ageDays(inv.created_at) > 30);
+  const activeInvoices = invoices.filter((inv: any) => !(inv.status === "paid" && ageDays(inv.created_at) > 30));
 
   return (
     <div className="p-6 max-w-5xl">
@@ -24,18 +28,18 @@ export default async function InvoicesPage({ searchParams }: { searchParams: { s
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
         <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs text-mist uppercase tracking-wider font-600">Total Paid</p>
-          <p className="font-display font-800 text-2xl text-green-600 mt-1">{formatCurrency(totals.paid)}</p>
+          <p className="text-[11px] text-mist uppercase tracking-wider font-600">Total Paid</p>
+          <p className="font-display font-800 text-xl text-green-600 mt-1 truncate">{formatCurrency(totals.paid)}</p>
         </div>
-        <div className="bg-white rounded-xl border border-amber/30 bg-amber/5 p-4">
-          <p className="text-xs text-mist uppercase tracking-wider font-600">Outstanding</p>
-          <p className="font-display font-800 text-2xl text-amber-dark mt-1">{formatCurrency(totals.outstanding)}</p>
+        <div className="rounded-xl border border-amber/30 bg-amber/5 p-4">
+          <p className="text-[11px] text-mist uppercase tracking-wider font-600">Outstanding</p>
+          <p className="font-display font-800 text-xl text-amber-dark mt-1 truncate">{formatCurrency(totals.outstanding)}</p>
         </div>
         <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <p className="text-xs text-mist uppercase tracking-wider font-600">Drafts</p>
-          <p className="font-display font-800 text-2xl text-forge mt-1">{totals.draft}</p>
+          <p className="text-[11px] text-mist uppercase tracking-wider font-600">Drafts</p>
+          <p className="font-display font-800 text-xl text-forge mt-1">{totals.draft}</p>
         </div>
       </div>
 
@@ -55,14 +59,14 @@ export default async function InvoicesPage({ searchParams }: { searchParams: { s
 
       {/* Invoice list */}
       <div className="space-y-3">
-        {!invoices?.length ? (
+        {!activeInvoices?.length ? (
           <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
             <p className="text-4xl mb-3">💵</p>
             <p className="font-display font-700 text-xl text-forge mb-1">No invoices yet</p>
             <p className="text-mist text-sm">Complete a job and generate an invoice.</p>
           </div>
         ) : (
-          invoices.map((inv: any) => {
+          activeInvoices.map((inv: any) => {
             const cfg = INVOICE_STATUS_CONFIG[inv.status as keyof typeof INVOICE_STATUS_CONFIG];
             const dueDate = new Date(inv.due_date + "T00:00:00Z");
             const daysOverdue = Math.floor((Date.now() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
@@ -73,7 +77,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: { s
               else if (daysOverdue >= 0) reminderBadge = "Next 3-day";
             }
             return (
-              <div key={inv.id} className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div key={inv.id} className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <div className="min-w-0">
                   <Link href={`/owner/invoices/${inv.id}`} className="font-display font-700 text-forge hover:text-amber text-sm">
                     {inv.invoice_number}
@@ -96,15 +100,38 @@ export default async function InvoicesPage({ searchParams }: { searchParams: { s
                     </Link>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 sm:flex-col sm:items-end">
-                  <p className="font-700 text-forge text-lg">{formatCurrency(inv.total)}</p>
-                  <span className={`badge ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
+                <div className="flex items-center gap-3 sm:flex-col sm:items-end sm:min-w-[140px]">
+                  <p className="font-700 text-forge text-lg whitespace-nowrap">{formatCurrency(inv.total)}</p>
+                  <span className={`px-2 py-1 rounded-full text-[11px] font-700 text-center whitespace-nowrap ${cfg.bg} ${cfg.color}`}>
+                    {cfg.label}
+                  </span>
                 </div>
               </div>
             );
           })
         )}
       </div>
+
+      {/* Archived */}
+      {archived.length > 0 && (
+        <div className="mt-6">
+          <h2 className="font-display font-700 text-lg text-mist mb-2">Past invoices (30+ days after paid)</h2>
+          <div className="space-y-2">
+            {archived.map((inv: any) => {
+              const cfg = INVOICE_STATUS_CONFIG[inv.status as keyof typeof INVOICE_STATUS_CONFIG];
+              return (
+                <div key={inv.id} className="bg-white rounded-xl border border-gray-200 p-3 text-mist">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-600">{inv.invoice_number}</div>
+                    <span className={`badge ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
+                  </div>
+                  <p className="text-xs">{formatCurrency(inv.total)} · paid {formatDate(inv.created_at)}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Pagination */}
       {pageCount > 1 && (

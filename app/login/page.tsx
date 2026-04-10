@@ -1,8 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 
 export default function LoginPage() {
+  const searchParams  = useSearchParams();
+  const signedOut     = searchParams.get("signed_out") === "1";
+
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading]   = useState(false);
@@ -44,6 +48,12 @@ export default function LoginPage() {
           </div>
           <p className="text-mist text-sm">Field service management for contractors</p>
         </div>
+
+        {signedOut && (
+          <div className="mb-4 bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-sm text-chalk text-center">
+            You&apos;ve been signed out successfully.
+          </div>
+        )}
 
         <div className="bg-forge-light border border-steel rounded-xl p-6">
           <h1 className="font-display font-700 text-white text-xl mb-6">Sign in to your account</h1>

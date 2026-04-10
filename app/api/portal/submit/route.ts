@@ -61,18 +61,19 @@ export async function POST(req: NextRequest) {
 
     if (error) return errorResponse("Failed to create work order", 500);
 
-    // Get owner email
-    const { data: owner } = await supabase
-      .from("profiles")
-      .select("email, full_name")
-      .eq("tenant_id", tenant_id)
-      .eq("role", "owner")
-      .single();
+    // Get owner email + tenant name
+    const [{ data: owner }, { data: tenant }] = await Promise.all([
+      supabase.from("profiles").select("email, full_name").eq("tenant_id", tenant_id).eq("role", "owner").single(),
+      supabase.from("tenants").select("name").eq("id", tenant_id).single(),
+    ]);
+
+    const tenantName = tenant?.name || "Foreman";
+    const fromAddress = `${tenantName} <${process.env.EMAIL_FROM!}>`;
 
     // Send notification to owner
     if (owner?.email && process.env.RESEND_API_KEY) {
       await resend.emails.send({
-        from: process.env.EMAIL_FROM!,
+        from: fromAddress,
         to: owner.email,
         subject: `New Work Order: ${title}`,
         html: `
@@ -94,7 +95,7 @@ export async function POST(req: NextRequest) {
       // Send confirmation to property manager
       if (workOrder.property_managers?.email) {
         await resend.emails.send({
-          from: process.env.EMAIL_FROM!,
+          from: fromAddress,
           to: workOrder.property_managers.email,
           subject: `Work Order Received: ${title}`,
           html: `
@@ -112,7 +113,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true, id: workOrder.id });
+    return NextResponse.json({ success: true, workOrder });
   } catch (error) {
     console.error("Portal submit error:", error);
     return errorResponse("Internal server error", 500);

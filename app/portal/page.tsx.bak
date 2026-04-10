@@ -44,7 +44,6 @@ export default async function PortalPage({ searchParams }: { searchParams: { tok
     { data: workOrders },
     { data: invoices },
     { data: comments },
-    { data: estimates },
   ] = await Promise.all([
     supabase
       .from("properties")
@@ -60,7 +59,7 @@ export default async function PortalPage({ searchParams }: { searchParams: { tok
 
     supabase
       .from("invoices")
-      .select("id, invoice_number, status, total, subtotal, tax_rate, tax_amount, due_date, created_at, notes, line_items, jobs(title)")
+      .select("id, invoice_number, status, total, due_date, created_at, jobs(title)")
       .eq("property_manager_id", pm.id)
       .order("created_at", { ascending: false }),
 
@@ -69,12 +68,6 @@ export default async function PortalPage({ searchParams }: { searchParams: { tok
       .select("id, work_order_id, message, created_at, property_managers(full_name)")
       .eq("tenant_id", pm.tenant_id)
       .order("created_at", { ascending: true }),
-
-    supabase
-      .from("estimates")
-      .select("id, estimate_number, status, total, title, created_at")
-      .eq("property_manager_id", pm.id)
-      .order("created_at", { ascending: false }),
   ]);
 
   // Stitch job statuses onto work orders so PMs can see progress/completion
@@ -101,7 +94,6 @@ export default async function PortalPage({ searchParams }: { searchParams: { tok
       workOrders={workOrdersWithJobs as any[]}
       invoices={(invoices ?? []) as any[]}
       comments={(comments ?? []) as any[]}
-      estimates={(estimates ?? []) as any[]}
       initialTab={(searchParams.tab as any) ?? "overview"}
       paidSuccess={searchParams.paid === "true"}
     />
