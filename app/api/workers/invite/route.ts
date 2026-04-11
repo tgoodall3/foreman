@@ -30,7 +30,12 @@ export async function POST(req: NextRequest) {
       email, password, email_confirm: true,
     });
 
-    if (authError) return errorResponse(authError.message, 400);
+    if (authError) {
+      // Return a generic message — don't leak internal auth error details
+      const isDuplicate = authError.message?.toLowerCase().includes("already registered")
+        || authError.message?.toLowerCase().includes("duplicate");
+      return errorResponse(isDuplicate ? "A worker with this email already exists." : "Failed to create worker account.", 400);
+    }
 
     const { data: profileData, error: profileError } = await supabase
       .from("profiles")

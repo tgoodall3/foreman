@@ -14,6 +14,18 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = await createServerSideClient();
+
+  // Verify every supplied worker_id belongs to the caller's tenant
+  const { data: validWorkers } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("tenant_id", owner.tenant_id)
+    .in("id", worker_ids);
+
+  if (!validWorkers || validWorkers.length !== worker_ids.length) {
+    return errorResponse("One or more worker IDs are invalid.", 400);
+  }
+
   const { data, error } = await supabase
     .from("jobs")
     .select("id, title, scheduled_date, scheduled_time, assigned_workers")

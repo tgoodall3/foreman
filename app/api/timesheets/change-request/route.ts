@@ -5,13 +5,13 @@ import { createServerSideClient } from "@/lib/supabase-server";
 import { errorResponse } from "@/lib/api";
 import { z } from "zod";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 const schema = z.object({
   requested_date: z.string(),
-  requested_clocked_in_at: z.string().optional().nullable(),
-  requested_clocked_out_at: z.string().optional().nullable(),
-  reason: z.string().min(1),
+  requested_clocked_in_at: z.string().datetime({ offset: true }).optional().nullable(),
+  requested_clocked_out_at: z.string().datetime({ offset: true }).optional().nullable(),
+  reason: z.string().min(1).max(500),
   time_entry_id: z.string().uuid().optional().nullable(),
 });
 
@@ -23,6 +23,19 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const parsed = schema.safeParse(body);
     if (!parsed.success) return errorResponse("Invalid payload", 400);
+
+    // Validate time order: clocked_out must be after clocked_in
+    if (parsed.data.requested_clocked_in_at && parsed.data.requested_clocked_out_at) {
+      const inTime  = new Date(parsed.data.requested_clocked_in_at);
+      const outTime = new Date(parsed.data.requested_clocked_out_at);
+      if (outTime <= inTime) {
+        return errorResponse("Clock-out time must be after clock-in time.", 400);
+      }
+      // Reject suspiciously long shifts (> 24 hours)
+      if (outTime.getTime() - inTime.getTime() > 24 * 60 * 60 * 1000) {
+        return errorResponse("Requested shift duration cannot exceed 24 hours.", 400);
+      }
+    }
 
     const supabase = await createServerSideClient();
 
@@ -50,7 +63,7 @@ export async function POST(req: NextRequest) {
       .eq("tenant_id", worker.tenant_id)
       .eq("role", "owner");
 
-    if (owners && owners.length && process.env.RESEND_API_KEY && process.env.EMAIL_FROM) {
+    if (owners && owners.length && resend && process.env.EMAIL_FROM) {
       owners.forEach((owner: any) => {
         resend.emails.send({
           from: process.env.EMAIL_FROM!,

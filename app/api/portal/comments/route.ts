@@ -29,6 +29,15 @@ export async function GET(req: NextRequest) {
     .single();
   if (!pm) return errorResponse("Invalid token.", 403);
 
+  // Verify this work order belongs to the PM (not just the tenant)
+  const { data: wo } = await supabase
+    .from("work_orders")
+    .select("id")
+    .eq("id", work_order_id)
+    .eq("property_manager_id", pm.id)
+    .single();
+  if (!wo) return errorResponse("Work order not found.", 404);
+
   const { data, error } = await supabase
     .from("work_order_comments")
     .select("id, message, created_at, property_managers(full_name)")

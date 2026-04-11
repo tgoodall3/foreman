@@ -16,8 +16,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     .single();
 
   if (!estimate) return badRequest("Estimate not found.");
-  if (estimate.status === "converted") return badRequest("Estimate has already been converted.");
-  if (estimate.status === "declined")  return badRequest("Cannot convert a declined estimate.");
+  if (estimate.status === "declined") return badRequest("Cannot convert a declined estimate.");
 
   // Create the job from the estimate
   const { data: job, error: jobError } = await supabase
@@ -40,15 +39,28 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return errorResponse("Failed to create job.", 500);
   }
 
-  // Mark estimate as converted and link to the new job
-  const { error: updateError } = await supabase
+  // Atomically mark as converted only if it hasn't been converted yet.
+  // This prevents a duplicate job from a race condition.
+  const { data: updated, error: updateError } = await supabase
     .from("estimates")
     .update({ status: "converted", job_id: job.id })
-    .eq("id", params.id);
+    .eq("id", params.id)
+    .eq("status", "draft")   // only succeeds if still in draft
+    .neq("status", "converted")
+    .select("id")
+    .maybeSingle();
 
   if (updateError) {
     logError("Estimate convert status update failed", updateError);
+    // Roll back the orphaned job
+    await supabase.from("jobs").delete().eq("id", job.id);
     return errorResponse("Job created but failed to update estimate.", 500);
+  }
+
+  if (!updated) {
+    // Another request already converted it — clean up the duplicate job
+    await supabase.from("jobs").delete().eq("id", job.id);
+    return badRequest("Estimate has already been converted.");
   }
 
   return jsonResponse({ success: true, jobId: job.id });

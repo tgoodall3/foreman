@@ -3,7 +3,7 @@ import { createServiceClient } from "@/lib/supabase";
 import { Resend } from "resend";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 /** Vercel calls this daily at 09:00 UTC. */
 export async function GET(req: NextRequest) {
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     .select("id, invoice_number, total, due_date, status, tenant_id, property_managers(full_name, email), jobs(title), tenants(name, email)")
     .in("status", ["sent", "overdue"]);
 
-  if (!unpaid?.length || !process.env.RESEND_API_KEY) {
+  if (!unpaid?.length || !resend) {
     return NextResponse.json({ marked: nowOverdue?.length ?? 0, reminded: 0 });
   }
 
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
 
     const urgencyColor = daysOverdue >= 7 ? "#dc2626" : "#f59e0b";
 
-    await resend.emails.send({
+    await resend!.emails.send({
       from: process.env.EMAIL_FROM!,
       to:   pm.email,
       subject,

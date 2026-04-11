@@ -25,11 +25,28 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const caption = formData.get("caption") as string;
   const type = formData.get("type") as string;
 
-  if (!file || !["before", "during", "after", "general"].includes(type)) {
+  const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+  const ALLOWED_PHOTO_TYPES = ["before", "during", "after", "general"];
+
+  if (!file || !ALLOWED_PHOTO_TYPES.includes(type)) {
     return badRequest("Invalid file or type");
   }
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    return badRequest("Only JPEG, PNG, and WebP images are accepted.");
+  }
+  if (file.size > 20 * 1024 * 1024) {
+    return badRequest("File size must be under 20 MB.");
+  }
 
-  const fileExt = file.name.split(".").pop();
+  // Derive extension from MIME type — don't trust user-supplied file name
+  const EXT_MAP: Record<string, string> = {
+    "image/jpeg": "jpg",
+    "image/png":  "png",
+    "image/webp": "webp",
+    "image/heic": "heic",
+    "image/heif": "heif",
+  };
+  const fileExt = EXT_MAP[file.type] ?? "jpg";
   const fileName = `${Date.now()}.${fileExt}`;
   const filePath = `${profile.tenant_id}/${params.id}/${fileName}`;
 
