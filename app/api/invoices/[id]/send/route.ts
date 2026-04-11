@@ -28,6 +28,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const fromAddress = process.env.EMAIL_FROM;
   if (!fromAddress) return errorResponse("EMAIL_FROM is not set.", 500);
 
+  // Prefer explicit site URL; fall back to app URL or the incoming host to avoid "undefined" links in emails
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || req.nextUrl?.origin;
+  if (!siteUrl) return errorResponse("Site URL is not configured.", 500);
+
   let emailOverride: string | undefined;
   try {
     const body = await req.json().catch(() => null);
@@ -61,7 +65,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   // Link directly to the dedicated invoice page so the client can sign and pay
   const invoicePageUrl = portalToken
-    ? `${process.env.NEXT_PUBLIC_SITE_URL}/portal/invoice?token=${encodeURIComponent(portalToken)}&invoice=${encodeURIComponent(params.id)}`
+    ? `${siteUrl}/portal/invoice?token=${encodeURIComponent(portalToken)}&invoice=${encodeURIComponent(params.id)}`
     : null;
 
   if (!invoicePageUrl) {

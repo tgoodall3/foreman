@@ -5,6 +5,14 @@ export async function POST(req: NextRequest) {
   const contentType = req.headers.get("content-type") ?? "";
   const isJson = contentType.includes("application/json");
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
+  if (!siteUrl) {
+    const message = "Site URL is not configured.";
+    return isJson
+      ? NextResponse.json({ error: message }, { status: 500 })
+      : NextResponse.redirect(new URL("/portal", req.nextUrl));
+  }
+
   let token: string | undefined;
   let status: string | undefined;
   let signatureName: string | undefined;
@@ -23,7 +31,7 @@ export async function POST(req: NextRequest) {
 
   if (!token || !status || !["approved", "declined"].includes(status)) {
     if (isJson) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
-    return NextResponse.redirect(new URL(`/portal/estimate?token=${token || ""}&result=error`, process.env.NEXT_PUBLIC_SITE_URL));
+    return NextResponse.redirect(new URL(`/portal/estimate?token=${token || ""}&result=error`, siteUrl));
   }
 
   const supabase = createServiceClient();
@@ -40,5 +48,5 @@ export async function POST(req: NextRequest) {
     .eq("approval_token", token);
 
   if (isJson) return NextResponse.json({ ok: true, status });
-  return NextResponse.redirect(new URL(`/portal/estimate?token=${token}&result=${status}`, process.env.NEXT_PUBLIC_SITE_URL));
+  return NextResponse.redirect(new URL(`/portal/estimate?token=${token}&result=${status}`, siteUrl));
 }

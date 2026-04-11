@@ -11,6 +11,10 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { invoice_id, token, allowACH, allowTips, tipAmount, amount } = body ?? {};
 
+    // Avoid "undefined" redirects by falling back to app URL or request origin
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || req.nextUrl?.origin;
+    if (!siteUrl) return errorResponse("Site URL is not configured.", 500);
+
     if (!invoice_id || !token) return badRequest("invoice_id and token are required.");
 
     const supabase = createServiceClient();
@@ -41,7 +45,7 @@ export async function POST(req: NextRequest) {
 
     const jobTitle = (invoice.jobs as any)?.title ?? "Services";
     // Return to the dedicated invoice page so the client sees the paid confirmation
-    const returnBase = `${process.env.NEXT_PUBLIC_SITE_URL}/portal/invoice?token=${encodeURIComponent(token)}&invoice=${encodeURIComponent(invoice_id)}`;
+    const returnBase = `${siteUrl}/portal/invoice?token=${encodeURIComponent(token)}&invoice=${encodeURIComponent(invoice_id)}`;
 
     const baseAmount = typeof amount === "number" && amount > 0 && amount <= invoice.total ? amount : invoice.total;
     const tip = allowTips && typeof tipAmount === "number" && tipAmount > 0 ? tipAmount : 0;
