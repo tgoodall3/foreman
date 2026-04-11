@@ -13,7 +13,7 @@ export default async function PortalEstimatePage({ searchParams }: { searchParam
   const supabase = createServiceClient();
   const { data: estimate } = await supabase
     .from("estimates")
-    .select("id, title, estimate_number, status, total, subtotal, tax_rate, tax_amount, description, notes, valid_until, approval_token, line_items, property_managers(full_name, email, company, phone), properties(name, address, city, state), tenants(business_name)")
+    .select("id, title, estimate_number, status, total, subtotal, tax_rate, tax_amount, description, notes, valid_until, approval_token, line_items, property_managers(full_name, email, company, phone), properties(name, address, city, state), tenants(name)")
     .eq("approval_token", searchParams.token)
     .single();
 

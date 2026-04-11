@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ui/ToastContainer";
 
 export default function WorkOrderActions({ workOrderId, tenantId, workOrderTitle, workOrderDescription, propertyId }: {
   workOrderId: string; tenantId: string; workOrderTitle: string; workOrderDescription: string; propertyId: string;
 }) {
   const router = useRouter();
+  const { addToast } = useToast();
   const [loading, setLoading] = useState<"accept" | "decline" | null>(null);
   const [error, setError] = useState("");
 
@@ -18,14 +20,21 @@ export default function WorkOrderActions({ workOrderId, tenantId, workOrderTitle
       body: JSON.stringify({ workOrderId, tenantId, action, title: workOrderTitle, description: workOrderDescription, propertyId }),
     });
     const data = await res.json();
-    if (!res.ok) { setError(data.error || "Action failed"); setLoading(null); return; }
+    if (!res.ok) {
+      addToast(data.error || "Action failed", "error");
+      setError(data.error || "Action failed");
+      setLoading(null);
+      return;
+    }
 
     // If accept created a job, jump straight to schedule/assign
     if (action === "accept" && data.jobId) {
+      addToast("Work order accepted — job created", "success");
       router.push(`/owner/jobs/${data.jobId}/edit`);
       return;
     }
 
+    addToast("Work order declined", "success");
     router.refresh();
   };
 

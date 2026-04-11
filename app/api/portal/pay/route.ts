@@ -40,7 +40,8 @@ export async function POST(req: NextRequest) {
     }
 
     const jobTitle = (invoice.jobs as any)?.title ?? "Services";
-    const returnBase = `${process.env.NEXT_PUBLIC_APP_URL}/portal?token=${encodeURIComponent(token)}&tab=invoices`;
+    // Return to the dedicated invoice page so the client sees the paid confirmation
+    const returnBase = `${process.env.NEXT_PUBLIC_SITE_URL}/portal/invoice?token=${encodeURIComponent(token)}&invoice=${encodeURIComponent(invoice_id)}`;
 
     const baseAmount = typeof amount === "number" && amount > 0 && amount <= invoice.total ? amount : invoice.total;
     const tip = allowTips && typeof tipAmount === "number" && tipAmount > 0 ? tipAmount : 0;

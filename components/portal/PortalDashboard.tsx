@@ -274,20 +274,23 @@ function CommentForm({ token, workOrderId, onAdded }: { token: string; workOrder
 
 function PortalHeader({ tenantName, pmName }: { tenantName: string; pmName: string }) {
   return (
-    <header className="bg-forge px-4 py-4">
+    <header className="bg-forge px-4 py-4 shadow-sm">
       <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-amber rounded-lg flex items-center justify-center shrink-0">
-            <span className="font-display font-800 text-forge text-lg">
-              {tenantName?.[0] ?? "F"}
+            <span className="font-display font-800 text-forge text-lg leading-none">
+              {tenantName?.[0]?.toUpperCase() ?? "F"}
             </span>
           </div>
           <div>
-            <p className="font-display font-800 text-white text-lg leading-none tracking-wide">{tenantName || "Your contractor"}</p>
-            <p className="text-mist text-xs">Managed by {tenantName || "your contractor"}</p>
+            <p className="font-display font-800 text-white text-lg leading-none tracking-wide">{tenantName || "Your Contractor"}</p>
+            <p className="text-white/50 text-xs mt-0.5">Client Portal</p>
           </div>
         </div>
-        <p className="text-mist text-xs text-right">Hi, {pmName.split(" ")[0]}</p>
+        <div className="text-right">
+          <p className="text-white text-sm font-600">Hi, {pmName.split(" ")[0]}</p>
+          <p className="text-white/40 text-xs">Property Manager</p>
+        </div>
       </div>
     </header>
   );
@@ -1015,18 +1018,32 @@ export default function PortalDashboard({
               <div className="space-y-3">
                 {(showPast ? estimatesState : estActive).map((est) => {
                   const s = EST_STATUS[est.status] ?? EST_STATUS.draft;
+                  const needsAction = est.status === "sent";
                   return (
-                    <div key={est.id} className="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-mist">#{est.estimate_number}</p>
-                        <p className="font-700 text-forge line-clamp-1">{est.title}</p>
-                        <p className="text-xs text-mist">{formatDate(est.created_at.split("T")[0])}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-700 text-forge">{formatCurrency(est.total)}</p>
-                        <span className={`inline-block mt-1 px-2 py-1 rounded-full text-[11px] ${s.bg} ${s.color}`}>
-                          {s.label}
-                        </span>
+                    <div key={est.id} className={`bg-white rounded-xl border p-4 ${needsAction ? "border-amber" : "border-gray-200"}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs text-mist">#{est.estimate_number} &middot; {formatDate(est.created_at.split("T")[0])}</p>
+                          <p className="font-700 text-forge line-clamp-1 mt-0.5">{est.title}</p>
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-600 ${s.bg} ${s.color}`}>
+                              {s.label}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="font-700 text-forge">{formatCurrency(est.total)}</p>
+                          {needsAction ? (
+                            <a
+                              href={`/portal/estimate?token=${token}`}
+                              className="mt-2 inline-block bg-forge hover:bg-forge-light text-white text-xs font-700 px-3 py-1.5 rounded-lg transition-colors"
+                            >
+                              Review &amp; Sign →
+                            </a>
+                          ) : est.status === "approved" ? (
+                            <p className="text-xs text-green-700 font-600 mt-1.5">Approved</p>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
                   );

@@ -217,6 +217,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return errorResponse("Failed to send email.", 500);
     }
 
+    // Mark invoice as sent now that the email is confirmed delivered
+    if (invoice.status === "draft") {
+      await supabase
+        .from("invoices")
+        .update({ status: "sent" })
+        .eq("id", params.id);
+    }
+
     return jsonResponse({ success: true, emailId: data?.id });
   } catch (err) {
     logError("Invoice email send error", err);

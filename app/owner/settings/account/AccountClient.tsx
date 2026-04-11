@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase";
+import { useToast } from "@/components/ui/ToastContainer";
 
 export default function AccountClient({ profile, tenant }: { profile: any; tenant: any }) {
   const supabase = createClient();
+  const { addToast } = useToast();
   const [bizName, setBizName]   = useState(tenant?.name || "");
   const [bizPhone, setBizPhone] = useState(tenant?.phone || "");
   const [bizAddr, setBizAddr]   = useState(tenant?.address || "");
@@ -35,8 +37,8 @@ export default function AccountClient({ profile, tenant }: { profile: any; tenan
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tenantId: tenant.id, name: bizName, phone: bizPhone, address: bizAddr }),
     });
-    if (res.ok) setSavedBiz(true);
-    else setErrorBiz("Failed to save. Try again.");
+    if (res.ok) { setSavedBiz(true); addToast("Business info saved", "success"); }
+    else { setErrorBiz("Failed to save. Try again."); addToast("Failed to save", "error"); }
     setSavingBiz(false);
   };
 
@@ -47,8 +49,8 @@ export default function AccountClient({ profile, tenant }: { profile: any; tenan
       .from("profiles")
       .update({ full_name: fullName.trim(), phone: phone.trim() || null })
       .eq("id", profile.id);
-    if (error) setErrorPersonal("Failed to save. Try again.");
-    else setSavedPersonal(true);
+    if (error) { setErrorPersonal("Failed to save. Try again."); addToast("Failed to save", "error"); }
+    else { setSavedPersonal(true); addToast("Personal info saved", "success"); }
     setSavingPersonal(false);
   };
 
@@ -67,11 +69,13 @@ export default function AccountClient({ profile, tenant }: { profile: any; tenan
     const data = await res.json();
     if (res.ok) {
       setSavedPassword(true);
+      addToast("Password changed successfully", "success");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } else {
       setErrorPassword(data.error || "Failed to change password");
+      addToast(data.error || "Failed to change password", "error");
     }
     setSavingPassword(false);
   };

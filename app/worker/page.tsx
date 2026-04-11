@@ -1,4 +1,4 @@
-﻿import { requireWorker } from "@/lib/auth";
+import { requireWorker } from "@/lib/auth";
 import { createServerSideClient } from "@/lib/supabase-server";
 import { formatDate, JOB_STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/utils";
 import Link from "next/link";
@@ -17,21 +17,22 @@ export default async function WorkerDashboard() {
     .order("scheduled_date", { ascending: true });
 
   const today = new Date().toISOString().split("T")[0];
-  const todayJobs = jobs?.filter((j) => j.scheduled_date === today) || [];
+  const todayJobs    = jobs?.filter((j) => j.scheduled_date === today) || [];
   const upcomingJobs = jobs?.filter((j) => j.scheduled_date && j.scheduled_date > today) || [];
-  const unscheduled = jobs?.filter((j) => !j.scheduled_date) || [];
+  const unscheduled  = jobs?.filter((j) => !j.scheduled_date) || [];
   const nextJob = [...todayJobs, ...upcomingJobs]
     .filter((j) => j.scheduled_date)
     .sort((a, b) => (a.scheduled_date || "").localeCompare(b.scheduled_date || ""))[0];
 
   const summary = [
-    { label: "Today", value: todayJobs.length },
-    { label: "Upcoming", value: upcomingJobs.length },
+    { label: "Today",       value: todayJobs.length },
+    { label: "Upcoming",    value: upcomingJobs.length },
     { label: "Unscheduled", value: unscheduled.length },
   ];
 
   return (
     <div className="p-4 max-w-3xl mx-auto space-y-5">
+      {/* Hero banner */}
       <div className="bg-gradient-to-r from-forge to-steel text-white rounded-2xl p-5 shadow-sm">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -43,7 +44,10 @@ export default async function WorkerDashboard() {
             href="/worker/timesheets"
             className="inline-flex items-center gap-2 bg-white text-forge font-700 px-3 py-2 rounded-xl text-sm shadow-sm hover:shadow transition"
           >
-            ? View timesheet
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Timesheet
           </Link>
         </div>
         <div className="grid grid-cols-3 gap-3 mt-4">
@@ -59,13 +63,13 @@ export default async function WorkerDashboard() {
       <ClockWidget />
 
       {/* Next up card */}
-      <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
+      <div className="bg-white border border-gray-200 rounded-xl p-4">
         <div className="flex items-center justify-between">
           <p className="text-sm font-700 text-forge">Next up</p>
           {nextJob ? (
             <span className="text-xs text-mist">
               {nextJob.scheduled_date ? formatDate(nextJob.scheduled_date) : "Not scheduled"}
-              {nextJob.scheduled_time ? ` � ${nextJob.scheduled_time}` : ""}
+              {nextJob.scheduled_time ? ` at ${nextJob.scheduled_time}` : ""}
             </span>
           ) : (
             <span className="text-xs text-mist">No upcoming jobs</span>
@@ -82,9 +86,7 @@ export default async function WorkerDashboard() {
                 {nextJob.properties.address && (
                   <p className="font-600 text-forge/90">{nextJob.properties.address}</p>
                 )}
-                <p>
-                  {nextJob.properties.name} · {nextJob.properties.city}, {nextJob.properties.state}
-                </p>
+                <p>{nextJob.properties.name} &middot; {nextJob.properties.city}, {nextJob.properties.state}</p>
               </div>
             )}
           </Link>
@@ -95,7 +97,7 @@ export default async function WorkerDashboard() {
 
       {/* Today */}
       {todayJobs.length > 0 && (
-        <section aria-labelledby="today-heading" className="mb-6">
+        <section aria-labelledby="today-heading">
           <h2 id="today-heading" className="font-display font-700 text-lg text-forge mb-3 flex items-center gap-2">
             Today
             <span className="w-5 h-5 bg-amber text-forge text-xs font-700 rounded-full flex items-center justify-center">
@@ -110,7 +112,7 @@ export default async function WorkerDashboard() {
 
       {/* Upcoming */}
       {upcomingJobs.length > 0 && (
-        <section aria-labelledby="upcoming-heading" className="mb-6">
+        <section aria-labelledby="upcoming-heading">
           <h2 id="upcoming-heading" className="font-display font-700 text-lg text-forge mb-3">Upcoming</h2>
           <div className="space-y-3">
             {upcomingJobs.map((job: any) => <WorkerJobCard key={job.id} job={job} />)}
@@ -120,7 +122,7 @@ export default async function WorkerDashboard() {
 
       {/* Unscheduled */}
       {unscheduled.length > 0 && (
-        <section aria-labelledby="unscheduled-heading" className="mb-6">
+        <section aria-labelledby="unscheduled-heading">
           <h2 id="unscheduled-heading" className="font-display font-700 text-lg text-forge mb-3">Unscheduled</h2>
           <div className="space-y-3">
             {unscheduled.map((job: any) => <WorkerJobCard key={job.id} job={job} />)}
@@ -130,9 +132,13 @@ export default async function WorkerDashboard() {
 
       {!jobs?.length && (
         <div className="text-center py-16">
-          <p className="text-4xl mb-3">??</p>
+          <div className="w-16 h-16 bg-amber/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-amber" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
           <p className="font-display font-700 text-xl text-forge">All caught up!</p>
-          <p className="text-mist text-sm mt-1">No jobs assigned right now</p>
+          <p className="text-mist text-sm mt-1">No jobs assigned right now.</p>
         </div>
       )}
     </div>
@@ -140,16 +146,14 @@ export default async function WorkerDashboard() {
 }
 
 function WorkerJobCard({ job, highlight }: { job: any; highlight?: boolean }) {
-  const statusCfg = JOB_STATUS_CONFIG[job.status as keyof typeof JOB_STATUS_CONFIG];
+  const statusCfg   = JOB_STATUS_CONFIG[job.status as keyof typeof JOB_STATUS_CONFIG];
   const priorityCfg = PRIORITY_CONFIG[job.priority as keyof typeof PRIORITY_CONFIG];
 
   return (
     <Link
       href={`/worker/jobs/${job.id}`}
       className={`block rounded-xl border p-4 transition-all hover:shadow-md ${
-        highlight
-          ? "bg-amber/5 border-amber"
-          : "bg-white border-gray-200"
+        highlight ? "bg-amber/5 border-amber" : "bg-white border-gray-200"
       }`}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
@@ -157,11 +161,16 @@ function WorkerJobCard({ job, highlight }: { job: any; highlight?: boolean }) {
         <span className={`badge shrink-0 ${priorityCfg.bg} ${priorityCfg.color}`}>{priorityCfg.label}</span>
       </div>
       {job.properties && (
-        <p className="text-sm text-mist">{job.properties.name} � {job.properties.city}, {job.properties.state}</p>
+        <p className="text-sm text-mist">
+          {job.properties.name} &middot; {job.properties.city}, {job.properties.state}
+        </p>
       )}
       <div className="flex items-center justify-between mt-3">
-        <span className="text-xs text-mist">
-          {job.scheduled_date ? `?? ${formatDate(job.scheduled_date)}` : "No date set"}
+        <span className="text-xs text-mist flex items-center gap-1">
+          <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          {job.scheduled_date ? formatDate(job.scheduled_date) : "No date set"}
           {job.scheduled_time && ` at ${job.scheduled_time}`}
         </span>
         <span className={`badge ${statusCfg.bg} ${statusCfg.color}`}>{statusCfg.label}</span>

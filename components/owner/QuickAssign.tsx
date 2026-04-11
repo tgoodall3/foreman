@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect } from "react";
+import { useToast } from "@/components/ui/ToastContainer";
 
 interface Props {
   jobId: string;
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export default function QuickAssign({ jobId, scheduledDate, scheduledTime, assignedWorkers, workers }: Props) {
+  const { addToast } = useToast();
   const [open, setOpen] = useState(false);
   const nextSlot = () => {
     const d = new Date();
@@ -69,6 +71,7 @@ export default function QuickAssign({ jobId, scheduledDate, scheduledTime, assig
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
+      addToast(data.error || "Failed to update job", "error");
       setError(data.error || "Failed to update job");
       setLoading(false);
       return;
@@ -81,6 +84,7 @@ export default function QuickAssign({ jobId, scheduledDate, scheduledTime, assig
         body: JSON.stringify({ jobId, workerIds: selected }),
       }).catch(() => {});
     }
+    addToast("Job updated", "success");
     setLoading(false);
     setOpen(false);
     location.reload();

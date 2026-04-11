@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ui/ToastContainer";
 
 interface Props {
   workOrderId: string;
@@ -13,6 +14,7 @@ interface Props {
 
 export default function WorkOrderInlineActions({ workOrderId, tenantId, title, description, propertyId }: Props) {
   const router = useRouter();
+  const { addToast } = useToast();
   const [loading, setLoading] = useState<"accept" | "decline" | null>(null);
   const [error, setError] = useState<string>("");
 
@@ -25,14 +27,17 @@ export default function WorkOrderInlineActions({ workOrderId, tenantId, title, d
     });
     const data = await res.json();
     if (!res.ok) {
+      addToast(data.error || "Action failed", "error");
       setError(data.error || "Action failed");
       setLoading(null);
       return;
     }
     if (action === "accept" && data.jobId) {
+      addToast("Work order accepted — job created", "success");
       router.push(`/owner/jobs/${data.jobId}/edit`);
       return;
     }
+    addToast("Work order declined", "success");
     router.refresh();
   };
 

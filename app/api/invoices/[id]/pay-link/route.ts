@@ -13,9 +13,20 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const body = await req.json().catch(() => ({}));
   const allowACH = !!body.allowACH;
-  const depositAmount = typeof body.amount === "number" ? body.amount : null;
-  const tipAmount = typeof body.tipAmount === "number" ? body.tipAmount : 0;
   const allowTips = !!body.allowTips;
+
+  const rawDeposit = typeof body.amount === "number" ? body.amount : null;
+  const rawTip     = typeof body.tipAmount === "number" ? body.tipAmount : 0;
+
+  if (rawDeposit !== null && (rawDeposit <= 0 || !Number.isFinite(rawDeposit))) {
+    return badRequest("Deposit amount must be a positive number.");
+  }
+  if (rawTip < 0 || !Number.isFinite(rawTip)) {
+    return badRequest("Tip amount must be zero or a positive number.");
+  }
+
+  const depositAmount = rawDeposit;
+  const tipAmount     = rawTip;
 
   const { data: invoice } = await supabase
     .from("invoices")

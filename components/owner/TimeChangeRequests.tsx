@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useToast } from "@/components/ui/ToastContainer";
 
 type Request = {
   id: string;
@@ -36,6 +37,7 @@ function fmtTime(iso: string | null) {
 }
 
 export default function TimeChangeRequests({ requests }: Props) {
+  const { addToast } = useToast();
   const [items, setItems] = useState<Request[]>(requests);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -56,9 +58,11 @@ export default function TimeChangeRequests({ requests }: Props) {
     const data = await res.json().catch(() => ({}));
     setLoadingId(null);
     if (!res.ok) {
+      addToast(data.error || "Failed to update request", "error");
       setError(data.error || "Failed to update request.");
       return;
     }
+    addToast(action === "approve" ? "Request approved" : "Request declined", "success");
     setItems((prev) => prev.map((r) => (r.id === id ? { ...r, status: data.request.status } : r)));
   };
 

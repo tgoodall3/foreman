@@ -95,8 +95,11 @@ export default async function InvoicesPage({ searchParams }: { searchParams: { s
                         disabled={inv.status === "paid"}
                       />
                     )}
-                    <Link href={`/owner/invoices/${inv.id}`} className="text-xs text-mist hover:text-amber font-700">
-                      Edit
+                    <Link
+                      href={`/owner/invoices/${inv.id}`}
+                      className="inline-flex items-center gap-1 bg-white hover:bg-gray-50 text-forge border border-gray-300 text-xs font-700 px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                      Open
                     </Link>
                   </div>
                 </div>

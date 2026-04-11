@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useToast } from "@/components/ui/ToastContainer";
 
 type Entry = {
   id: string;
@@ -56,6 +57,7 @@ const STATUS_STYLES: Record<Request["status"], { bg: string; text: string }> = {
 };
 
 export default function Timesheet({ weekStart, entries, requests }: Props) {
+  const { addToast } = useToast();
   const [localRequests, setLocalRequests] = useState<Request[]>(requests);
   const [modalOpen, setModalOpen] = useState(false);
   const [requestsOpen, setRequestsOpen] = useState(false);
@@ -72,7 +74,7 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
   const prevWeek = addDays(weekStart, -7);
   const nextWeek = addDays(weekStart, 7);
   const today = new Date().toISOString().split("T")[0];
-  const requestCount = localRequests.length;
+  const pendingCount = localRequests.filter((r) => r.status === "pending").length;
 
   const entriesByDate = useMemo(() => {
     const map: Record<string, Entry[]> = {};
@@ -130,10 +132,12 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
     setSaving(false);
 
     if (!res.ok) {
+      addToast(data.error || "Failed to submit request", "error");
       setError(data.error || "Failed to submit request.");
       return;
     }
 
+    addToast("Request submitted", "success");
     setLocalRequests((prev) => [data.request as Request, ...prev]);
     setSuccess("Request sent to your owner.");
     setModalOpen(false);
@@ -176,13 +180,21 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
               This week
             </a>
           )}
-          {requestCount > 0 && (
+          {localRequests.length > 0 && (
             <button
               type="button"
               onClick={() => setRequestsOpen(true)}
-              className="px-3 py-2 text-sm font-600 text-amber border border-amber/40 rounded-lg hover:border-amber hover:bg-amber/10 transition-colors"
+              className="relative inline-flex items-center gap-1.5 px-3 py-2 text-sm font-600 text-forge bg-white border border-gray-200 rounded-lg hover:border-gray-400 transition-colors shadow-sm"
             >
-              Requests ({requestCount})
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              My Requests
+              {pendingCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 inline-flex items-center justify-center w-4 h-4 bg-red-500 text-white text-[10px] font-800 rounded-full">
+                  {pendingCount}
+                </span>
+              )}
             </button>
           )}
         </div>
@@ -344,7 +356,7 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
               <h2 className="font-display font-700 text-lg text-forge">Requests this week</h2>
               <button onClick={() => setRequestsOpen(false)} className="text-sm text-mist hover:text-forge">Close</button>
             </div>
-            {requestCount === 0 ? (
+            {localRequests.length === 0 ? (
               <p className="text-sm text-mist">No requests this week.</p>
             ) : (
               <div className="space-y-2 max-h-80 overflow-auto pr-1">

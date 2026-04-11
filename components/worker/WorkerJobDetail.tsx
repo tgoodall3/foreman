@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase";
 import { formatDate, formatDateTime, JOB_STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/utils";
 import Link from "next/link";
 import JobChecklist from "@/components/jobs/JobChecklist";
+import { useToast } from "@/components/ui/ToastContainer";
 
 interface Props {
   job: any;
@@ -19,6 +20,7 @@ interface Props {
 export default function WorkerJobDetail({ job, photos: initialPhotos, notes: initialNotes, checklist, profile }: Props) {
   const router = useRouter();
   const supabase = createClient();
+  const { addToast } = useToast();
 
   const [photos, setPhotos] = useState(initialPhotos);
   const [notes, setNotes] = useState(initialNotes);
@@ -120,15 +122,18 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
           const queue: { dir: "in" | "out"; ts: number }[] = raw ? JSON.parse(raw) : [];
           queue.push({ dir, ts: Date.now() });
           localStorage.setItem("clockQueue", JSON.stringify(queue));
+          addToast("Offline – clock action queued", "error");
           setError("Offline – queued to sync when back online.");
           setClocking(null);
           return false;
         }
       }
+      addToast(data.error || `Failed to clock ${dir}`, "error");
       setError(data.error || `Failed to clock ${dir}.`);
       setClocking(null);
       return false;
     }
+    addToast(dir === "in" ? "Clocked in" : "Clocked out", "success");
     if (dir === "in") setClockedInEntry(data.entry || null);
     if (dir === "out") setClockedInEntry(null);
     setClocking(null);
@@ -160,6 +165,7 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
       .eq("id", job.id);
 
     if (err) {
+      addToast("Failed to update status", "error");
       setError("Failed to update status. Try again.");
       setUpdatingStatus(false);
       return;
@@ -183,6 +189,7 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
       });
     }
 
+    addToast(nextStatus === "completed" ? "Job marked complete" : "Job status updated", "success");
     setShowHoursPrompt(false);
     router.refresh();
     setUpdatingStatus(false);
@@ -221,6 +228,7 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
 
       if (photoErr) throw photoErr;
       if (photo) {
+        addToast("Photo uploaded", "success");
         setPhotos((prev) => [...prev, photo]);
         setPhotoCaption("");
         if (fileRef.current) fileRef.current.value = "";
@@ -240,6 +248,7 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
         setUploadQueue(queue);
         setError("Offline – photo queued. Re-select when back online.");
       } else {
+        addToast("Photo upload failed", "error");
         setError("Photo upload failed. Check connection/storage.");
       }
     } finally {
@@ -264,9 +273,11 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
       .single();
 
     if (!noteErr && note) {
+      addToast("Note added", "success");
       setNotes((prev) => [...prev, note]);
       setNoteText("");
     } else {
+      addToast("Failed to add note", "error");
       setError("Failed to add note.");
     }
     setAddingNote(false);

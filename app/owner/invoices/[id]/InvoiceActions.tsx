@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useToast } from "@/components/ui/ToastContainer";
 
 interface InvoiceActionsProps {
   invoiceId: string;
@@ -11,6 +12,7 @@ interface InvoiceActionsProps {
 export default function InvoiceActions({ invoiceId, status }: InvoiceActionsProps) {
   const router       = useRouter();
   const searchParams = useSearchParams();
+  const { addToast } = useToast();
   const [sending,    setSending]    = useState(false);
   const [marking,    setMarking]    = useState(false);
   const [payLink,    setPayLink]    = useState(false);
@@ -30,6 +32,7 @@ export default function InvoiceActions({ invoiceId, status }: InvoiceActionsProp
     const data = await res.json();
     setSending(false);
     if (!res.ok) { setError(data.error || "Failed to send"); return; }
+    addToast("Invoice emailed successfully", "success");
     router.refresh();
   };
 
@@ -42,7 +45,8 @@ export default function InvoiceActions({ invoiceId, status }: InvoiceActionsProp
     });
     const data = await res.json();
     setMarking(false);
-    if (!res.ok) { setError(data.error || "Failed to update"); return; }
+    if (!res.ok) { addToast(data.error || "Failed to update", "error"); setError(data.error || "Failed to update"); return; }
+    addToast("Invoice marked as paid", "success");
     router.refresh();
   };
 
@@ -62,11 +66,12 @@ export default function InvoiceActions({ invoiceId, status }: InvoiceActionsProp
     });
     const data = await res.json();
     setPayLink(false);
-    if (!res.ok) { setError(data.error || "Failed to create link"); return; }
+    if (!res.ok) { addToast(data.error || "Failed to create link", "error"); setError(data.error || "Failed to create link"); return; }
     // Copy to clipboard
     try {
       await navigator.clipboard.writeText(data.url);
       setCopiedLink(data.url);
+      addToast("Pay link copied to clipboard", "success");
     } catch {
       setCopiedLink(data.url); // fallback: show the URL
     }

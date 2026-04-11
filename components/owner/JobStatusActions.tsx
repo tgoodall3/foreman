@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ui/ToastContainer";
 
 const transitions: Record<string, { label: string; next: string }[]> = {
   pending: [
@@ -19,6 +20,7 @@ const transitions: Record<string, { label: string; next: string }[]> = {
 export default function JobStatusActions({ jobId, status }: { jobId: string; status: string }) {
   const router = useRouter();
   const supabase = createClient();
+  const { addToast } = useToast();
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState("");
 
@@ -33,6 +35,7 @@ export default function JobStatusActions({ jobId, status }: { jobId: string; sta
       .update({ status: next, updated_at: new Date().toISOString() })
       .eq("id", jobId);
     if (err) {
+      addToast("Failed to update status", "error");
       setError("Failed to update status");
       setUpdating(false);
       return;
@@ -44,6 +47,7 @@ export default function JobStatusActions({ jobId, status }: { jobId: string; sta
         body: JSON.stringify({ jobId }),
       }).catch(() => {});
     }
+    addToast(next === "completed" ? "Job marked complete" : "Status updated", "success");
     router.refresh();
     setUpdating(false);
   };

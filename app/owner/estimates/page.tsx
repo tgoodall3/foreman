@@ -124,7 +124,7 @@ export default async function EstimatesPage({
         </div>
       )}
 
-      {/* Table */}
+      {/* Table / Cards */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {!estimates.length ? (
           <div className="p-12 text-center">
@@ -138,56 +138,88 @@ export default async function EstimatesPage({
             )}
           </div>
         ) : (
-          <table className="w-full text-sm" role="grid" aria-label="Estimates list">
-            <thead>
-              <tr className="border-b border-gray-100 bg-gray-50">
-                <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Number</th>
-                <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Title</th>
-                <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider hidden sm:table-cell">Client</th>
-                <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider hidden md:table-cell">Created</th>
-                <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider hidden md:table-cell">Valid Until</th>
-                <th scope="col" className="text-right px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Total</th>
-                <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
+          <>
+            {/* Desktop table */}
+            <table className="hidden sm:table w-full text-sm" role="grid" aria-label="Estimates list">
+              <thead>
+                <tr className="border-b border-gray-100 bg-gray-50">
+                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Number</th>
+                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Title</th>
+                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Client</th>
+                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Created</th>
+                  <th scope="col" className="text-right px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Total</th>
+                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Status</th>
+                  <th scope="col" className="px-4 py-3"><span className="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {estimates.map((est: any) => {
+                  const cfg = ESTIMATE_STATUS_CONFIG[est.status] ?? ESTIMATE_STATUS_CONFIG.draft;
+                  return (
+                    <tr key={est.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-3">
+                        <span className="font-600 text-mist font-mono text-xs">{est.estimate_number}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="font-600 text-forge">{est.title}</p>
+                        {est.properties?.name && (
+                          <p className="text-xs text-mist mt-0.5">{est.properties.name}</p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-mist text-sm">
+                        {(est.property_managers as any)?.full_name || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-mist text-sm">
+                        {formatDate(est.created_at)}
+                      </td>
+                      <td className="px-4 py-3 text-right font-600 text-forge">
+                        {formatCurrency(est.total)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`badge ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Link
+                          href={`/owner/estimates/${est.id}`}
+                          className="inline-flex items-center gap-1 bg-forge hover:bg-forge-light text-white text-xs font-700 px-3 py-1.5 rounded-lg transition-colors"
+                        >
+                          Open
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            {/* Mobile cards */}
+            <div className="sm:hidden divide-y divide-gray-100">
               {estimates.map((est: any) => {
                 const cfg = ESTIMATE_STATUS_CONFIG[est.status] ?? ESTIMATE_STATUS_CONFIG.draft;
                 return (
-                  <tr key={est.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3">
-                      <Link href={`/owner/estimates/${est.id}`} className="font-600 text-forge hover:text-amber transition-colors font-mono text-xs">
-                        {est.estimate_number}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link href={`/owner/estimates/${est.id}`} className="font-500 text-forge hover:text-amber transition-colors">
-                        {est.title}
-                      </Link>
-                      {est.properties?.name && (
-                        <p className="text-xs text-mist mt-0.5">{est.properties.name}</p>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-mist hidden sm:table-cell">
+                  <div key={est.id} className="px-4 py-3 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-600 text-forge text-sm leading-snug">{est.title}</p>
+                      <span className={`badge shrink-0 ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
+                    </div>
+                    <p className="text-xs text-mist">
                       {(est.property_managers as any)?.full_name || "—"}
-                    </td>
-                    <td className="px-4 py-3 text-mist hidden md:table-cell">
-                      {formatDate(est.created_at)}
-                    </td>
-                    <td className="px-4 py-3 text-mist hidden md:table-cell">
-                      {est.valid_until ? formatDate(est.valid_until) : "—"}
-                    </td>
-                    <td className="px-4 py-3 text-right font-600 text-forge">
-                      {formatCurrency(est.total)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`badge ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
-                    </td>
-                  </tr>
+                      {est.properties?.name ? ` · ${est.properties.name}` : ""}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <span className="font-600 text-forge text-sm">{formatCurrency(est.total)}</span>
+                      <Link
+                        href={`/owner/estimates/${est.id}`}
+                        className="inline-flex items-center bg-forge hover:bg-forge-light text-white text-xs font-700 px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        Open
+                      </Link>
+                    </div>
+                  </div>
                 );
               })}
-            </tbody>
-          </table>
+            </div>
+          </>
         )}
       </div>
     </div>

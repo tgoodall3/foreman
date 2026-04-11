@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { useToast } from "@/components/ui/ToastContainer";
 
 interface TimeEntry {
   id: string;
@@ -17,6 +18,7 @@ function elapsed(since: string): string {
 }
 
 export default function ClockWidget() {
+  const { addToast } = useToast();
   const [entry, setEntry]       = useState<TimeEntry | null | undefined>(undefined); // undefined = loading
   const [saving, setSaving]     = useState(false);
   const [error, setError]       = useState("");
@@ -48,7 +50,8 @@ export default function ClockWidget() {
     const res = await fetch("/api/timesheets/clock-in", { method: "POST" });
     const data = await res.json();
     setSaving(false);
-    if (!res.ok) { setError(data.error || "Failed to clock in."); return; }
+    if (!res.ok) { addToast(data.error || "Failed to clock in", "error"); setError(data.error || "Failed to clock in."); return; }
+    addToast("Clocked in", "success");
     setEntry(data.entry);
   };
 
@@ -61,7 +64,8 @@ export default function ClockWidget() {
     });
     const data = await res.json();
     setSaving(false);
-    if (!res.ok) { setError(data.error || "Failed to clock out."); return; }
+    if (!res.ok) { addToast(data.error || "Failed to clock out", "error"); setError(data.error || "Failed to clock out."); return; }
+    addToast("Clocked out", "success");
     setEntry(null);
     setNotes("");
     setShowNotes(false);

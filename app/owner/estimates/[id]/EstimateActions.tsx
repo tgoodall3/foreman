@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useToast } from "@/components/ui/ToastContainer";
 
 interface Props {
   estimateId: string;
@@ -11,8 +12,16 @@ interface Props {
   pmEmail?: string;
 }
 
+const ACTION_SUCCESS: Record<string, string> = {
+  send: "Estimate sent to client",
+  approve: "Estimate marked approved",
+  decline: "Estimate marked declined",
+  convert: "Estimate converted to job",
+};
+
 export default function EstimateActions({ estimateId, status, jobId, pmEmail }: Props) {
   const router = useRouter();
+  const { addToast } = useToast();
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [sendTo, setSendTo] = useState(pmEmail || "");
@@ -28,9 +37,11 @@ export default function EstimateActions({ estimateId, status, jobId, pmEmail }: 
     const data = await res.json();
     setLoading(null);
     if (!res.ok) {
+      addToast(data.error || "Something went wrong", "error");
       setError(data.error || "Something went wrong");
       return;
     }
+    addToast(ACTION_SUCCESS[action] ?? "Done", "success");
     if (action === "convert" && data.jobId) {
       router.push(`/owner/jobs/${data.jobId}`);
     } else {

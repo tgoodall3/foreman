@@ -66,7 +66,7 @@ export default function PortalEstimateClient({ estimate, pm, prop, tenant, token
                 <span className="font-bold text-[#1a2332] text-sm">F</span>
               </div>
               <span className="font-bold text-white text-base tracking-wide">
-                {tenant?.business_name || "FOREMAN"}
+                {tenant?.name || "FOREMAN"}
               </span>
             </div>
             <span className="text-xs text-white/50 font-mono">{estimate.estimate_number}</span>

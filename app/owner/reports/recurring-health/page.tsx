@@ -47,7 +47,8 @@ export default async function RecurringHealthPage() {
         </div>
       ) : (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-          <table className="w-full text-sm">
+          {/* Desktop table */}
+          <table className="hidden sm:table w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">Job</th>
@@ -70,7 +71,7 @@ export default async function RecurringHealthPage() {
                     </td>
                     <td className="px-4 py-3 text-sm text-steel capitalize">{job.recurrence}</td>
                     <td className="px-4 py-3 text-sm text-steel">{job.scheduled_date ? formatDate(job.scheduled_date) : "—"}</td>
-                    <td className="px-4 py-3 text-sm text-steel">{job.status}</td>
+                    <td className="px-4 py-3 text-sm text-steel capitalize">{job.status}</td>
                     <td className="px-4 py-3 text-right">
                       <Link href={`/owner/jobs/${job.id}/edit`} className="text-xs font-700 text-amber hover:underline">
                         Reschedule
@@ -81,6 +82,32 @@ export default async function RecurringHealthPage() {
               })}
             </tbody>
           </table>
+
+          {/* Mobile cards */}
+          <div className="sm:hidden divide-y divide-gray-100">
+            {flagged.map((job: any) => {
+              const prop = Array.isArray(job.properties) ? job.properties[0] : job.properties;
+              return (
+                <div key={job.id} className="px-4 py-3 space-y-2">
+                  <div className="min-w-0">
+                    <Link href={`/owner/jobs/${job.id}`} className="text-forge font-600 hover:text-amber text-sm">
+                      {job.title}
+                    </Link>
+                    {prop?.name && <p className="text-xs text-mist mt-0.5">{prop.name}</p>}
+                    <p className="text-xs text-steel mt-0.5 capitalize">
+                      {job.recurrence} &middot; scheduled {job.scheduled_date ? formatDate(job.scheduled_date) : "—"} &middot; {job.status}
+                    </p>
+                  </div>
+                  <Link
+                    href={`/owner/jobs/${job.id}/edit`}
+                    className="inline-flex items-center bg-amber text-forge text-xs font-700 px-3 py-1.5 rounded-lg hover:bg-amber-dark transition-colors"
+                  >
+                    Reschedule
+                  </Link>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

@@ -11,27 +11,22 @@ export async function POST(req: NextRequest) {
 
     const supabase = await createServerSideClient();
 
-    // Find the open entry
-    const { data: open } = await supabase
-      .from("time_entries")
-      .select("id")
-      .eq("worker_id", profile.id)
-      .is("clocked_out_at", null)
-      .maybeSingle();
-
-    if (!open) {
-      return errorResponse("Not currently clocked in.", 409);
-    }
-
+    // Atomic update — only closes an entry that is still open for this worker.
+    // Avoids a TOCTOU race where two concurrent requests both see an open entry.
     const { data: entry, error } = await supabase
       .from("time_entries")
       .update({
         clocked_out_at: new Date().toISOString(),
         notes: notes ?? null,
       })
-      .eq("id", open.id)
+      .eq("worker_id", profile.id)
+      .is("clocked_out_at", null)
       .select()
-      .single();
+      .maybeSingle();
+
+    if (!entry) {
+      return errorResponse("Not currently clocked in.", 409);
+    }
 
     if (error) return errorResponse("Failed to clock out.", 500);
 
