@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
-export default function LoginPage() {
+function LoginForm() {
   const searchParams  = useSearchParams();
   const signedOut     = searchParams.get("signed_out") === "1";
 
@@ -36,6 +36,72 @@ export default function LoginPage() {
   };
 
   return (
+    <>
+      {signedOut && (
+        <div className="mb-4 bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-sm text-chalk text-center">
+          You&apos;ve been signed out successfully.
+        </div>
+      )}
+
+      <div className="bg-forge-light border border-steel rounded-xl p-6">
+        <h1 className="font-display font-700 text-white text-xl mb-6">Sign in to your account</h1>
+
+        <form onSubmit={handleLogin} className="space-y-4" noValidate>
+          <div>
+            <label htmlFor="email" className="block text-sm font-500 text-chalk mb-1">
+              Email address
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              aria-required="true"
+              autoComplete="email"
+              className="w-full bg-forge border border-steel rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-mist focus:border-amber"
+              placeholder="you@company.com"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="password" className="block text-sm font-500 text-chalk mb-1">
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              aria-required="true"
+              autoComplete="current-password"
+              className="w-full bg-forge border border-steel rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-mist focus:border-amber"
+              placeholder="••••••••"
+            />
+          </div>
+
+          {error && (
+            <div role="alert" className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-amber hover:bg-amber-dark disabled:opacity-50 text-forge font-display font-700 py-2.5 rounded-lg text-base transition-colors min-h-[44px]"
+          >
+            {loading ? "Signing in…" : "Sign In"}
+          </button>
+        </form>
+      </div>
+    </>
+  );
+}
+
+export default function LoginPage() {
+  return (
     <main id="main-content" className="min-h-screen bg-forge flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         {/* Logo */}
@@ -49,65 +115,9 @@ export default function LoginPage() {
           <p className="text-mist text-sm">Field service management for contractors</p>
         </div>
 
-        {signedOut && (
-          <div className="mb-4 bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-sm text-chalk text-center">
-            You&apos;ve been signed out successfully.
-          </div>
-        )}
-
-        <div className="bg-forge-light border border-steel rounded-xl p-6">
-          <h1 className="font-display font-700 text-white text-xl mb-6">Sign in to your account</h1>
-
-          <form onSubmit={handleLogin} className="space-y-4" noValidate>
-            <div>
-              <label htmlFor="email" className="block text-sm font-500 text-chalk mb-1">
-                Email address
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                aria-required="true"
-                autoComplete="email"
-                className="w-full bg-forge border border-steel rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-mist focus:border-amber"
-                placeholder="you@company.com"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-500 text-chalk mb-1">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                aria-required="true"
-                autoComplete="current-password"
-                className="w-full bg-forge border border-steel rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-mist focus:border-amber"
-                placeholder="••••••••"
-              />
-            </div>
-
-            {error && (
-              <div role="alert" className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">
-                {error}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-amber hover:bg-amber-dark disabled:opacity-50 text-forge font-display font-700 py-2.5 rounded-lg text-base transition-colors min-h-[44px]"
-            >
-              {loading ? "Signing in…" : "Sign In"}
-            </button>
-          </form>
-        </div>
+        <Suspense>
+          <LoginForm />
+        </Suspense>
 
         <p className="text-center text-mist text-xs mt-6">
           Property manager?{" "}

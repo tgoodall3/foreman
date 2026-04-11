@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true, workOrder });
+    return NextResponse.json({ success: true, id: workOrder.id, workOrder });
   } catch (error) {
     console.error("Portal submit error:", error);
     return errorResponse("Internal server error", 500);
