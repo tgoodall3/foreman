@@ -80,7 +80,7 @@ export default function NewJobPage() {
     router.push(`/owner/jobs/${job.id}`);
   };
 
-  const inp = "w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-amber";
+  const inp = "w-full min-w-0 max-w-full border border-gray-300 rounded-lg px-3 py-2.5 sm:py-3 text-sm focus:outline-none focus:border-amber";
 
   return (
     <div className="p-6 max-w-2xl">
@@ -102,7 +102,7 @@ export default function NewJobPage() {
             <label htmlFor="description" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Description</label>
             <textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className={inp + " resize-none"} placeholder="Details, materials needed, special instructions…" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label htmlFor="priority" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Priority</label>
               <select id="priority" value={priority} onChange={(e) => setPriority(e.target.value)} className={inp}>

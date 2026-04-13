@@ -48,30 +48,32 @@ export default async function WorkOrderDetailPage({ params }: { params: { id: st
 
   return (
     <div className="p-6 max-w-4xl">
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Link href="/owner/work-orders" className="text-mist hover:text-forge text-sm transition-colors">Work Orders</Link>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-6">
+        <div className="min-w-0 space-y-2">
+          <div className="flex flex-wrap items-center gap-1 text-xs text-mist">
+            <Link href="/owner/work-orders" className="text-mist hover:text-forge underline underline-offset-2 decoration-black">Work Orders</Link>
             <span className="text-mist">/</span>
-            <span className="text-sm text-forge">{wo.title}</span>
+            <span className="text-forge truncate">{wo.title}</span>
           </div>
-          <h1 className="font-display font-800 text-3xl text-forge">{wo.title}</h1>
-          <div className="flex items-center gap-2 mt-2 flex-wrap">
+          <h1 className="font-display font-800 text-2xl sm:text-3xl text-forge leading-tight break-words">{wo.title}</h1>
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
             <span className={`badge ${priorityCfg.bg} ${priorityCfg.color}`}>{priorityCfg.label}</span>
             <span className={`badge ${statusColors[wo.status] ?? "bg-gray-100 text-gray-600"}`}>{wo.status}</span>
             <span className="text-xs text-mist">Opened {formatDate(wo.created_at.split("T")[0])}</span>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
           {job && (
             <Link
               href={`/owner/jobs/${job.id}`}
-              className="inline-flex items-center gap-1 bg-amber text-forge font-700 text-xs px-3 py-2 rounded-lg hover:bg-amber-dark transition-colors"
+              className="inline-flex items-center justify-center gap-1 bg-amber text-forge font-700 text-xs sm:text-sm px-3 py-1.5 rounded-lg hover:bg-amber-dark transition-colors"
             >
               Open Job →
             </Link>
           )}
-          <Link href="/owner/jobs/new" className="text-sm text-amber hover:underline font-600">+ New Job</Link>
+          <Link href="/owner/jobs/new" className="text-xs sm:text-sm text-forge underline underline-offset-2 decoration-black font-700">
+            + New Job
+          </Link>
         </div>
       </div>
 

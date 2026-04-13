@@ -103,6 +103,14 @@ export default function NotificationBell() {
     if (!open) fetchNotifications();
   };
 
+  // Fetch on mount and poll in background so badge stays fresh without clicking
+  useEffect(() => {
+    fetchNotifications();
+    const id = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const markAllRead = () => {
     const allIds = new Set(notifications.map((n) => n.id));
     setReadIds(allIds);
