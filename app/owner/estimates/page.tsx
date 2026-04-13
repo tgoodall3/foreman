@@ -3,6 +3,12 @@ import { createServerSideClient } from "@/lib/supabase-server";
 import { formatCurrency, formatDate, ESTIMATE_STATUS_CONFIG } from "@/lib/utils";
 import Link from "next/link";
 
+function daysUntilExpiry(validUntil: string | null): number | null {
+  if (!validUntil) return null;
+  const diff = new Date(validUntil + "T00:00:00Z").getTime() - Date.now();
+  return Math.ceil(diff / 86400000);
+}
+
 const ARCHIVE_STATUSES = ["approved", "declined", "converted"];
 const ARCHIVE_DAYS = 7;
 
@@ -155,6 +161,7 @@ export default async function EstimatesPage({
               <tbody className="divide-y divide-gray-100">
                 {estimates.map((est: any) => {
                   const cfg = ESTIMATE_STATUS_CONFIG[est.status] ?? ESTIMATE_STATUS_CONFIG.draft;
+                  const expDays = ["draft","sent"].includes(est.status) ? daysUntilExpiry(est.valid_until) : null;
                   return (
                     <tr key={est.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3">
@@ -176,7 +183,14 @@ export default async function EstimatesPage({
                         {formatCurrency(est.total)}
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`badge ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
+                        <div className="flex flex-col gap-1 items-start">
+                          <span className={`badge ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
+                          {expDays !== null && expDays <= 7 && (
+                            <span className={`text-[10px] font-700 px-1.5 py-0.5 rounded ${expDays <= 0 ? "bg-red-100 text-red-700" : "bg-amber/20 text-amber-dark"}`}>
+                              {expDays <= 0 ? "Expired" : `Expires in ${expDays}d`}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-right">
                         <Link
@@ -196,11 +210,19 @@ export default async function EstimatesPage({
             <div className="sm:hidden divide-y divide-gray-100">
               {estimates.map((est: any) => {
                 const cfg = ESTIMATE_STATUS_CONFIG[est.status] ?? ESTIMATE_STATUS_CONFIG.draft;
+                const expDays = ["draft","sent"].includes(est.status) ? daysUntilExpiry(est.valid_until) : null;
                 return (
                   <div key={est.id} className="px-4 py-3 space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <p className="font-600 text-forge text-sm leading-snug">{est.title}</p>
-                      <span className={`badge shrink-0 ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <span className={`badge ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
+                        {expDays !== null && expDays <= 7 && (
+                          <span className={`text-[10px] font-700 px-1.5 py-0.5 rounded ${expDays <= 0 ? "bg-red-100 text-red-700" : "bg-amber/20 text-amber-dark"}`}>
+                            {expDays <= 0 ? "Expired" : `Exp. ${expDays}d`}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <p className="text-xs text-mist">
                       {(est.property_managers as any)?.full_name || "—"}

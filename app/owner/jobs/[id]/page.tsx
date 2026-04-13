@@ -213,7 +213,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
 
         {/* Right: sidebar */}
         <div className="space-y-4">
-          <JobStatusActions jobId={job.id} status={job.status} />
+          <JobStatusActions jobId={job.id} status={job.status} hasInvoice={!!job.invoice_id} />
 
           {/* Property */}
           {job.properties && (

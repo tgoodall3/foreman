@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import NotificationBell from "@/components/owner/NotificationBell";
 
 const ICONS: Record<string, JSX.Element> = {
   today: (
@@ -96,6 +97,7 @@ const NAV_SECTIONS = [
     items: [
       { href: "/owner/invoices", label: "Invoices", icon: ICONS.invoice },
       { href: "/owner/estimates", label: "Estimates", icon: ICONS.doc },
+      { href: "/owner/reports/revenue", label: "Revenue", icon: ICONS.report },
       { href: "/owner/reports/jobs-to-invoice", label: "Billing Gap", icon: ICONS.report },
       { href: "/owner/reports/estimate-conversion", label: "Conversions", icon: ICONS.report },
     ],
@@ -106,8 +108,7 @@ const NAV_SECTIONS = [
       { href: "/owner/reports/recurring-health", label: "Recurring", icon: ICONS.report },
       { href: "/owner/properties", label: "Properties", icon: ICONS.home },
       { href: "/owner/workers", label: "Workers", icon: ICONS.users },
-      { href: "/owner/settings/billing", label: "Billing", icon: ICONS.billing },
-      { href: "/owner/settings", label: "Settings", icon: ICONS.settings },
+      { href: "/owner/settings/account", label: "Settings", icon: ICONS.settings },
     ],
   },
 ];
@@ -156,7 +157,9 @@ export default function OwnerShell({ profile, tenantName, children }: OwnerShell
             <p className="text-mist text-xs truncate">{tenantName || "Your Business"}</p>
           </div>
         </div>
-        <button
+        <div className="flex items-center gap-1">
+          <NotificationBell />
+          <button
           type="button"
           onClick={() => setMobileOpen((open) => !open)}
           className="text-white p-2 hover:bg-forge-light rounded-lg transition-colors"
@@ -171,6 +174,7 @@ export default function OwnerShell({ profile, tenantName, children }: OwnerShell
             )}
           </svg>
         </button>
+        </div>
       </header>
 
       {mobileOpen && (
@@ -231,10 +235,11 @@ export default function OwnerShell({ profile, tenantName, children }: OwnerShell
               <div className="w-8 h-8 bg-amber rounded flex items-center justify-center shrink-0">
                 <span className="font-display font-800 text-forge text-lg">F</span>
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="font-display font-800 text-white text-lg leading-none tracking-wide">FOREMAN</p>
                 <p className="text-mist text-xs truncate mt-0.5">{tenantName || "Your Business"}</p>
               </div>
+              <NotificationBell />
             </div>
           </div>
 

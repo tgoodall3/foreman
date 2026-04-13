@@ -11,6 +11,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const profile = await requireOwner();
   const supabase = await createServerSideClient();
 
+  const rawEnvUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL;
+  const siteUrl = rawEnvUrl && rawEnvUrl !== "undefined" ? rawEnvUrl : req.nextUrl?.origin;
+
   const body = await req.json().catch(() => ({}));
   const allowACH = !!body.allowACH;
   const allowTips = !!body.allowTips;
@@ -28,15 +31,25 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const depositAmount = rawDeposit;
   const tipAmount     = rawTip;
 
-  const { data: invoice } = await supabase
-    .from("invoices")
-    .select("*, property_managers(full_name, email), jobs(title)")
-    .eq("id", params.id)
-    .eq("tenant_id", profile.tenant_id)
-    .single();
+  const [{ data: invoice }, { data: tenant }] = await Promise.all([
+    supabase
+      .from("invoices")
+      .select("*, property_managers(full_name, email), jobs(title)")
+      .eq("id", params.id)
+      .eq("tenant_id", profile.tenant_id)
+      .single(),
+    supabase
+      .from("tenants")
+      .select("stripe_connect_id, stripe_connect_enabled")
+      .eq("id", profile.tenant_id)
+      .single(),
+  ]);
 
   if (!invoice) return badRequest("Invoice not found.");
   if (invoice.status === "paid") return badRequest("Invoice is already paid.");
+  if (!tenant?.stripe_connect_id || !tenant?.stripe_connect_enabled) {
+    return errorResponse("Connect your Stripe account in Settings → Billing before sending pay links.", 402);
+  }
 
   const pm       = invoice.property_managers as any;
   const jobTitle = (invoice.jobs as any)?.title || "Services";
@@ -75,8 +88,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           quantity: 1,
         }] : []),
       ],
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/owner/invoices/${params.id}?paid=true`,
-      cancel_url:  `${process.env.NEXT_PUBLIC_APP_URL}/owner/invoices/${params.id}`,
+      success_url: `${siteUrl}/owner/invoices/${params.id}?paid=true`,
+      cancel_url:  `${siteUrl}/owner/invoices/${params.id}`,
+      payment_intent_data: {
+        application_fee_amount: 0,
+        transfer_data: { destination: tenant.stripe_connect_id! },
+      },
       metadata: {
         invoice_id: params.id,
         tenant_id:  profile.tenant_id,

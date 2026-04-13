@@ -95,6 +95,9 @@ export const updateAccountSchema = z.object({
   name: nameSchema.optional(),
   phone: phoneSchema,
   address: addressSchema.optional(),
+  invoice_footer: z.string().max(500).trim().optional(),
+  tax_id: z.string().max(50).trim().optional(),
+  website: z.string().url().max(200).optional().or(z.literal("")),
 });
 
 const estimateCommon = {

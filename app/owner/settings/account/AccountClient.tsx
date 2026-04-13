@@ -10,6 +10,9 @@ export default function AccountClient({ profile, tenant }: { profile: any; tenan
   const [bizName, setBizName]   = useState(tenant?.name || "");
   const [bizPhone, setBizPhone] = useState(tenant?.phone || "");
   const [bizAddr, setBizAddr]   = useState(tenant?.address || "");
+  const [invoiceFooter, setInvoiceFooter] = useState(tenant?.invoice_footer || "");
+  const [taxId, setTaxId]       = useState(tenant?.tax_id || "");
+  const [website, setWebsite]   = useState(tenant?.website || "");
   const [savingBiz, setSavingBiz] = useState(false);
   const [savedBiz, setSavedBiz] = useState(false);
   const [errorBiz, setErrorBiz] = useState("");
@@ -35,7 +38,7 @@ export default function AccountClient({ profile, tenant }: { profile: any; tenan
     const res = await fetch("/api/settings/account", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ tenantId: tenant.id, name: bizName, phone: bizPhone, address: bizAddr }),
+      body: JSON.stringify({ tenantId: tenant.id, name: bizName, phone: bizPhone, address: bizAddr, invoice_footer: invoiceFooter, tax_id: taxId, website }),
     });
     if (res.ok) { setSavedBiz(true); addToast("Business info saved", "success"); }
     else { setErrorBiz("Failed to save. Try again."); addToast("Failed to save", "error"); }
@@ -96,7 +99,29 @@ export default function AccountClient({ profile, tenant }: { profile: any; tenan
         </div>
         <div>
           <label className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Address</label>
-          <input value={bizAddr} onChange={(e) => setBizAddr(e.target.value)} className={inp} />
+          <input value={bizAddr} onChange={(e) => setBizAddr(e.target.value)} className={inp} placeholder="123 Main St, City, State" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Website</label>
+            <input type="url" value={website} onChange={(e) => setWebsite(e.target.value)} className={inp} placeholder="https://yourbusiness.com" />
+          </div>
+          <div>
+            <label className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Tax ID / EIN</label>
+            <input value={taxId} onChange={(e) => setTaxId(e.target.value)} className={inp} placeholder="XX-XXXXXXX" />
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Invoice Footer</label>
+          <textarea
+            value={invoiceFooter}
+            onChange={(e) => setInvoiceFooter(e.target.value)}
+            rows={2}
+            maxLength={500}
+            className={inp + " resize-none"}
+            placeholder="Payment terms, thank-you note, or legal text shown at the bottom of every invoice…"
+          />
+          <p className="text-xs text-mist mt-1">{invoiceFooter.length}/500 — appears on all sent invoices</p>
         </div>
         {errorBiz && <p className="text-sm text-red-600">{errorBiz}</p>}
         {savedBiz && <p className="text-sm text-green-600">✓ Saved</p>}

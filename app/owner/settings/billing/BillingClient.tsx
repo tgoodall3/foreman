@@ -1,10 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { formatDate } from "@/lib/utils";
+import { useSearchParams } from "next/navigation";
 
 export default function BillingClient({ tenant, profile }: { tenant: any; profile: any }) {
   const [loading, setLoading] = useState(false);
+  const [connectLoading, setConnectLoading] = useState(false);
+  const [connectError, setConnectError] = useState("");
+  const searchParams = useSearchParams();
+  const connectStatus = searchParams.get("connect"); // "success" | "expired"
 
   const handleUpgrade = async () => {
     setLoading(true);
@@ -29,7 +34,21 @@ export default function BillingClient({ tenant, profile }: { tenant: any; profil
     }
   };
 
+  const handleConnect = async () => {
+    setConnectLoading(true);
+    setConnectError("");
+    const res = await fetch("/api/billing/connect", { method: "POST" });
+    const data = await res.json();
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      setConnectError(data.error || "Could not start Stripe Connect. Try again.");
+      setConnectLoading(false);
+    }
+  };
+
   const isPro = profile?.plan === "pro" || tenant?.plan === "pro";
+  const isConnected = !!tenant?.stripe_connect_id && !!tenant?.stripe_connect_enabled;
   const trialEnds = tenant?.trial_ends_at ? new Date(tenant.trial_ends_at) : null;
   const trialExpired = trialEnds ? trialEnds < new Date() : false;
 
@@ -81,6 +100,85 @@ export default function BillingClient({ tenant, profile }: { tenant: any; profil
             {manageError && (
               <p className="text-xs text-red-600 mt-2">{manageError}</p>
             )}
+          </div>
+        )}
+      </div>
+      {/* Stripe Connect */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <div>
+            <p className="font-display font-700 text-xl text-forge">Accept Payments</p>
+            <p className="text-sm text-mist mt-1">
+              Connect your Stripe account so clients can pay invoices online.
+              Money goes directly to you — Foreman never touches your funds.
+            </p>
+          </div>
+          <span className={`shrink-0 text-sm px-3 py-1 rounded-full font-600 ${
+            isConnected
+              ? "bg-green-100 text-green-700"
+              : tenant?.stripe_connect_id
+              ? "bg-amber/20 text-amber-dark"
+              : "bg-gray-100 text-gray-500"
+          }`}>
+            {isConnected ? "Connected" : tenant?.stripe_connect_id ? "Pending" : "Not connected"}
+          </span>
+        </div>
+
+        {connectStatus === "success" && (
+          <div className="mb-4 bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-700 font-600">
+            ✓ Stripe account connected successfully. You can now accept payments.
+          </div>
+        )}
+        {connectStatus === "expired" && (
+          <div className="mb-4 bg-amber/10 border border-amber/30 rounded-lg px-4 py-3 text-sm text-amber-dark font-600">
+            The onboarding link expired. Click below to start again.
+          </div>
+        )}
+
+        {isConnected ? (
+          <div className="space-y-3">
+            <p className="text-sm text-steel">
+              Your Stripe account is connected and ready to accept card and ACH payments.
+            </p>
+            <button
+              onClick={handleConnect}
+              disabled={connectLoading}
+              className="text-sm text-amber hover:underline font-600"
+            >
+              {connectLoading ? "Loading…" : "Open Stripe dashboard →"}
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <ul className="text-sm text-steel space-y-1">
+              {[
+                "Clients pay directly on the invoice page",
+                "Money deposits to your bank account",
+                "Card and ACH (bank transfer) supported",
+                "Stripe handles all PCI compliance",
+              ].map((f) => (
+                <li key={f} className="flex items-center gap-2">
+                  <span className="text-green-500">✓</span>{f}
+                </li>
+              ))}
+            </ul>
+            {connectError && (
+              <p className="text-sm text-red-600">{connectError}</p>
+            )}
+            <button
+              onClick={handleConnect}
+              disabled={connectLoading}
+              className="bg-[#635bff] hover:bg-[#5046e5] disabled:opacity-50 text-white font-display font-700 px-5 py-2.5 rounded-lg text-sm transition-colors"
+            >
+              {connectLoading
+                ? "Redirecting…"
+                : tenant?.stripe_connect_id
+                ? "Continue Stripe setup →"
+                : "Connect with Stripe →"}
+            </button>
+            <p className="text-xs text-mist">
+              You&apos;ll be taken to Stripe to create or connect your account. Takes ~2 minutes.
+            </p>
           </div>
         )}
       </div>

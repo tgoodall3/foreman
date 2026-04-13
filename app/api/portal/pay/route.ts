@@ -28,20 +28,31 @@ export async function POST(req: NextRequest) {
 
     if (!pm) return errorResponse("Invalid portal token.", 403);
 
-    // Load invoice and confirm it belongs to this PM
-    const { data: invoice } = await supabase
-      .from("invoices")
-      .select("id, invoice_number, total, status, jobs(title)")
-      .eq("id", invoice_id)
-      .eq("property_manager_id", pm.id)
-      .eq("tenant_id", pm.tenant_id)
-      .single();
+    // Load invoice + tenant's Stripe Connect account
+    const [{ data: invoice }, { data: tenant }] = await Promise.all([
+      supabase
+        .from("invoices")
+        .select("id, invoice_number, total, status, jobs(title)")
+        .eq("id", invoice_id)
+        .eq("property_manager_id", pm.id)
+        .eq("tenant_id", pm.tenant_id)
+        .single(),
+      supabase
+        .from("tenants")
+        .select("stripe_connect_id, stripe_connect_enabled")
+        .eq("id", pm.tenant_id)
+        .single(),
+    ]);
 
     if (!invoice) return badRequest("Invoice not found.");
     if (invoice.status === "paid") return badRequest("Invoice is already paid.");
     if (!["sent", "overdue"].includes(invoice.status)) {
       return badRequest("Invoice is not ready for payment.");
     }
+    if (!tenant?.stripe_connect_id || !tenant?.stripe_connect_enabled) {
+      return errorResponse("This contractor has not connected their Stripe account yet.", 402);
+    }
+    const connectAccountId = tenant.stripe_connect_id;
 
     const jobTitle = (invoice.jobs as any)?.title ?? "Services";
     // Return to the dedicated invoice page so the client sees the paid confirmation
@@ -51,6 +62,7 @@ export async function POST(req: NextRequest) {
     const tip = allowTips && typeof tipAmount === "number" && tipAmount > 0 ? tipAmount : 0;
 
     const session = await stripe.checkout.sessions.create({
+      ui_mode:              "embedded",
       payment_method_types: allowACH ? ["card", "us_bank_account"] : ["card"],
       mode:                 "payment",
       customer_email:       pm.email ?? undefined,
@@ -75,8 +87,11 @@ export async function POST(req: NextRequest) {
           quantity: 1,
         }] : []),
       ],
-      success_url: `${returnBase}&paid=true`,
-      cancel_url:  returnBase,
+      return_url: `${returnBase}&paid=true`,
+      payment_intent_data: {
+        application_fee_amount: 0, // Platform fee in cents — set if you want to take a cut
+        transfer_data: { destination: connectAccountId },
+      },
       metadata: {
         invoice_id: invoice.id,
         tenant_id:  pm.tenant_id,
@@ -85,7 +100,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return jsonResponse({ url: session.url });
+    return jsonResponse({ clientSecret: session.client_secret });
   } catch (err) {
     logError("Portal pay error", err);
     return errorResponse("Failed to create payment link.", 500);

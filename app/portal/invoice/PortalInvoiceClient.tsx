@@ -1,6 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { loadStripe } from "@stripe/stripe-js";
+import { EmbeddedCheckout, EmbeddedCheckoutProvider } from "@stripe/react-stripe-js";
+
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
 function fmt(n: number | null | undefined) {
   if (n == null) return "$0.00";
@@ -24,10 +28,12 @@ type Props = {
 };
 
 export default function PortalInvoiceClient({ invoice, pm, tenant, job, token, paidSuccess }: Props) {
-  const [sigName, setSigName]   = useState("");
-  const [sigError, setSigError] = useState("");
-  const [paying, setPaying]     = useState(false);
-  const [payError, setPayError] = useState("");
+  const [sigName, setSigName]         = useState("");
+  const [sigError, setSigError]       = useState("");
+  const [payError, setPayError]       = useState("");
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [loadingPay, setLoadingPay]   = useState(false);
 
   const lineItems: any[] = Array.isArray(invoice.line_items) ? invoice.line_items : [];
   const isPaid    = invoice.status === "paid" || paidSuccess;
@@ -42,7 +48,7 @@ export default function PortalInvoiceClient({ invoice, pm, tenant, job, token, p
       return;
     }
     setSigError("");
-    setPaying(true);
+    setLoadingPay(true);
     setPayError("");
 
     const res = await fetch("/api/portal/pay", {
@@ -52,21 +58,23 @@ export default function PortalInvoiceClient({ invoice, pm, tenant, job, token, p
         invoice_id: invoice.id,
         token,
         allowACH: true,
-        allowTips: false,
-        tipAmount: 0,
-        amount: null,
         signature_name: sigName.trim(),
       }),
     });
 
     const data = await res.json();
-    setPaying(false);
+    setLoadingPay(false);
+
     if (!res.ok) {
-      setPayError(data.error ?? "Unable to create payment session. Please try again.");
+      setPayError(data.error ?? "Unable to start payment. Please try again.");
       return;
     }
-    window.location.href = data.url;
+
+    setClientSecret(data.clientSecret);
+    setShowCheckout(true);
   };
+
+  const fetchClientSecret = useCallback(() => Promise.resolve(clientSecret!), [clientSecret]);
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
@@ -196,7 +204,7 @@ export default function PortalInvoiceClient({ invoice, pm, tenant, job, token, p
           )}
 
           {/* Sign & Pay section */}
-          {isPayable && (
+          {isPayable && !showCheckout && (
             <div className="px-6 py-5">
               <p className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-3">Authorise Payment</p>
               <p className="text-xs text-gray-500 mb-3 leading-relaxed">
@@ -227,11 +235,11 @@ export default function PortalInvoiceClient({ invoice, pm, tenant, job, token, p
 
               <button
                 onClick={handlePay}
-                disabled={paying}
+                disabled={loadingPay}
                 className="w-full bg-[#0f1923] hover:bg-gray-800 disabled:opacity-50 text-white font-bold py-3 rounded-xl text-sm transition-colors flex items-center justify-center gap-2"
               >
-                {paying ? (
-                  "Creating secure payment…"
+                {loadingPay ? (
+                  "Loading secure payment…"
                 ) : (
                   <>
                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -243,8 +251,26 @@ export default function PortalInvoiceClient({ invoice, pm, tenant, job, token, p
                 )}
               </button>
               <p className="text-center text-xs text-gray-400 mt-2">
-                Powered by Stripe · Card and ACH accepted
+                Card and ACH accepted · Secured by Stripe
               </p>
+            </div>
+          )}
+
+          {/* Embedded Stripe Checkout */}
+          {isPayable && showCheckout && clientSecret && (
+            <div className="px-4 py-4">
+              <button
+                onClick={() => setShowCheckout(false)}
+                className="mb-3 text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1"
+              >
+                ← Back
+              </button>
+              <EmbeddedCheckoutProvider
+                stripe={stripePromise}
+                options={{ fetchClientSecret }}
+              >
+                <EmbeddedCheckout />
+              </EmbeddedCheckoutProvider>
             </div>
           )}
 

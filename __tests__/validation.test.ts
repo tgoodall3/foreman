@@ -82,7 +82,7 @@ describe("passwordSchema", () => {
   it("rejects a 7-char password", () => {
     const r = validateInput(passwordSchema, "1234567");
     expect(r.success).toBe(false);
-    if (!r.success) expect(r.error).toContain("8 characters");
+    if ("error" in r) expect(r.error).toContain("8 characters");
   });
 
   it("rejects empty string", () => {

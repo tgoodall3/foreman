@@ -52,7 +52,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const supabase = await createServerSideClient();
   const [{ data: tenant }, { data: pmRecord }] = await Promise.all([
-    supabase.from("tenants").select("name, email").eq("id", profile.tenant_id).single(),
+    supabase.from("tenants").select("name, email, invoice_footer, website").eq("id", profile.tenant_id).single(),
     supabase
       .from("property_managers")
       .select("portal_token")
@@ -60,8 +60,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       .single(),
   ]);
 
-  const tenantName  = escHtml(tenant?.name || "Your Contractor");
-  const portalToken = (pmRecord as any)?.portal_token;
+  const tenantName    = escHtml(tenant?.name || "Your Contractor");
+  const invoiceFooter = tenant?.invoice_footer ? escHtml(tenant.invoice_footer) : null;
+  const portalToken   = (pmRecord as any)?.portal_token;
 
   // Link directly to the dedicated invoice page so the client can sign and pay
   const invoicePageUrl = portalToken
@@ -195,6 +196,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
       <!-- Footer -->
       <tr><td style="background:#f9f8f5;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;padding:16px 32px;text-align:center;">
+        ${invoiceFooter ? `<p style="margin:0 0 8px;font-size:12px;color:#6b7280;">${invoiceFooter}</p>` : ""}
         <p style="margin:0;font-size:12px;color:#9ca3af;">
           Questions? Reply to this email or contact ${tenantName} directly.
         </p>

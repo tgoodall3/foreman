@@ -13,13 +13,20 @@ export async function POST(req: NextRequest) {
     const validation = validateInput(updateAccountSchema, body);
     if (!validation.success) return errorResponse((validation as any).error, 400);
 
-    const { name, phone, address } = validation.data;
+    const { name, phone, address, invoice_footer, tax_id, website } = validation.data;
 
     const supabase = createServiceClient();
 
     const { error } = await supabase
       .from("tenants")
-      .update({ name, phone: phone || null, address: address || null })
+      .update({
+        name,
+        phone: phone || null,
+        address: address || null,
+        invoice_footer: invoice_footer || null,
+        tax_id: tax_id || null,
+        website: website || null,
+      })
       .eq("id", profile.tenant_id);
 
     if (error) return errorResponse("Failed to update account", 500);
