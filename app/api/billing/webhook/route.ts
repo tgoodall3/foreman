@@ -73,14 +73,19 @@ export async function POST(req: NextRequest) {
         }
 
         if (process.env.RESEND_API_KEY) {
-          const { data: inv } = await supabase
-            .from("invoices")
-            .select("invoice_number, property_managers(email, full_name), tenants(name, email)")
-            .eq("id", invoiceId)
-            .maybeSingle();
+          const [{ data: inv }, { data: tenantRow }] = await Promise.all([
+            supabase
+              .from("invoices")
+              .select("invoice_number, property_managers(email, full_name)")
+              .eq("id", invoiceId)
+              .maybeSingle(),
+            tenantId
+              ? supabase.from("tenants").select("name, email").eq("id", tenantId).single()
+              : Promise.resolve({ data: null }),
+          ]);
           const pmEmail = (inv as any)?.property_managers?.email;
-          const tenantEmail = (inv as any)?.tenants?.email;
-          const tenantName = (inv as any)?.tenants?.name ?? "Your contractor";
+          const tenantEmail = (tenantRow as any)?.email;
+          const tenantName = (tenantRow as any)?.name ?? "Your contractor";
           const recipients = [pmEmail, tenantEmail].filter(Boolean);
           if (recipients.length) {
             await resend.emails.send({

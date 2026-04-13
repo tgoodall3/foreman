@@ -35,11 +35,13 @@ export async function POST(req: NextRequest) {
 
   const { data: job } = await supabase
     .from("jobs")
-    .select("*, properties(name, address, city, state), tenants(name)")
+    .select("*, properties(name, address, city, state)")
     .eq("id", jobId)
     .single();
 
   if (!job) return NextResponse.json({ ok: true });
+
+  const { data: tenantData } = await supabase.from("tenants").select("name").eq("id", job.tenant_id).single();
 
   // Scope workers to the same tenant as the job to prevent cross-tenant notification abuse
   const { data: workers } = await supabase
@@ -73,7 +75,7 @@ export async function POST(req: NextRequest) {
         html: `
         <div style="font-family: sans-serif; max-width: 560px; color: #0f1923;">
           <h2>Hi ${worker.full_name},</h2>
-          <p>You've been assigned a new job by <strong>${(job.tenants as any)?.name}</strong>.</p>
+          <p>You've been assigned a new job by <strong>${tenantData?.name ?? ""}</strong>.</p>
           <table style="background:#f5f4f0; border-radius:8px; padding:16px; width:100%; margin:16px 0;">
             <tr><td style="font-weight:600; padding-bottom:8px;">Job:</td><td>${job.title}</td></tr>
             ${job.scheduled_date ? `<tr><td style="font-weight:600; padding-bottom:8px;">Date:</td><td>${formatDate(job.scheduled_date)}${job.scheduled_time ? ` at ${job.scheduled_time}` : ""}</td></tr>` : ""}

@@ -27,8 +27,16 @@ export async function GET(req: NextRequest) {
   // 2. Fetch all unpaid (sent + overdue) invoices with PM contact info
   const { data: unpaid } = await supabase
     .from("invoices")
-    .select("id, invoice_number, total, due_date, status, tenant_id, property_managers(full_name, email), jobs(title), tenants(name, email)")
+    .select("id, invoice_number, total, due_date, status, tenant_id, property_managers(full_name, email), jobs(title)")
     .in("status", ["sent", "overdue"]);
+
+  // Fetch tenant names in one query for all unique tenant IDs
+  const tenantIds = Array.from(new Set((unpaid ?? []).map((inv) => inv.tenant_id).filter(Boolean)));
+  const tenantMap: Record<string, string> = {};
+  if (tenantIds.length) {
+    const { data: tenants } = await supabase.from("tenants").select("id, name").in("id", tenantIds);
+    for (const t of tenants ?? []) tenantMap[t.id] = t.name;
+  }
 
   if (!unpaid?.length || !resend || !process.env.EMAIL_FROM) {
     return NextResponse.json({ marked: nowOverdue?.length ?? 0, reminded: 0 });
@@ -37,9 +45,9 @@ export async function GET(req: NextRequest) {
   let reminded = 0;
 
   for (const inv of unpaid) {
-    const pm       = inv.property_managers as any;
-    const tenant   = inv.tenants as any;
-    const jobTitle = (inv.jobs as any)?.title || "Services";
+    const pm         = inv.property_managers as any;
+    const tenantName = tenantMap[inv.tenant_id] || "Your Contractor";
+    const jobTitle   = (inv.jobs as any)?.title || "Services";
 
     if (!pm?.email) continue;
 
@@ -64,7 +72,7 @@ export async function GET(req: NextRequest) {
         <div style="font-family: Arial, sans-serif; max-width: 560px; color: #0f1923;">
           <div style="background: #0f1923; padding: 20px 24px; border-radius: 8px 8px 0 0;">
             <span style="font-size: 22px; font-weight: 800; color: #f59e0b; letter-spacing: 1px;">FOREMAN</span>
-            <p style="color: #9ca3af; font-size: 13px; margin: 4px 0 0;">${tenant?.name || "Your Contractor"}</p>
+            <p style="color: #9ca3af; font-size: 13px; margin: 4px 0 0;">${tenantName}</p>
           </div>
           <div style="background: #fff; padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
             <div style="background: ${urgencyColor}15; border-left: 4px solid ${urgencyColor}; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px;">
@@ -86,7 +94,7 @@ export async function GET(req: NextRequest) {
             </table>
 
             <p style="font-size: 13px; color: #9ca3af;">
-              If you have questions, contact ${tenant?.name || "your contractor"} directly.
+              If you have questions, contact ${tenantName} directly.
               If payment has already been sent, please disregard this notice.
             </p>
           </div>

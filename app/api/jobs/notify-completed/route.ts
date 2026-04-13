@@ -65,11 +65,13 @@ export async function POST(req: NextRequest) {
 
   const { data: job } = await supabase
     .from("jobs")
-    .select("*, properties(name, address, city, state, property_manager_id), tenants(name, email)")
+    .select("*, properties(name, address, city, state, property_manager_id)")
     .eq("id", jobId)
     .single();
 
   if (!job) return NextResponse.json({ ok: true });
+
+  const { data: tenantData } = await supabase.from("tenants").select("name").eq("id", job.tenant_id).single();
 
   audit({
     tenant_id: job.tenant_id,
@@ -135,7 +137,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const tenantName = (job.tenants as any)?.name || "Your Contractor";
+  const tenantName = tenantData?.name || "Your Contractor";
   const portalLink = pm.portal_token ? `${process.env.NEXT_PUBLIC_APP_URL}/portal?token=${pm.portal_token}` : null;
 
   await resend.emails.send({
