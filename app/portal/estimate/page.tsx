@@ -4,6 +4,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import PortalEstimateClient from "./PortalEstimateClient";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function PortalEstimatePage({ searchParams }: { searchParams: { token?: string; result?: string } }) {
   if (!searchParams.token) {
