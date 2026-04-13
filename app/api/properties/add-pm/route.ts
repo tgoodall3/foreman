@@ -31,6 +31,17 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServiceClient();
 
+    const { data: existingPm } = await supabase
+      .from("property_managers")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("email", email)
+      .maybeSingle();
+
+    if (existingPm) {
+      return NextResponse.json({ pm: existingPm, reused: true });
+    }
+
     const { data: pm, error } = await supabase
       .from("property_managers")
       .insert({

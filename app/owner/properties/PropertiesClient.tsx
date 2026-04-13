@@ -48,10 +48,16 @@ export default function PropertiesClient({ propertyManagers: initial, tenantId, 
     });
     const data = await res.json();
     if (!res.ok) { setError(data.error); setSubmitting(false); return; }
-    setPms((prev: any[]) => [{ ...data.pm, properties: [] }, ...prev]);
+    setPms((prev: any[]) => {
+      const exists = prev.some((pm: any) => pm.id === data.pm.id);
+      if (exists) {
+        return prev.map((pm: any) => (pm.id === data.pm.id ? { ...pm, ...data.pm } : pm));
+      }
+      return [{ ...data.pm, properties: data.pm.properties ?? [] }, ...prev];
+    });
     setPmName(""); setPmEmail(""); setPmPhone(""); setPmCompany("");
     setView("list");
-    addToast("Property manager added successfully.", "success");
+    addToast(data.reused ? "Existing property manager reused." : "Property manager added successfully.", "success");
     setSubmitting(false);
   };
 

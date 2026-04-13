@@ -1,6 +1,7 @@
 ﻿import { NextRequest } from "next/server";
 import Stripe from "stripe";
 import { badRequest, errorResponse, jsonResponse } from "@/lib/api";
+import { resolvePortalPmScope } from "@/lib/portal";
 import { createServiceClient } from "@/lib/supabase";
 import { logError } from "@/lib/logger";
 
@@ -20,11 +21,11 @@ export async function POST(req: NextRequest) {
     const supabase = createServiceClient();
 
     // Verify token → find the PM
-    const { data: pm } = await supabase
-      .from("property_managers")
-      .select("id, tenant_id, full_name, email")
-      .eq("portal_token", token)
-      .single();
+    const { pm, propertyManagerIds } = await resolvePortalPmScope(
+      supabase as any,
+      token,
+      "id, tenant_id, full_name, email"
+    );
 
     if (!pm) return errorResponse("Invalid portal token.", 403);
 
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
         .from("invoices")
         .select("id, invoice_number, total, status, jobs(title)")
         .eq("id", invoice_id)
-        .eq("property_manager_id", pm.id)
+        .in("property_manager_id", propertyManagerIds)
         .eq("tenant_id", pm.tenant_id)
         .single(),
       supabase

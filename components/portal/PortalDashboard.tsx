@@ -19,6 +19,7 @@ interface Property {
   city: string;
   state: string;
   zip?: string;
+  property_manager_id?: string | null;
 }
 
 interface WorkOrderPhoto {
@@ -416,8 +417,10 @@ function WorkOrderForm({
     setSubmitting(true);
     setError("");
 
+    const selectedProperty = properties.find((property) => property.id === propertyId) ?? properties[0];
+
     const formData = new FormData();
-    formData.append("property_manager_id", pmId);
+    formData.append("property_manager_id", selectedProperty?.property_manager_id || pmId);
     formData.append("tenant_id", tenantId);
     formData.append("property_id", propertyId);
     formData.append("title", title);

@@ -1,4 +1,5 @@
 import { createServiceClient } from "@/lib/supabase";
+import { resolvePortalPmScope } from "@/lib/portal";
 import PortalDashboard from "@/components/portal/PortalDashboard";
 import { notFound } from "next/navigation";
 
@@ -21,11 +22,11 @@ export default async function PortalPage({ searchParams }: { searchParams: { tok
 
   const supabase = createServiceClient();
 
-  const { data: pm } = await supabase
-    .from("property_managers")
-    .select("*, tenants(name)")
-    .eq("portal_token", searchParams.token)
-    .single();
+  const { pm, propertyManagerIds } = await resolvePortalPmScope(
+    supabase,
+    searchParams.token,
+    "*, tenants(name)"
+  );
 
   if (!pm) {
     return (
@@ -63,26 +64,26 @@ export default async function PortalPage({ searchParams }: { searchParams: { tok
   ] = await Promise.all([
     supabase
       .from("properties")
-      .select("id, name, address, city, state")
-      .eq("property_manager_id", pm.id)
+      .select("id, name, address, city, state, zip, property_manager_id")
+      .in("property_manager_id", propertyManagerIds)
       .order("name"),
 
     supabase
       .from("work_orders")
       .select("id, title, status, priority, created_at, photos, properties(name)")
-      .eq("property_manager_id", pm.id)
+      .in("property_manager_id", propertyManagerIds)
       .order("created_at", { ascending: false }),
 
     supabase
       .from("invoices")
       .select("id, invoice_number, status, total, subtotal, tax_rate, tax_amount, due_date, created_at, notes, line_items, jobs(title)")
-      .eq("property_manager_id", pm.id)
+      .in("property_manager_id", propertyManagerIds)
       .order("created_at", { ascending: false }),
 
     supabase
       .from("estimates")
       .select("id, estimate_number, status, total, title, created_at")
-      .eq("property_manager_id", pm.id)
+      .in("property_manager_id", propertyManagerIds)
       .order("created_at", { ascending: false }),
   ]);
 

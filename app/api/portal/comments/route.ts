@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createServiceClient } from "@/lib/supabase";
 import { errorResponse, jsonResponse } from "@/lib/api";
 import { renderDetailCard, renderEmailLayout, renderMessageCard, renderNoticeCard } from "@/lib/email";
+import { resolvePortalPmScope } from "@/lib/portal";
 import { Resend } from "resend";
 
 const listSchema = z.object({
@@ -48,18 +49,18 @@ export async function GET(req: NextRequest) {
   const supabase = createServiceClient();
   const { token, work_order_id } = parsed.data;
 
-  const { data: pm } = await supabase
-    .from("property_managers")
-    .select("id, tenant_id")
-    .eq("portal_token", token)
-    .single();
+  const { pm, propertyManagerIds } = await resolvePortalPmScope(
+    supabase as any,
+    token,
+    "id, tenant_id, email"
+  );
   if (!pm) return errorResponse("Invalid token.", 403);
 
   const { data: wo } = await supabase
     .from("work_orders")
     .select("id, title, properties(name)")
     .eq("id", work_order_id)
-    .eq("property_manager_id", pm.id)
+    .in("property_manager_id", propertyManagerIds)
     .single();
   if (!wo) return errorResponse("Work order not found.", 404);
 
@@ -90,18 +91,18 @@ export async function POST(req: NextRequest) {
   const supabase = createServiceClient();
   const { token, work_order_id, message } = parsed.data;
 
-  const { data: pm } = await supabase
-    .from("property_managers")
-    .select("id, tenant_id, full_name")
-    .eq("portal_token", token)
-    .single();
+  const { pm, propertyManagerIds } = await resolvePortalPmScope(
+    supabase as any,
+    token,
+    "id, tenant_id, full_name, email"
+  );
   if (!pm) return errorResponse("Invalid token.", 403);
 
   const { data: wo } = await supabase
     .from("work_orders")
     .select("id, title, properties(name)")
     .eq("id", work_order_id)
-    .eq("property_manager_id", pm.id)
+    .in("property_manager_id", propertyManagerIds)
     .single();
   if (!wo) return errorResponse("Work order not found.", 404);
 
@@ -158,7 +159,7 @@ export async function POST(req: NextRequest) {
       .from("work_orders")
       .select("photos")
       .eq("id", work_order_id)
-      .eq("property_manager_id", pm.id)
+      .in("property_manager_id", propertyManagerIds)
       .single();
 
     const existingPhotos = Array.isArray((workOrder as any)?.photos) ? (workOrder as any).photos : [];

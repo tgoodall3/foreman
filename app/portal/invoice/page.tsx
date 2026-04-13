@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase";
+import { resolvePortalPmScope } from "@/lib/portal";
 import PortalInvoiceClient from "./PortalInvoiceClient";
 
 export const dynamic = "force-dynamic";
@@ -14,11 +15,11 @@ export default async function PortalInvoicePage({
   const supabase = createServiceClient();
 
   // Verify the portal token → PM
-  const { data: pm } = await supabase
-    .from("property_managers")
-    .select("id, tenant_id, full_name, email, company")
-    .eq("portal_token", searchParams.token)
-    .single();
+  const { pm, propertyManagerIds } = await resolvePortalPmScope(
+    supabase,
+    searchParams.token,
+    "id, tenant_id, full_name, email, company"
+  );
 
   if (!pm) notFound();
 
@@ -29,7 +30,7 @@ export default async function PortalInvoicePage({
       "id, invoice_number, status, total, subtotal, tax_rate, tax_amount, due_date, created_at, notes, line_items, jobs(title), tenants(name, email)"
     )
     .eq("id", searchParams.invoice)
-    .eq("property_manager_id", pm.id)
+    .in("property_manager_id", propertyManagerIds)
     .eq("tenant_id", pm.tenant_id)
     .single();
 
