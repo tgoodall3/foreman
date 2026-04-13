@@ -83,16 +83,16 @@ export default function NewJobPage() {
   const inp = "w-full min-w-0 max-w-full border border-gray-300 rounded-lg px-3 py-2.5 sm:py-3 text-sm focus:outline-none focus:border-amber";
 
   return (
-    <div className="p-6 max-w-2xl">
+    <div className="page-shell max-w-2xl">
       <div className="flex items-center gap-2 mb-6">
         <Link href="/owner/jobs" className="text-mist hover:text-forge text-sm transition-colors">Jobs</Link>
         <span className="text-mist">/</span>
         <span className="text-sm text-forge">New Job</span>
       </div>
-      <h1 className="font-display font-800 text-3xl text-forge mb-6">New Job</h1>
+      <h1 className="page-title">New Job</h1>
 
       <form onSubmit={handleSubmit} noValidate className="space-y-5">
-        <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+        <div className="surface-card p-5 space-y-4">
           <h2 className="font-display font-700 text-lg text-forge">Job Details</h2>
           <div>
             <label htmlFor="title" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Title *</label>
@@ -119,7 +119,7 @@ export default function NewJobPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+        <div className="surface-card p-5 space-y-4">
           <h2 className="font-display font-700 text-lg text-forge">Scheduling</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>

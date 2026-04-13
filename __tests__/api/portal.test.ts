@@ -129,6 +129,55 @@ describe("POST /api/portal/submit", () => {
     expect(res.status).toBe(404);
   });
 
+  it("scopes the property lookup to the submitting PM", async () => {
+    const propertyEq = jest.fn();
+
+    let callCount = 0;
+    mockServiceFrom.mockImplementation(() => {
+      callCount++;
+
+      if (callCount === 1) {
+        const response = { data: null, error: null, count: 0 };
+        const chain: any = {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          gte: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue(response),
+        };
+        chain.then = (res: any, rej?: any) => Promise.resolve(response).then(res, rej);
+        return chain;
+      }
+
+      if (callCount === 2) {
+        const response = { data: PM, error: null };
+        const chain: any = {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue(response),
+        };
+        chain.then = (res: any, rej?: any) => Promise.resolve(response).then(res, rej);
+        return chain;
+      }
+
+      const response = { data: null, error: null };
+      const chain: any = {
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockImplementation((field: string, value: any) => {
+          propertyEq(field, value);
+          return chain;
+        }),
+        single: jest.fn().mockResolvedValue(response),
+      };
+      chain.then = (res: any, rej?: any) => Promise.resolve(response).then(res, rej);
+      return chain;
+    });
+
+    const res = await POST(makeRequest(validBody));
+
+    expect(res.status).toBe(404);
+    expect(propertyEq).toHaveBeenCalledWith("property_manager_id", UUID_PM);
+  });
+
   it("creates work order and returns 200 on success", async () => {
     makeFromSequence([
       { data: PM, error: null },

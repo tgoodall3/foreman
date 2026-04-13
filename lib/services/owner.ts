@@ -269,7 +269,7 @@ export async function getOwnerInvoiceFormData(profile: Profile) {
   const [jobsResult, managersResult] = await Promise.all([
     supabase
       .from("jobs")
-      .select("id, title")
+      .select("id, title, properties(property_manager_id)")
       .eq("tenant_id", profile.tenant_id)
       .eq("status", "completed")
       .is("invoice_id", null)
@@ -285,7 +285,13 @@ export async function getOwnerInvoiceFormData(profile: Profile) {
   if (managersResult.error) throw managersResult.error;
 
   return {
-    jobs: jobsResult.data as { id: string; title: string }[],
+    jobs: (jobsResult.data ?? []).map((job: any) => ({
+      id: job.id,
+      title: job.title,
+      property_manager_id: Array.isArray(job.properties)
+        ? job.properties[0]?.property_manager_id ?? null
+        : job.properties?.property_manager_id ?? null,
+    })) as { id: string; title: string; property_manager_id?: string | null }[],
     propertyManagers: managersResult.data as PropertyManager[],
   };
 }

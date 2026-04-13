@@ -14,6 +14,7 @@ export default function PropertiesClient({ propertyManagers: initial, tenantId, 
   const [submitting, setSubmitting] = useState(false);
   const [sendingId, setSendingId]   = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // PM form
   const [pmName, setPmName]       = useState("");
@@ -104,24 +105,51 @@ export default function PropertiesClient({ propertyManagers: initial, tenantId, 
     addToast(`Portal link emailed to ${pm.email}`, "success");
   };
 
+  const handleDeletePm = async (pm: any) => {
+    const confirmed = window.confirm(
+      `Delete ${pm.full_name}?\n\nThis permanently removes the PM and deletes their linked properties, work orders, invoices, and estimates. Use revoke access instead if you only want to disable the portal.`
+    );
+    if (!confirmed) return;
+
+    setDeletingId(pm.id);
+    const res = await fetch("/api/properties/delete-pm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ propertyManagerId: pm.id }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setDeletingId(null);
+    if (!res.ok) {
+      addToast(data.error || "Failed to delete property manager", "error");
+      return;
+    }
+
+    setPms((prev: any[]) => prev.filter((item: any) => item.id !== pm.id));
+    const counts = data.deletedCounts ?? {};
+    addToast(
+      `Deleted ${pm.full_name} (${counts.properties ?? 0} properties, ${counts.workOrders ?? 0} work orders, ${counts.invoices ?? 0} invoices, ${counts.estimates ?? 0} estimates).`,
+      "success"
+    );
+  };
+
   const inp = "w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber";
 
   return (
-    <div className="p-6 max-w-5xl">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
-        <div>
-          <h1 className="font-display font-800 text-2xl sm:text-3xl text-forge">Properties & Managers</h1>
-          <p className="text-mist text-sm mt-1">{pms.length} property managers</p>
+    <div className="page-shell page-shell-standard">
+      <div className="page-header">
+        <div className="page-header-copy">
+          <h1 className="page-title">Properties & Managers</h1>
+          <p className="page-subtitle">{pms.length} property managers</p>
         </div>
         <button onClick={() => { setView("add-pm"); setError(""); }}
-          className="w-full sm:w-auto bg-amber hover:bg-amber-dark text-forge font-display font-700 px-4 py-2.5 rounded-lg text-sm transition-colors min-h-[44px]">
+          className="action-button-primary w-full sm:w-auto">
           + Add Property Manager
         </button>
       </div>
 
       {/* Add PM form */}
       {view === "add-pm" && (
-        <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
+        <div className="surface-card mb-6 p-4 sm:p-5">
           <h2 className="font-display font-700 text-lg text-forge mb-4">Add Property Manager</h2>
           <form onSubmit={handleAddPm} noValidate className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div><label className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Full Name *</label>
@@ -134,12 +162,12 @@ export default function PropertiesClient({ propertyManagers: initial, tenantId, 
               <input value={pmCompany} onChange={(e) => setPmCompany(e.target.value)} className={inp} placeholder="Acme Property Management" /></div>
             {error && <div className="col-span-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</div>}
             <div className="col-span-1 sm:col-span-2 flex flex-col sm:flex-row gap-3">
-              <button type="button" onClick={() => setView("list")} className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-600 hover:bg-gray-50 order-2 sm:order-1">Cancel</button>
-              <button type="submit" disabled={submitting || !pmName || !pmEmail} className="px-4 py-2 bg-forge text-white rounded-lg text-sm font-display font-700 disabled:opacity-50 hover:bg-forge-light transition-colors order-1 sm:order-2">
+              <button type="button" onClick={() => setView("list")} className="action-button-secondary order-2 w-full sm:order-1 sm:w-auto">Cancel</button>
+              <button type="submit" disabled={submitting || !pmName || !pmEmail} className="action-button-dark order-1 w-full disabled:opacity-50 sm:order-2 sm:w-auto">
                 {submitting ? (
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    Adding…
+                    Adding...
                   </div>
                 ) : (
                   "Add Manager"
@@ -152,7 +180,7 @@ export default function PropertiesClient({ propertyManagers: initial, tenantId, 
 
       {/* Add Property form */}
       {view === "add-property" && selectedPm && (
-        <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
+        <div className="surface-card mb-6 p-4 sm:p-5">
           <h2 className="font-display font-700 text-lg text-forge mb-1">Add Property</h2>
           <p className="text-sm text-mist mb-4">For: {selectedPm.full_name}</p>
           <form onSubmit={handleAddProperty} noValidate className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -160,9 +188,9 @@ export default function PropertiesClient({ propertyManagers: initial, tenantId, 
               <input value={propName} onChange={(e) => setPropName(e.target.value)} required className={inp} placeholder="Sunset Ridge Apartments" /></div>
             <div className="col-span-2"><label className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Street Address *</label>
               <input value={propAddress} onChange={(e) => setPropAddress(e.target.value)} required className={inp} placeholder="123 Main St" /></div>
-            <div><label className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">City *</label>
-              <input value={propCity} onChange={(e) => setPropCity(e.target.value)} required className={inp} placeholder="Indianapolis" /></div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="col-span-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div><label className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">City *</label>
+                <input value={propCity} onChange={(e) => setPropCity(e.target.value)} required className={inp} placeholder="Indianapolis" /></div>
               <div><label className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">State *</label>
                 <input value={propState} onChange={(e) => setPropState(e.target.value)} required maxLength={2} className={inp} placeholder="IN" /></div>
               <div><label className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">ZIP *</label>
@@ -171,19 +199,21 @@ export default function PropertiesClient({ propertyManagers: initial, tenantId, 
             <div className="col-span-2"><label className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Notes</label>
               <textarea value={propNotes} onChange={(e) => setPropNotes(e.target.value)} rows={2} className={inp + " resize-none"} placeholder="Gate code, parking, special instructions…" /></div>
             {error && <div className="col-span-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</div>}
-            <div className="col-span-1 sm:col-span-2 flex flex-col sm:flex-row gap-3">
-              <button type="button" onClick={() => setView("list")} className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-600 hover:bg-gray-50 order-2 sm:order-1">Cancel</button>
+            <div className="col-span-1 pt-1 sm:col-span-2 sm:pt-2">
+              <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <button type="button" onClick={() => setView("list")} className="action-button-secondary order-2 w-full whitespace-nowrap sm:order-1 sm:w-auto">Cancel</button>
               <button type="submit" disabled={submitting || !propName || !propAddress || !propCity || !propState || !propZip}
-                className="px-4 py-2 bg-forge text-white rounded-lg text-sm font-display font-700 disabled:opacity-50 hover:bg-forge-light transition-colors order-1 sm:order-2">
+                className="action-button-dark order-1 w-full whitespace-nowrap disabled:opacity-50 sm:order-2 sm:w-auto">
                 {submitting ? (
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    Adding…
+                    Adding...
                   </div>
                 ) : (
                   "Add Property"
                 )}
               </button>
+              </div>
             </div>
           </form>
         </div>
@@ -191,7 +221,7 @@ export default function PropertiesClient({ propertyManagers: initial, tenantId, 
 
       {/* PM List */}
       {pms.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
+        <div className="surface-empty py-16">
           <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
             <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
           </div>
@@ -201,23 +231,28 @@ export default function PropertiesClient({ propertyManagers: initial, tenantId, 
       ) : (
         <div className="space-y-4">
           {pms.map((pm: any) => (
-            <div key={pm.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div className="px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-gray-100">
-                <div>
+            <div key={pm.id} className="surface-card overflow-hidden">
+              <div className="border-b border-gray-100 px-4 py-4 sm:px-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="flex items-center gap-2">
-                    <p className="font-600 text-forge">{pm.full_name}</p>
+                    <p className="text-sm font-700 text-forge sm:text-base">{pm.full_name}</p>
                     {pm.is_active === false && (
                       <span className="text-[10px] font-700 uppercase tracking-wider bg-red-100 text-red-600 px-1.5 py-0.5 rounded">Access revoked</span>
                     )}
                   </div>
-                  <p className="text-xs text-mist">{pm.email}{pm.company && ` · ${pm.company}`}</p>
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="mt-1 break-words text-xs text-mist">{pm.email}{pm.company && ` · ${pm.company}`}</p>
+                    <div className="shrink-0 rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-700 uppercase tracking-wider text-steel">
+                      {pm.properties?.length ?? 0} {(pm.properties?.length ?? 0) === 1 ? "property" : "properties"}
+                    </div>
+                  </div>
                 </div>
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                <div className="mt-3 grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
                   {pm.is_active !== false && (
                     <>
                       <button
                         onClick={() => copyLink(pm.portal_token)}
-                        className="text-xs bg-amber/10 hover:bg-amber/20 text-amber-dark font-600 px-3 py-1.5 rounded-lg transition-colors min-h-[32px]"
+                        className="min-h-[40px] rounded-lg bg-amber/10 px-3 py-2 text-xs font-600 text-amber-dark transition-colors hover:bg-amber/20"
                         aria-label={`Copy portal link for ${pm.full_name}`}
                       >
                         {copiedToken === pm.portal_token ? "✓ Copied!" : "Copy Portal Link"}
@@ -225,13 +260,13 @@ export default function PropertiesClient({ propertyManagers: initial, tenantId, 
                       <button
                         onClick={() => handleSendPortalLink(pm)}
                         disabled={sendingId === pm.id}
-                        className="text-xs bg-white border border-gray-200 hover:border-forge text-forge font-600 px-3 py-1.5 rounded-lg transition-colors min-h-[32px] disabled:opacity-60"
+                        className="min-h-[40px] rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-600 text-forge transition-colors hover:border-forge disabled:opacity-60"
                       >
                         {sendingId === pm.id ? "Sending…" : "Email Portal Link"}
                       </button>
                       <button
                         onClick={() => { setSelectedPm(pm); setView("add-property"); setError(""); }}
-                        className="text-xs bg-forge/10 hover:bg-forge/20 text-forge font-600 px-3 py-1.5 rounded-lg transition-colors min-h-[32px]"
+                        className="min-h-[40px] rounded-lg bg-forge/10 px-3 py-2 text-xs font-600 text-forge transition-colors hover:bg-forge/20"
                       >
                         + Property
                       </button>
@@ -248,6 +283,15 @@ export default function PropertiesClient({ propertyManagers: initial, tenantId, 
                   >
                     {togglingId === pm.id ? "…" : pm.is_active === false ? "Restore Access" : "Revoke Access"}
                   </button>
+                  {pm.is_active === false && (
+                    <button
+                      onClick={() => handleDeletePm(pm)}
+                      disabled={deletingId === pm.id}
+                      className="min-h-[32px] rounded-lg bg-red-600 px-3 py-1.5 text-xs font-600 text-white transition-colors hover:bg-red-700 disabled:opacity-60"
+                    >
+                      {deletingId === pm.id ? "Deleting…" : "Delete PM"}
+                    </button>
+                  )}
                 </div>
               </div>
               {pm.properties?.length > 0 ? (

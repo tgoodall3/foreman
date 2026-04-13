@@ -100,16 +100,16 @@ export default function NewEstimatePage() {
   const fmt = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
 
   return (
-    <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-4">
+    <div className="page-shell page-shell-tight">
       <div className="flex items-center gap-2 mb-6">
         <Link href="/owner/estimates" className="text-mist hover:text-forge text-sm transition-colors">Estimates</Link>
         <span className="text-mist">/</span>
         <span className="text-sm text-forge">New Estimate</span>
       </div>
-      <h1 className="font-display font-800 text-3xl text-forge mb-6">New Estimate</h1>
+      <h1 className="page-title">New Estimate</h1>
 
       <form onSubmit={handleSubmit} noValidate className="space-y-5">
-        <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+        <div className="surface-card p-5 space-y-4">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <h2 className="font-display font-700 text-lg text-forge">Client</h2>
             <label className="flex items-center gap-2 text-sm text-forge font-600">

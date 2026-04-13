@@ -95,7 +95,7 @@ export default function QuickAssign({ jobId, scheduledDate, scheduledTime, assig
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1 text-xs font-700 text-forge bg-amber/80 hover:bg-amber text-forge px-3 py-1.5 rounded-lg transition-colors shadow-sm"
+        className="inline-flex w-full items-center justify-center gap-1 rounded-lg bg-amber/80 px-3 py-2 text-xs font-700 text-forge shadow-sm transition-colors hover:bg-amber sm:w-auto"
       >
         Assign / Reschedule
       </button>

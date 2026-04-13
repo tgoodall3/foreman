@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -56,6 +56,7 @@ export default function NewInvoiceForm({ jobs, propertyManagers, selectedJob }: 
 
   const selectedManager = propertyManagers.find((manager) => manager.id === propertyManagerId);
   const [sendTo, setSendTo] = useState(selectedManager?.email || propertyManagers[0]?.email || "");
+  const selectedJobOption = jobs.find((job) => job.id === jobId);
 
   const subtotal = useMemo(() => {
     return lineItems.reduce((sum, item) => {
@@ -73,6 +74,17 @@ export default function NewInvoiceForm({ jobs, propertyManagers, selectedJob }: 
   const total = useMemo(() => Math.round((subtotal + taxAmount) * 100) / 100, [subtotal, taxAmount]);
 
   const lineItemsAreValid = lineItems.every((item) => item.description.trim() && Number(item.quantity) > 0);
+
+  useEffect(() => {
+    const nextPmId = selectedJobOption?.property_manager_id || "";
+    if (nextPmId && nextPmId !== propertyManagerId) {
+      setPropertyManagerId(nextPmId);
+    }
+  }, [selectedJobOption?.property_manager_id, propertyManagerId]);
+
+  useEffect(() => {
+    setSendTo(selectedManager?.email || "");
+  }, [selectedManager?.email]);
 
   const updateLineItem = (index: number, field: keyof LineItemInput, value: string) => {
     setLineItems((items) =>

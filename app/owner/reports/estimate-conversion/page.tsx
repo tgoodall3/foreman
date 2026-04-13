@@ -25,11 +25,11 @@ export default async function EstimateConversionPage() {
   const winRate = stats.total ? Math.round(((stats.approved + stats.converted) / stats.total) * 100) : 0;
 
   return (
-    <div className="p-6 max-w-5xl space-y-4">
-      <div>
-        <p className="text-xs uppercase tracking-[0.2em] text-mist font-700">Reports</p>
-        <h1 className="font-display font-800 text-3xl text-forge leading-tight">Estimate Conversion</h1>
-        <p className="text-mist text-sm mt-1">Track how many estimates turn into work.</p>
+    <div className="page-shell page-shell-standard">
+      <div className="page-header-copy">
+        <p className="page-eyebrow">Reports</p>
+        <h1 className="page-title">Estimate Conversion</h1>
+        <p className="page-subtitle">Track how many estimates turn into work.</p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -42,11 +42,11 @@ export default async function EstimateConversionPage() {
       </div>
 
       {!estimates?.length ? (
-        <div className="bg-white border border-gray-200 rounded-xl p-8 text-center text-mist text-sm">
+        <div className="surface-empty">
           No estimates yet.
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+        <div className="surface-card overflow-hidden">
           {/* Desktop table */}
           <table className="hidden sm:table w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">

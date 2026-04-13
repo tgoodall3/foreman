@@ -127,10 +127,10 @@ export default async function TimesheetsPage({
   }
 
   return (
-    <div className="p-6 max-w-6xl">
+    <div className="page-shell page-shell-wide">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
-        <h1 className="font-display font-800 text-3xl text-forge">Timesheets</h1>
+      <div className="page-header gap-4 flex-wrap">
+        <h1 className="page-title">Timesheets</h1>
 
         {/* Week nav */}
         <div className="flex items-center gap-2">

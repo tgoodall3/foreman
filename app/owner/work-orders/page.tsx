@@ -19,11 +19,11 @@ export default async function WorkOrdersPage() {
   const declined  = active.filter((w) => w.status === "declined");
 
   return (
-    <div className="p-6 max-w-5xl">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="font-display font-800 text-3xl text-forge">Work Orders</h1>
-          <p className="text-mist text-sm mt-1">{pending.length} pending review</p>
+    <div className="page-shell page-shell-standard">
+      <div className="page-header">
+        <div className="page-header-copy">
+          <h1 className="page-title">Work Orders</h1>
+          <p className="page-subtitle">{pending.length} pending review</p>
         </div>
       </div>
 
@@ -73,7 +73,7 @@ export default async function WorkOrdersPage() {
       )}
 
       {!workOrders?.length && (
-        <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
+        <div className="surface-empty py-16">
           <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
             <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
           </div>
@@ -97,14 +97,14 @@ function WorkOrderCard({ wo, muted = false }: { wo: any; muted?: boolean }) {
   return (
     <Link
       href={`/owner/work-orders/${wo.id}`}
-      className={`block bg-white rounded-xl border p-4 hover:shadow-md transition-all ${
+      className={`surface-card block p-4 transition-all hover:shadow-md ${
         muted ? "border-gray-200 text-mist" : "border-gray-200 hover:border-amber/30"
       }`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            <h3 className="font-700 text-xs xs:text-sm sm:text-base text-forge underline underline-offset-2 decoration-black">{wo.title}</h3>
+            <h3 className="text-sm font-700 text-forge sm:text-base">{wo.title}</h3>
             <span className={`badge ${priorityCfg.bg} ${priorityCfg.color}`}>{priorityCfg.label}</span>
             <span className={`badge ${statusColors[wo.status]}`}>{wo.status}</span>
           </div>
@@ -118,7 +118,7 @@ function WorkOrderCard({ wo, muted = false }: { wo: any; muted?: boolean }) {
             <div className="mt-3">
               <Link
                 href={`/owner/jobs/${job.id}`}
-                className="inline-flex items-center gap-1 text-xs xs:text-sm font-700 text-forge px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 transition-colors"
+                className="action-button-secondary min-h-[36px] px-3 py-1.5 text-xs xs:text-sm"
               >
                 View job →
               </Link>

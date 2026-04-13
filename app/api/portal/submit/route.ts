@@ -6,10 +6,90 @@ import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+const EXT_MAP: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/heic": "heic",
+  "image/heif": "heif",
+};
+
+type UploadedPhoto = {
+  url: string;
+  caption: string | null;
+  created_at: string;
+  uploaded_by_pm_id: string;
+  source: "submission" | "comment";
+};
+
+function asString(value: FormDataEntryValue | null) {
+  return typeof value === "string" ? value : "";
+}
+
+async function uploadWorkOrderPhotos(
+  supabase: ReturnType<typeof createServiceClient>,
+  files: File[],
+  tenantId: string,
+  workOrderId: string,
+  pmId: string,
+  source: "submission" | "comment"
+) {
+  const uploaded: UploadedPhoto[] = [];
+
+  for (const file of files) {
+    if (!file || file.size === 0) continue;
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      throw new Error("Only JPEG, PNG, WebP, HEIC, and HEIF images are accepted.");
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      throw new Error("Each image must be under 20 MB.");
+    }
+
+    const fileExt = EXT_MAP[file.type] ?? "jpg";
+    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${fileExt}`;
+    const filePath = `${tenantId}/work-orders/${workOrderId}/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("job-photos")
+      .upload(filePath, file, { upsert: false });
+
+    if (uploadError) {
+      throw new Error("Failed to upload photo.");
+    }
+
+    const { data: publicUrl } = supabase.storage.from("job-photos").getPublicUrl(filePath);
+    uploaded.push({
+      url: publicUrl.publicUrl,
+      caption: file.name || null,
+      created_at: new Date().toISOString(),
+      uploaded_by_pm_id: pmId,
+      source,
+    });
+  }
+
+  return uploaded;
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const validation = validateInput(portalSubmitSchema, body);
+    const isMultipart = req.headers.get("content-type")?.includes("multipart/form-data");
+    const body = isMultipart
+      ? await req.formData()
+      : await req.json();
+
+    const payload = isMultipart
+      ? {
+          property_manager_id: asString(body.get("property_manager_id")),
+          tenant_id: asString(body.get("tenant_id")),
+          property_id: asString(body.get("property_id")),
+          title: asString(body.get("title")),
+          description: asString(body.get("description")),
+          priority: asString(body.get("priority")),
+        }
+      : body;
+
+    const validation = validateInput(portalSubmitSchema, payload);
     if (!validation.success) {
       return errorResponse((validation as any).error, 400);
     }
@@ -44,6 +124,7 @@ export async function POST(req: NextRequest) {
       .select("id, name, address")
       .eq("id", property_id)
       .eq("tenant_id", tenant_id)
+      .eq("property_manager_id", property_manager_id)
       .single();
 
     if (!prop) return errorResponse("Property not found", 404);
@@ -64,6 +145,31 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) return errorResponse("Failed to create work order", 500);
+
+    const files = isMultipart
+      ? body.getAll("photos").filter((entry): entry is File => entry instanceof File && entry.size > 0)
+      : [];
+
+    if (files.length > 0) {
+      const uploadedPhotos = await uploadWorkOrderPhotos(
+        supabase,
+        files,
+        tenant_id,
+        workOrder.id,
+        property_manager_id,
+        "submission"
+      );
+
+      const { error: photosError } = await supabase
+        .from("work_orders")
+        .update({ photos: uploadedPhotos })
+        .eq("id", workOrder.id);
+
+      if (photosError) return errorResponse("Failed to save work order photos", 500);
+      (workOrder as any).photos = uploadedPhotos;
+    } else {
+      (workOrder as any).photos = [];
+    }
 
     // Get owner email + tenant name
     const [{ data: owner }, { data: tenant }] = await Promise.all([

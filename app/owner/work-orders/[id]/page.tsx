@@ -7,13 +7,22 @@ import MessagePM from "@/components/owner/MessagePM";
 
 export const dynamic = "force-dynamic";
 
+type WorkOrderPhoto = {
+  url: string;
+  caption?: string | null;
+  created_at: string;
+  uploaded_by_pm_id: string;
+  source?: "submission" | "comment";
+  comment_id?: string;
+};
+
 export default async function WorkOrderDetailPage({ params }: { params: { id: string } }) {
   const profile = await requireOwner();
   const supabase = await createServerSideClient();
 
   const { data: wo, error } = await supabase
     .from("work_orders")
-    .select("id, title, description, status, priority, created_at, tenant_id, property_id, property_managers(full_name, email, company, phone), properties(id, name, address, city, state), jobs(id, title, status)")
+    .select("id, title, description, status, priority, created_at, tenant_id, property_id, photos, property_managers(full_name, email, company, phone), properties(id, name, address, city, state), jobs(id, title, status)")
     .eq("id", params.id)
     .eq("tenant_id", profile.tenant_id)
     .maybeSingle();
@@ -22,7 +31,7 @@ export default async function WorkOrderDetailPage({ params }: { params: { id: st
   if (!wo) {
     const reason = "not found in database";
     return (
-      <div className="p-6 max-w-3xl">
+      <div className="page-shell max-w-3xl">
         <h1 className="font-display font-800 text-2xl text-forge mb-2">Work Order Unavailable</h1>
         <p className="text-mist text-sm mb-2">ID: {params.id}</p>
         <p className="text-mist text-sm">Reason: {reason}.</p>
@@ -45,18 +54,26 @@ export default async function WorkOrderDetailPage({ params }: { params: { id: st
   const pm = Array.isArray(wo.property_managers) ? wo.property_managers[0] : (wo as any).property_managers;
   const prop = Array.isArray(wo.properties) ? wo.properties[0] : (wo as any).properties;
   const job = Array.isArray(wo.jobs) ? wo.jobs[0] : (wo as any).jobs;
+  const { data: comments } = await supabase
+    .from("work_order_comments")
+    .select("id, message, created_at, property_manager:property_managers!work_order_comments_created_by_pm_fkey(full_name, email)")
+    .eq("tenant_id", profile.tenant_id)
+    .eq("work_order_id", wo.id)
+    .order("created_at", { ascending: true });
+  const allPhotos = Array.isArray((wo as any).photos) ? ((wo as any).photos as WorkOrderPhoto[]) : [];
+  const submissionPhotos = allPhotos.filter((photo) => !photo.comment_id && photo.source !== "comment");
 
   return (
-    <div className="px-3 py-5 sm:p-6 max-w-4xl w-full">
-      <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-start sm:justify-between mb-6">
-        <div className="min-w-0 space-y-2">
+    <div className="page-shell page-shell-tight w-full">
+      <div className="page-header gap-3 sm:gap-4">
+        <div className="page-header-copy space-y-2">
           <div className="flex flex-wrap items-center gap-1 text-[11px] text-mist">
             <Link href="/owner/work-orders" className="text-mist hover:text-forge underline underline-offset-2 decoration-black">Work Orders</Link>
             <span className="text-mist">/</span>
             <span className="text-forge truncate">{wo.title}</span>
           </div>
           <div className="space-y-2">
-            <h1 className="font-display font-800 text-2xl sm:text-3xl text-forge leading-tight break-words">{wo.title}</h1>
+            <h1 className="page-title break-words text-2xl sm:text-3xl">{wo.title}</h1>
             <div className="flex items-center gap-2 flex-wrap">
               <span className={`badge ${priorityCfg.bg} ${priorityCfg.color}`}>{priorityCfg.label}</span>
               <span className={`badge ${statusColors[wo.status] ?? "bg-gray-100 text-gray-600"}`}>{wo.status}</span>
@@ -68,14 +85,14 @@ export default async function WorkOrderDetailPage({ params }: { params: { id: st
           {job && (
             <Link
               href={`/owner/jobs/${job.id}`}
-              className="inline-flex flex-1 sm:flex-none items-center justify-center gap-1 bg-amber text-forge font-700 text-xs sm:text-sm px-3 py-2 rounded-lg hover:bg-amber-dark transition-colors"
+              className="action-button-primary flex-1 sm:flex-none gap-1 px-3 py-2 text-xs sm:text-sm"
             >
               Open Job →
             </Link>
           )}
           <Link
             href="/owner/jobs/new"
-            className="inline-flex flex-1 sm:flex-none items-center justify-center text-xs sm:text-sm text-forge font-700 px-3 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 transition-colors"
+            className="action-button-secondary flex-1 sm:flex-none px-3 py-2 text-xs sm:text-sm"
           >
             + New Job
           </Link>
@@ -84,9 +101,80 @@ export default async function WorkOrderDetailPage({ params }: { params: { id: st
 
       <div className="grid md:grid-cols-3 gap-5 sm:gap-6">
         <div className="md:col-span-2 space-y-4">
-          <section className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
+          <section className="surface-card p-4 sm:p-5">
             <h2 className="font-display font-700 text-lg text-forge mb-2">Description</h2>
             <p className="text-sm text-steel leading-relaxed">{wo.description || "No description provided."}</p>
+          </section>
+          <section className="surface-card p-4 sm:p-5">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <h2 className="font-display font-700 text-lg text-forge">Photos</h2>
+              <p className="text-xs text-mist">{allPhotos.length} total</p>
+            </div>
+            {submissionPhotos.length > 0 ? (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {submissionPhotos.map((photo) => (
+                  <a
+                    key={`${photo.url}-${photo.created_at}`}
+                    href={photo.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="overflow-hidden rounded-xl border border-gray-200 bg-white"
+                  >
+                    <img src={photo.url} alt={photo.caption || "Work order photo"} className="h-32 w-full object-cover" />
+                    {photo.caption && <p className="px-3 py-2 text-xs text-mist line-clamp-1">{photo.caption}</p>}
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-mist">No submission photos yet.</p>
+            )}
+          </section>
+          <section className="surface-card p-4 sm:p-5">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <h2 className="font-display font-700 text-lg text-forge">PM Comments</h2>
+              <p className="text-xs text-mist">{comments?.length ?? 0} messages</p>
+            </div>
+            {!comments?.length ? (
+              <p className="text-sm text-mist">No comments yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {comments.map((comment: any) => {
+                  const commentPhotos = allPhotos.filter((photo) => photo.comment_id === comment.id);
+                  return (
+                    <div key={comment.id} className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-700 text-forge">{comment.property_manager?.full_name || "Property Manager"}</p>
+                          <p className="text-[11px] text-mist">{formatDate(comment.created_at.split("T")[0])}</p>
+                        </div>
+                        {comment.property_manager?.email && (
+                          <a href={`mailto:${comment.property_manager.email}`} className="text-xs text-amber hover:underline">
+                            {comment.property_manager.email}
+                          </a>
+                        )}
+                      </div>
+                      <p className="mt-2 text-sm leading-relaxed text-steel">{comment.message}</p>
+                      {commentPhotos.length > 0 && (
+                        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                          {commentPhotos.map((photo) => (
+                            <a
+                              key={`${photo.url}-${photo.created_at}`}
+                              href={photo.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="overflow-hidden rounded-xl border border-gray-200 bg-white"
+                            >
+                              <img src={photo.url} alt={photo.caption || "Comment photo"} className="h-28 w-full object-cover" />
+                              {photo.caption && <p className="px-3 py-2 text-xs text-mist line-clamp-1">{photo.caption}</p>}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </section>
           {job && (
             <section className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">

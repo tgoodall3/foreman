@@ -24,16 +24,16 @@ export default async function EstimateDetailPage({ params }: { params: { id: str
   const prop       = estimate.properties as any;
 
   return (
-    <div className="p-6 max-w-4xl">
+    <div className="page-shell page-shell-tight">
       {/* Breadcrumb + header */}
-      <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
-        <div>
+      <div className="page-header gap-4 flex-wrap">
+        <div className="page-header-copy">
           <div className="flex items-center gap-2 mb-1">
             <Link href="/owner/estimates" className="text-mist hover:text-forge text-sm transition-colors">Estimates</Link>
             <span className="text-mist">/</span>
             <span className="text-sm text-forge font-mono">{estimate.estimate_number}</span>
           </div>
-          <h1 className="font-display font-800 text-3xl text-forge">{estimate.title}</h1>
+          <h1 className="page-title">{estimate.title}</h1>
           <div className="flex items-center gap-2 mt-2 flex-wrap">
             <span className={`badge ${statusCfg.bg} ${statusCfg.color}`}>{statusCfg.label}</span>
             {estimate.valid_until && (
@@ -56,14 +56,14 @@ export default async function EstimateDetailPage({ params }: { params: { id: str
         <div className="lg:col-span-2 space-y-6">
           {/* Scope */}
           {estimate.description && (
-            <section className="bg-white rounded-xl border border-gray-200 p-5">
+            <section className="surface-card p-5">
               <h2 className="font-display font-700 text-lg text-forge mb-3">Scope of Work</h2>
               <p className="text-sm text-steel leading-relaxed whitespace-pre-line">{estimate.description}</p>
             </section>
           )}
 
           {/* Line items */}
-          <section className="bg-white rounded-xl border border-gray-200 p-5">
+          <section className="surface-card p-5">
             <h2 className="font-display font-700 text-lg text-forge mb-4">Line Items</h2>
             <table className="w-full text-sm" aria-label="Estimate line items">
               <thead>

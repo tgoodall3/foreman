@@ -21,6 +21,15 @@ interface Property {
   zip?: string;
 }
 
+interface WorkOrderPhoto {
+  url: string;
+  caption?: string | null;
+  created_at: string;
+  uploaded_by_pm_id: string;
+  source?: "submission" | "comment";
+  comment_id?: string;
+}
+
 interface WorkOrder {
   id: string;
   title: string;
@@ -28,6 +37,7 @@ interface WorkOrder {
   priority: string;
   created_at: string;
   properties?: { name: string } | null;
+  photos?: WorkOrderPhoto[] | null;
   job_status?: string | null;
   job_scheduled_date?: string | null;
   job_scheduled_time?: string | null;
@@ -62,7 +72,7 @@ interface Comment {
   work_order_id: string;
   message: string;
   created_at: string;
-  property_managers?: { full_name?: string };
+  property_manager?: { full_name?: string };
 }
 
 interface Props {
@@ -116,6 +126,27 @@ const EST_STATUS: Record<string, { label: string; bg: string; color: string }> =
 const PRIORITY_LABEL: Record<string, string> = {
   low: "Low", normal: "Normal", urgent: "Urgent", emergency: "Emergency",
 };
+
+function PhotoGrid({ photos }: { photos: WorkOrderPhoto[] }) {
+  if (photos.length === 0) return null;
+
+  return (
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      {photos.map((photo) => (
+        <a
+          key={`${photo.url}-${photo.created_at}`}
+          href={photo.url}
+          target="_blank"
+          rel="noreferrer"
+          className="group overflow-hidden rounded-lg border border-gray-200 bg-white"
+        >
+          <img src={photo.url} alt={photo.caption || "Work order photo"} className="h-28 w-full object-cover transition-transform group-hover:scale-[1.02]" />
+          {photo.caption && <p className="px-2 py-1.5 text-[11px] text-mist line-clamp-1">{photo.caption}</p>}
+        </a>
+      ))}
+    </div>
+  );
+}
 
 function PropertyCreate({
   token,
@@ -228,28 +259,46 @@ function PropertyCreate({
 }
 
 // ─── Comment Form ──────────────────────────────────────────────────────────────
-function CommentForm({ token, workOrderId, onAdded }: { token: string; workOrderId: string; onAdded: (c: Comment) => void }) {
+function CommentForm({
+  token,
+  workOrderId,
+  onAdded,
+}: {
+  token: string;
+  workOrderId: string;
+  onAdded: (comment: Comment, photos: WorkOrderPhoto[]) => void;
+}) {
   const [message, setMessage] = useState("");
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [pickerKey, setPickerKey] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   const submit = async () => {
     if (!message.trim()) return;
     setSubmitting(true); setError("");
+    const formData = new FormData();
+    formData.append("token", token);
+    formData.append("work_order_id", workOrderId);
+    formData.append("message", message.trim());
+    for (const file of photoFiles) {
+      formData.append("photos", file);
+    }
     const res = await fetch("/api/portal/comments", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, work_order_id: workOrderId, message: message.trim() }),
+      body: formData,
     });
     const data = await res.json();
     setSubmitting(false);
     if (!res.ok) { setError(data.error || "Failed to add comment"); return; }
-    onAdded(data.comment);
+    onAdded(data.comment, data.photos ?? []);
     setMessage("");
+    setPhotoFiles([]);
+    setPickerKey((prev) => prev + 1);
   };
 
   return (
-    <div className="mt-2 space-y-1">
+    <div className="mt-2 space-y-2">
       <textarea
         value={message}
         onChange={(e) => setMessage(e.target.value)}
@@ -257,6 +306,18 @@ function CommentForm({ token, workOrderId, onAdded }: { token: string; workOrder
         className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs"
         placeholder="Add a comment…"
       />
+      <div className="space-y-1">
+        <label className="block text-[11px] font-700 uppercase tracking-wider text-mist">Photos</label>
+        <input
+          key={pickerKey}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+          multiple
+          onChange={(e) => setPhotoFiles(Array.from(e.target.files ?? []))}
+          className="block w-full text-xs text-mist file:mr-3 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-xs file:font-700 file:text-forge"
+        />
+        {photoFiles.length > 0 && <p className="text-[11px] text-mist">{photoFiles.length} photo{photoFiles.length === 1 ? "" : "s"} ready to send</p>}
+      </div>
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -321,6 +382,8 @@ function WorkOrderForm({
   const [description, setDescription] = useState("");
   const [propertyId, setPropertyId] = useState(properties[0]?.id ?? "");
   const [priority, setPriority]     = useState("normal");
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [pickerKey, setPickerKey] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError]           = useState("");
 
@@ -329,23 +392,31 @@ function WorkOrderForm({
     setSubmitting(true);
     setError("");
 
+    const formData = new FormData();
+    formData.append("property_manager_id", pmId);
+    formData.append("tenant_id", tenantId);
+    formData.append("property_id", propertyId);
+    formData.append("title", title);
+    formData.append("description", description);
+    formData.append("priority", priority);
+    for (const file of photoFiles) {
+      formData.append("photos", file);
+    }
+
     const res = await fetch("/api/portal/submit", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        property_manager_id: pmId,
-        tenant_id: tenantId,
-        property_id: propertyId,
-        title,
-        description,
-        priority,
-      }),
+      body: formData,
     });
 
     const data = await res.json();
     setSubmitting(false);
     if (!res.ok) { setError(data.error ?? "Failed to submit. Please try again."); return; }
     onSubmitted(data.workOrder);
+    setTitle("");
+    setDescription("");
+    setPriority("normal");
+    setPhotoFiles([]);
+    setPickerKey((prev) => prev + 1);
   };
 
   // When properties list changes (e.g., PM adds one), preselect the first.
@@ -412,6 +483,19 @@ function WorkOrderForm({
           placeholder="Describe the issue in detail — location, what you observed, any safety concerns."
           className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm resize-none focus:outline-none focus:border-amber"
         />
+      </div>
+
+      <div>
+        <label className="block text-xs font-700 text-mist uppercase tracking-wider mb-1">Photos</label>
+        <input
+          key={pickerKey}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+          multiple
+          onChange={(e) => setPhotoFiles(Array.from(e.target.files ?? []))}
+          className="block w-full text-xs text-mist file:mr-3 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-xs file:font-700 file:text-forge"
+        />
+        <p className="mt-1 text-[11px] text-mist">Attach photos of the issue if helpful.</p>
       </div>
 
       <fieldset>
@@ -745,13 +829,13 @@ export default function PortalDashboard({
                           <p className="text-sm font-600 text-forge line-clamp-1">{wo.title}</p>
                           <span className={`badge shrink-0 text-xs ${s.bg} ${s.color}`}>{s.label}</span>
                         </div>
-                        <p className="text-xs text-mist mt-0.5">
+                        <div className="mt-0.5 text-xs text-mist">
                           {prop?.name ?? ""}
                           {wo.created_at ? ` · ${formatDate(wo.created_at.split("T")[0])}` : ""}
-                      {wo.job_status === "completed" && (
-                        <p className="text-xs text-green-700 font-700 mt-1">Work completed</p>
-                      )}
-                        </p>
+                          {wo.job_status === "completed" && (
+                            <p className="mt-1 text-xs font-700 text-green-700">Work completed</p>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -840,7 +924,7 @@ export default function PortalDashboard({
               </button>
             )}
 
-            {(showPastWO ? workOrders : woActive).length === 0 ? (
+            {(showPastWO ? workOrdersState : woActive).length === 0 ? (
               <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
                 <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
                   <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
@@ -850,11 +934,13 @@ export default function PortalDashboard({
               </div>
             ) : (
               <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
-                {(showPastWO ? workOrders : woActive).map((wo) => {
+                {(showPastWO ? workOrdersState : woActive).map((wo) => {
                   const derived = deriveStatus(wo);
                   const s = WO_STATUS[derived] ?? WO_STATUS.pending;
                   const prop = Array.isArray(wo.properties) ? wo.properties[0] : wo.properties;
                   const woComments = commentsState.filter((c) => c.work_order_id === wo.id);
+                  const allPhotos = Array.isArray(wo.photos) ? wo.photos : [];
+                  const submissionPhotos = allPhotos.filter((photo) => !photo.comment_id && photo.source !== "comment");
                   const showSchedule = wo.job_scheduled_date && ["accepted", "in_progress", "completed"].includes(derived);
                   return (
                     <div key={wo.id} className="px-4 py-3.5">
@@ -876,14 +962,22 @@ export default function PortalDashboard({
                         </p>
                       )}
 
+                      {submissionPhotos.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          <p className="text-[11px] font-700 uppercase tracking-wider text-mist">Submitted Photos</p>
+                          <PhotoGrid photos={submissionPhotos} />
+                        </div>
+                      )}
+
                       {woComments.length > 0 && (
                         <div className="bg-gray-50 border border-gray-100 rounded-lg p-2 mt-2 space-y-1">
                           {woComments.map((c) => (
                             <div key={c.id} className="text-xs text-steel flex items-start gap-2">
-                              <span className="font-700 text-forge shrink-0">{c.property_managers?.full_name || "You"}:</span>
-                              <div className="space-y-0.5">
+                              <span className="font-700 text-forge shrink-0">{c.property_manager?.full_name || "You"}:</span>
+                              <div className="min-w-0 flex-1 space-y-1">
                                 <p>{c.message}</p>
                                 <p className="text-[11px] text-mist">{formatDate(c.created_at.split("T")[0])}</p>
+                                <PhotoGrid photos={allPhotos.filter((photo) => photo.comment_id === c.id)} />
                               </div>
                             </div>
                           ))}
@@ -893,7 +987,16 @@ export default function PortalDashboard({
                       <CommentForm
                         token={token}
                         workOrderId={wo.id}
-                        onAdded={(c) => setComments((prev) => [...prev, c])}
+                        onAdded={(comment, photos) => {
+                          setComments((prev) => [...prev, comment]);
+                          if (photos.length > 0) {
+                            setWorkOrdersState((prev) => prev.map((item) => (
+                              item.id === wo.id
+                                ? { ...item, photos: [...(Array.isArray(item.photos) ? item.photos : []), ...photos] }
+                                : item
+                            )));
+                          }
+                        }}
                       />
                     </div>
                   );

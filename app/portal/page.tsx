@@ -59,7 +59,6 @@ export default async function PortalPage({ searchParams }: { searchParams: { tok
     { data: properties },
     { data: workOrders },
     { data: invoices },
-    { data: comments },
     { data: estimates },
   ] = await Promise.all([
     supabase
@@ -70,7 +69,7 @@ export default async function PortalPage({ searchParams }: { searchParams: { tok
 
     supabase
       .from("work_orders")
-      .select("id, title, status, priority, created_at, properties(name)")
+      .select("id, title, status, priority, created_at, photos, properties(name)")
       .eq("property_manager_id", pm.id)
       .order("created_at", { ascending: false }),
 
@@ -81,20 +80,25 @@ export default async function PortalPage({ searchParams }: { searchParams: { tok
       .order("created_at", { ascending: false }),
 
     supabase
-      .from("work_order_comments")
-      .select("id, work_order_id, message, created_at, property_managers(full_name)")
-      .eq("tenant_id", pm.tenant_id)
-      .order("created_at", { ascending: true }),
-
-    supabase
       .from("estimates")
       .select("id, estimate_number, status, total, title, created_at")
       .eq("property_manager_id", pm.id)
       .order("created_at", { ascending: false }),
   ]);
 
-  // Stitch job statuses onto work orders so PMs can see progress/completion
+  let comments: any[] = [];
   const workOrderIds = (workOrders ?? []).map((w: any) => w.id);
+  if (workOrderIds.length > 0) {
+    const { data } = await supabase
+      .from("work_order_comments")
+      .select("id, work_order_id, message, created_at, property_manager:property_managers!work_order_comments_created_by_pm_fkey(full_name)")
+      .eq("tenant_id", pm.tenant_id)
+      .in("work_order_id", workOrderIds)
+      .order("created_at", { ascending: true });
+    comments = data ?? [];
+  }
+
+  // Stitch job statuses onto work orders so PMs can see progress/completion
   let jobInfoMap: Record<string, { status: string; scheduled_date?: string | null; scheduled_time?: string | null }> = {};
   if (workOrderIds.length) {
     const { data: woJobs } = await supabase

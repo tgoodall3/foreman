@@ -439,7 +439,7 @@ export default function ScheduleWeekView({ days, unscheduled, workerMap, weekSta
 
   if (hasError) {
     return (
-      <div className="p-6 max-w-5xl">
+      <div className="page-shell page-shell-standard">
         <div className="bg-red-50 border border-red-200 rounded-xl p-4">
           <p className="text-sm text-red-700 font-700">Unable to load schedule right now.</p>
           <p className="text-xs text-red-700">Refresh to retry; we hit a temporary data error.</p>
@@ -449,19 +449,19 @@ export default function ScheduleWeekView({ days, unscheduled, workerMap, weekSta
   }
 
   return (
-    <div className="p-4 sm:p-6 max-w-5xl">
+    <div className="page-shell page-shell-standard">
       {/* ── Page header ── */}
-      <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
-        <div>
-          <h1 className="font-display font-800 text-3xl text-forge">Schedule</h1>
-          <p className="text-mist text-sm mt-0.5">
+      <div className="page-header gap-3 flex-wrap">
+        <div className="page-header-copy">
+          <h1 className="page-title">Schedule</h1>
+          <p className="page-subtitle">
             {totalScheduled} job{totalScheduled !== 1 ? "s" : ""} this week
             {unscheduled.length > 0 && ` · ${unscheduled.length} unscheduled`}
           </p>
         </div>
         <Link
           href="/owner/jobs/new"
-          className="bg-amber hover:bg-amber-dark text-forge font-display font-700 px-4 py-2.5 rounded-lg text-sm transition-colors min-h-[44px] flex items-center"
+          className="action-button-primary"
         >
           + New Job
         </Link>

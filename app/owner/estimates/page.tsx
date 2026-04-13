@@ -50,18 +50,18 @@ export default async function EstimatesPage({
   for (const e of active) counts[e.status] = (counts[e.status] ?? 0) + 1;
 
   return (
-    <div className="p-6 max-w-6xl">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="font-display font-800 text-3xl text-forge">Estimates</h1>
-          <p className="text-mist text-sm mt-1">
+    <div className="page-shell page-shell-wide">
+      <div className="page-header">
+        <div className="page-header-copy">
+          <h1 className="page-title">Estimates</h1>
+          <p className="page-subtitle">
             {active.length} active
             {archived.length > 0 ? ` · ${archived.length} past` : ""}
           </p>
         </div>
         <Link
           href="/owner/estimates/new"
-          className="bg-amber hover:bg-amber-dark text-forge font-display font-700 px-4 py-2.5 rounded-lg text-sm transition-colors min-h-[44px] flex items-center"
+          className="action-button-primary"
         >
           + New Estimate
         </Link>

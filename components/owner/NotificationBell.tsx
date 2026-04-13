@@ -59,19 +59,54 @@ const TYPE_STYLES: Record<string, { dot: string; icon: JSX.Element }> = {
 
 const READ_KEY = "foreman_notif_read";
 
+type StoredReadState = {
+  ids?: string[];
+  readAllBefore?: string | null;
+};
+
+function loadReadState(): { ids: Set<string>; readAllBefore: number | null } {
+  try {
+    const stored = localStorage.getItem(READ_KEY);
+    if (!stored) return { ids: new Set(), readAllBefore: null };
+
+    const parsed: StoredReadState | string[] = JSON.parse(stored);
+
+    // Backward compatibility with the older array-only storage format.
+    if (Array.isArray(parsed)) {
+      return { ids: new Set(parsed), readAllBefore: null };
+    }
+
+    const ids = new Set(Array.isArray(parsed?.ids) ? parsed.ids : []);
+    const readAllBefore = parsed?.readAllBefore ? new Date(parsed.readAllBefore).getTime() : null;
+    return { ids, readAllBefore };
+  } catch {
+    return { ids: new Set(), readAllBefore: null };
+  }
+}
+
+function saveReadState(ids: Set<string>, readAllBefore: number | null) {
+  try {
+    const payload: StoredReadState = {
+      ids: Array.from(ids),
+      readAllBefore: readAllBefore ? new Date(readAllBefore).toISOString() : null,
+    };
+    localStorage.setItem(READ_KEY, JSON.stringify(payload));
+  } catch {}
+}
+
 export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  const [readAllBefore, setReadAllBefore] = useState<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Load read IDs from localStorage
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(READ_KEY);
-      if (stored) setReadIds(new Set(JSON.parse(stored)));
-    } catch {}
+    const stored = loadReadState();
+    setReadIds(stored.ids);
+    setReadAllBefore(stored.readAllBefore);
   }, []);
 
   // Close on outside click
@@ -111,13 +146,22 @@ export default function NotificationBell() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const isRead = (notification: Notification) => (
+    readIds.has(notification.id) ||
+    (readAllBefore !== null && new Date(notification.createdAt).getTime() <= readAllBefore)
+  );
+
   const markAllRead = () => {
-    const allIds = new Set(notifications.map((n) => n.id));
-    setReadIds(allIds);
-    try { localStorage.setItem(READ_KEY, JSON.stringify(Array.from(allIds))); } catch {}
+    const nextIds = new Set(readIds);
+    notifications.forEach((notification) => nextIds.add(notification.id));
+    const nextReadAllBefore = Date.now();
+
+    setReadIds(nextIds);
+    setReadAllBefore(nextReadAllBefore);
+    saveReadState(nextIds, nextReadAllBefore);
   };
 
-  const unread = notifications.filter((n) => !readIds.has(n.id)).length;
+  const unread = notifications.filter((notification) => !isRead(notification)).length;
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -156,7 +200,7 @@ export default function NotificationBell() {
             ) : (
               notifications.map((n) => {
                 const style = TYPE_STYLES[n.type];
-                const isRead = readIds.has(n.id);
+                const notificationIsRead = isRead(n);
                 return (
                   <Link
                     key={n.id}
@@ -164,20 +208,20 @@ export default function NotificationBell() {
                     onClick={() => {
                       const next = new Set(readIds).add(n.id);
                       setReadIds(next);
-                      try { localStorage.setItem(READ_KEY, JSON.stringify(Array.from(next))); } catch {}
+                      saveReadState(next, readAllBefore);
                       setOpen(false);
                     }}
-                    className={`flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0 ${isRead ? "opacity-60" : ""}`}
+                    className={`flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0 ${notificationIsRead ? "opacity-60" : ""}`}
                   >
-                    <div className={`mt-0.5 w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${isRead ? "bg-gray-100 text-mist" : "bg-amber/10 text-amber-dark"}`}>
+                    <div className={`mt-0.5 w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${notificationIsRead ? "bg-gray-100 text-mist" : "bg-amber/10 text-amber-dark"}`}>
                       {style.icon}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className={`text-sm leading-snug ${isRead ? "text-mist" : "text-forge font-600"}`}>{n.title}</p>
+                      <p className={`text-sm leading-snug ${notificationIsRead ? "text-mist" : "text-forge font-600"}`}>{n.title}</p>
                       <p className="text-xs text-mist mt-0.5 truncate">{n.subtitle}</p>
                       <p className="text-xs text-steel mt-0.5">{timeAgo(n.createdAt)}</p>
                     </div>
-                    {!isRead && <span className={`mt-2 w-2 h-2 rounded-full shrink-0 ${style.dot}`} />}
+                    {!notificationIsRead && <span className={`mt-2 w-2 h-2 rounded-full shrink-0 ${style.dot}`} />}
                   </Link>
                 );
               })

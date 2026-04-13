@@ -31,7 +31,7 @@ export default async function WorkerDashboard() {
   ];
 
   return (
-    <div className="p-4 max-w-3xl mx-auto space-y-5">
+    <div className="page-shell max-w-3xl">
       {/* Hero banner */}
       <div className="bg-gradient-to-r from-forge to-steel text-white rounded-2xl p-5 shadow-sm">
         <div className="flex items-start justify-between gap-4">
@@ -63,7 +63,7 @@ export default async function WorkerDashboard() {
       <ClockWidget />
 
       {/* Next up card */}
-      <div className="bg-white border border-gray-200 rounded-xl p-4">
+      <div className="surface-card p-4">
         <div className="flex items-center justify-between">
           <p className="text-sm font-700 text-forge">Next up</p>
           {nextJob ? (

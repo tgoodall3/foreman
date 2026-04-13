@@ -59,17 +59,19 @@ export default async function InvoicesPage({ searchParams }: { searchParams: { s
   const archivedGroups = groupByBiweekly(archivedInvoices);
 
   return (
-    <div className="p-6 max-w-5xl">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="font-display font-800 text-3xl text-forge">Invoices</h1>
-        <Link href="/owner/invoices/new" className="bg-amber hover:bg-amber-dark text-forge font-display font-700 px-4 py-2.5 rounded-lg text-sm transition-colors min-h-[44px] flex items-center">
+    <div className="page-shell page-shell-standard">
+      <div className="page-header">
+        <div className="page-header-copy">
+          <h1 className="page-title">Invoices</h1>
+        </div>
+        <Link href="/owner/invoices/new" className="action-button-primary">
           + New Invoice
         </Link>
       </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="surface-card p-4">
           <p className="text-[11px] text-mist uppercase tracking-wider font-600">Total Paid</p>
           <p className="font-display font-800 text-xl text-green-600 mt-1 truncate">{formatCurrency(totals.paid)}</p>
         </div>
@@ -77,7 +79,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: { s
           <p className="text-[11px] text-mist uppercase tracking-wider font-600">Outstanding</p>
           <p className="font-display font-800 text-xl text-amber-dark mt-1 truncate">{formatCurrency(totals.outstanding)}</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="surface-card p-4">
           <p className="text-[11px] text-mist uppercase tracking-wider font-600">Drafts</p>
           <p className="font-display font-800 text-xl text-forge mt-1">{totals.draft}</p>
         </div>
@@ -97,14 +99,14 @@ export default async function InvoicesPage({ searchParams }: { searchParams: { s
       {showPast && (
         <div className="space-y-6">
           {Object.keys(archivedGroups).length === 0 ? (
-            <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-              <p className="text-mist text-sm">No past invoices yet</p>
+            <div className="surface-empty">
+              <p>No past invoices yet</p>
             </div>
           ) : (
             Object.entries(archivedGroups).map(([label, items]) => (
               <div key={label}>
                 <p className="text-xs font-700 uppercase tracking-widest text-mist mb-2 px-1">{label}</p>
-                <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+                <div className="surface-card divide-y divide-gray-100">
                   {(items as any[]).map((inv) => (
                     <div key={inv.id} className="flex items-center justify-between px-4 py-3 gap-3">
                       <div className="min-w-0">
@@ -141,7 +143,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: { s
       {/* Invoice list */}
       <div className="space-y-3">
         {!activeInvoices?.length ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+          <div className="surface-empty">
             <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
               <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </div>
@@ -163,7 +165,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: { s
               <Link
                 key={inv.id}
                 href={`/owner/invoices/${inv.id}`}
-                className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 hover:border-amber/50 transition-colors"
+                className="surface-card p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 hover:border-amber/50 transition-colors"
               >
                 <div className="min-w-0">
                   <p className="font-display font-700 text-forge text-sm">

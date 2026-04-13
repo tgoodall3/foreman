@@ -53,10 +53,10 @@ export default function BillingClient({ tenant, profile }: { tenant: any; profil
   const trialExpired = trialEnds ? trialEnds < new Date() : false;
 
   return (
-    <div className="p-6 max-w-2xl w-full mx-auto px-2 sm:px-0">
-      <h1 className="font-display font-800 text-3xl text-forge mb-6">Billing</h1>
+    <div className="page-shell max-w-2xl px-2 sm:px-0">
+      <h1 className="page-title">Billing</h1>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-4">
+      <div className="surface-card p-6 mb-4">
         <div className="flex items-center justify-between mb-4">
           <div>
             <p className="font-display font-700 text-xl text-forge">
@@ -104,7 +104,7 @@ export default function BillingClient({ tenant, profile }: { tenant: any; profil
         )}
       </div>
       {/* Stripe Connect */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="surface-card p-6">
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
             <p className="font-display font-700 text-xl text-forge">Accept Payments</p>

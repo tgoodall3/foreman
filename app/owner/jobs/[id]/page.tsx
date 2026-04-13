@@ -35,16 +35,16 @@ export default async function JobDetailPage({ params }: { params: { id: string }
   const total = lineItems.reduce((s: number, i: any) => s + i.total, 0);
 
   return (
-    <div className="p-6 max-w-5xl">
+    <div className="page-shell page-shell-standard">
       {/* Header */}
-      <div className="flex items-start justify-between mb-6">
-        <div>
+      <div className="page-header">
+        <div className="page-header-copy">
           <div className="flex items-center gap-2 mb-1">
             <Link href="/owner/jobs" className="text-mist hover:text-forge text-sm transition-colors">Jobs</Link>
             <span className="text-mist">/</span>
             <span className="text-sm text-forge">{job.title}</span>
           </div>
-          <h1 className="font-display font-800 text-3xl text-forge">{job.title}</h1>
+          <h1 className="page-title">{job.title}</h1>
           <div className="flex items-center gap-2 mt-2 flex-wrap">
             <span className={`badge ${statusCfg.bg} ${statusCfg.color}`}>{statusCfg.label}</span>
             <span className={`badge ${priorityCfg.bg} ${priorityCfg.color}`}>{priorityCfg.label}</span>
@@ -61,7 +61,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
         </div>
       <Link
         href={`/owner/jobs/${job.id}/edit`}
-        className="bg-forge hover:bg-forge-light text-white font-display font-700 px-4 py-2 rounded-lg text-sm transition-colors"
+        className="action-button-dark"
       >
         Edit Job
       </Link>
@@ -289,4 +289,3 @@ export default async function JobDetailPage({ params }: { params: { id: string }
     </div>
   );
 }
-

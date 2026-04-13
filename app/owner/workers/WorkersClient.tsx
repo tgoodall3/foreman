@@ -71,15 +71,15 @@ export default function WorkersClient({ workers: initial, tenantId }: { workers:
   };
 
   return (
-    <div className="p-6 max-w-4xl">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
-        <div>
-          <h1 className="font-display font-800 text-2xl sm:text-3xl text-forge">Workers</h1>
-          <p className="text-mist text-sm mt-1">{workers.filter((w) => w.is_active).length} active</p>
+    <div className="page-shell page-shell-tight">
+      <div className="page-header">
+        <div className="page-header-copy">
+          <h1 className="page-title">Workers</h1>
+          <p className="page-subtitle">{workers.filter((w) => w.is_active).length} active</p>
         </div>
         <button
           onClick={() => { setShowInvite(true); setSuccess(""); setError(""); }}
-          className="w-full sm:w-auto bg-amber hover:bg-amber-dark text-forge font-display font-700 px-4 py-2.5 rounded-lg text-sm transition-colors min-h-[44px]"
+          className="action-button-primary w-full sm:w-auto"
         >
           + Add Worker
         </button>
@@ -88,7 +88,7 @@ export default function WorkersClient({ workers: initial, tenantId }: { workers:
       {/* Invite modal */}
       {showInvite && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" role="dialog" aria-modal="true" aria-labelledby="invite-title">
-          <div className="bg-white rounded-2xl border border-gray-200 p-6 w-full max-w-sm">
+          <div className="surface-card p-6 w-full max-w-sm">
             <h2 id="invite-title" className="font-display font-700 text-xl text-forge mb-4">Add Worker</h2>
             <form onSubmit={handleInvite} noValidate className="space-y-3">
               <div>
@@ -155,7 +155,7 @@ export default function WorkersClient({ workers: initial, tenantId }: { workers:
       )}
 
       {/* Workers list */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="surface-card overflow-hidden">
         {workers.length === 0 ? (
           <div className="p-8 sm:p-12 text-center">
             <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">

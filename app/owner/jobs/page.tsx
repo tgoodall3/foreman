@@ -66,15 +66,15 @@ export default async function JobsPage({ searchParams }: { searchParams: { statu
   const showInvoiceCta = status === "completed";
 
   return (
-    <div className="p-6 max-w-6xl">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="font-display font-800 text-3xl text-forge">Jobs</h1>
-          <p className="text-mist text-sm mt-1">{count} total</p>
+    <div className="page-shell page-shell-wide">
+      <div className="page-header">
+        <div className="page-header-copy">
+          <h1 className="page-title">Jobs</h1>
+          <p className="page-subtitle">{count} total</p>
         </div>
         <Link
           href="/owner/jobs/new"
-          className="bg-amber hover:bg-amber-dark text-forge font-display font-700 px-4 py-2.5 rounded-lg text-sm transition-colors min-h-[44px] flex items-center"
+          className="action-button-primary"
         >
           + New Job
         </Link>
@@ -94,14 +94,14 @@ export default async function JobsPage({ searchParams }: { searchParams: { statu
       {showPast && (
         <div className="space-y-6">
           {Object.keys(archivedGroups).length === 0 ? (
-            <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-              <p className="text-mist text-sm">No past jobs yet</p>
+            <div className="surface-empty">
+              <p>No past jobs yet</p>
             </div>
           ) : (
             Object.entries(archivedGroups).map(([label, items]) => (
               <div key={label}>
                 <p className="text-xs font-700 uppercase tracking-widest text-mist mb-2 px-1">{label}</p>
-                <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+                <div className="surface-card divide-y divide-gray-100">
                   {items.map((job: any) => {
                     const statusCfg = JOB_STATUS_CONFIG[job.status as keyof typeof JOB_STATUS_CONFIG];
                     return (
@@ -167,7 +167,7 @@ export default async function JobsPage({ searchParams }: { searchParams: { statu
       })()}
 
       {/* List */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="surface-card overflow-hidden">
         {!activeJobs?.length ? (
           <div className="p-12 text-center">
             <p className="text-mist text-sm mb-3">No jobs found</p>

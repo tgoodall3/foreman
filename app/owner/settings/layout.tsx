@@ -7,11 +7,11 @@ const SETTINGS_NAV = [
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="px-4 py-6 sm:px-6 lg:px-8">
+    <div className="page-shell page-shell-standard lg:px-8">
       <div className="mx-auto max-w-5xl">
-        <h1 className="font-display font-800 text-3xl text-forge mb-6">Settings</h1>
+        <h1 className="page-title">Settings</h1>
         <div className="flex flex-col gap-8 lg:flex-row">
-          <nav className="w-full lg:w-40 shrink-0 bg-white rounded-3xl border border-gray-200 p-4 shadow-sm" aria-label="Settings navigation">
+          <nav className="w-full lg:w-40 shrink-0 surface-card p-4" aria-label="Settings navigation">
             <ul className="space-y-1">
               {SETTINGS_NAV.map((item) => (
                 <li key={item.href}>

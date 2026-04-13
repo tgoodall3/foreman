@@ -132,17 +132,17 @@ export default function EditJobPage() {
   }
 
   return (
-    <div className="p-6 max-w-2xl">
+    <div className="page-shell max-w-2xl">
       <div className="flex items-center gap-2 mb-6">
         <Link href={`/owner/jobs/${params.id}`} className="text-mist hover:text-forge text-sm transition-colors">Job</Link>
         <span className="text-mist">/</span>
         <span className="text-sm text-forge">Edit</span>
       </div>
-      <h1 className="font-display font-800 text-3xl text-forge mb-6">Edit Job</h1>
+      <h1 className="page-title">Edit Job</h1>
 
       <form onSubmit={handleSubmit} noValidate className="space-y-5">
         {/* Details */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+        <div className="surface-card p-5 space-y-4">
           <h2 className="font-display font-700 text-lg text-forge">Job Details</h2>
           <div>
             <label htmlFor="title" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Title *</label>

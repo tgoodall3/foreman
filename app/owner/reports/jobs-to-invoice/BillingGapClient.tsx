@@ -58,28 +58,28 @@ export default function BillingGapClient({ jobs: initialJobs }: { jobs: Job[] })
   };
 
   return (
-    <div className="p-6 max-w-5xl space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-mist font-700">Reports</p>
-          <h1 className="font-display font-800 text-3xl text-forge leading-tight">Billing Gap</h1>
-          <p className="text-mist text-sm mt-1">
+    <div className="page-shell page-shell-standard">
+      <div className="page-header">
+        <div className="page-header-copy">
+          <p className="page-eyebrow">Reports</p>
+          <h1 className="page-title">Billing Gap</h1>
+          <p className="page-subtitle">
             {jobs.length} completed job{jobs.length !== 1 ? "s" : ""} without an invoice.
           </p>
         </div>
-        <div className="flex items-center gap-2 self-start flex-wrap">
+        <div className="page-actions self-start flex-wrap">
           {selected.size > 0 && (
             <button
               onClick={bulkInvoice}
               disabled={bulking || selectedCount === 0}
-              className="bg-forge hover:bg-forge-light disabled:opacity-50 text-white font-display font-700 px-4 py-2.5 rounded-lg text-sm shadow-sm transition-colors whitespace-nowrap"
+              className="action-button-dark whitespace-nowrap disabled:opacity-50"
             >
               {bulking ? "Creating…" : `Invoice ${selectedCount} selected`}
             </button>
           )}
           <Link
             href="/owner/invoices/new"
-            className="bg-amber text-forge font-display font-700 px-4 py-2.5 rounded-lg text-sm shadow-sm hover:bg-amber-dark transition-colors whitespace-nowrap"
+            className="action-button-primary whitespace-nowrap"
           >
             New Invoice
           </Link>
@@ -87,11 +87,11 @@ export default function BillingGapClient({ jobs: initialJobs }: { jobs: Job[] })
       </div>
 
       {!jobs.length ? (
-        <div className="bg-white border border-gray-200 rounded-xl p-8 text-center text-mist text-sm">
+        <div className="surface-empty">
           All completed jobs are invoiced.
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+        <div className="surface-card overflow-hidden">
           {/* Desktop table */}
           <table className="hidden sm:table w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">

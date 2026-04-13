@@ -89,16 +89,16 @@ export default async function RevenueReportPage() {
   const totalDraft = all.filter((i) => i.status === "draft").reduce((s, i) => s + (i.total ?? 0), 0);
 
   return (
-    <div className="p-6 max-w-5xl space-y-6">
-      <div>
-        <p className="text-xs uppercase tracking-[0.2em] text-mist font-700">Reports</p>
-        <h1 className="font-display font-800 text-3xl text-forge leading-tight">Revenue Overview</h1>
+    <div className="page-shell page-shell-standard space-y-6">
+      <div className="page-header-copy">
+        <p className="page-eyebrow">Reports</p>
+        <h1 className="page-title">Revenue Overview</h1>
         <p className="text-mist text-sm mt-1">Last 6 months · {all.length} invoices</p>
       </div>
 
       {/* Summary KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="surface-card p-4">
           <p className="text-xs text-mist uppercase tracking-wide font-700">Collected</p>
           <p className="font-display font-800 text-2xl text-green-600 mt-1">{formatCurrency(totalPaid)}</p>
         </div>
@@ -106,14 +106,14 @@ export default async function RevenueReportPage() {
           <p className="text-xs text-mist uppercase tracking-wide font-700">Outstanding</p>
           <p className="font-display font-800 text-2xl text-amber-dark mt-1">{formatCurrency(totalOutstanding)}</p>
         </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="surface-card p-4">
           <p className="text-xs text-mist uppercase tracking-wide font-700">In Draft</p>
           <p className="font-display font-800 text-2xl text-forge mt-1">{formatCurrency(totalDraft)}</p>
         </div>
       </div>
 
       {/* Monthly bar chart */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5">
+      <div className="surface-card p-5">
         <h2 className="font-display font-700 text-base text-forge mb-4">Monthly Collected Revenue</h2>
         <div className="flex items-end gap-2 h-40">
           {months.map((m) => {
@@ -138,7 +138,7 @@ export default async function RevenueReportPage() {
       </div>
 
       {/* Invoice aging */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5">
+      <div className="surface-card p-5">
         <h2 className="font-display font-700 text-base text-forge mb-4">Outstanding Invoice Aging</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
@@ -164,7 +164,7 @@ export default async function RevenueReportPage() {
 
       {/* Revenue by client */}
       {pmRevRows.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="surface-card overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100">
             <h2 className="font-display font-700 text-base text-forge">Revenue by Client</h2>
           </div>

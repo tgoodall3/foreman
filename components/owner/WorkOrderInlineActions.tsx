@@ -42,22 +42,24 @@ export default function WorkOrderInlineActions({ workOrderId, tenantId, title, d
   };
 
   return (
-    <div className="flex gap-2 w-full">
-      <button
-        onClick={() => handle("accept")}
-        disabled={!!loading}
-        className="flex-1 bg-amber text-forge font-700 text-xs px-3 py-2 rounded-lg hover:bg-amber-dark transition-colors disabled:opacity-60 shadow-sm"
-      >
-        {loading === "accept" ? "Accepting…" : "Accept"}
-      </button>
-      <button
-        onClick={() => handle("decline")}
-        disabled={!!loading}
-        className="px-3 py-2 border border-gray-300 text-xs text-steel rounded-lg hover:border-red-300 hover:text-red-600 transition-colors disabled:opacity-60"
-      >
-        {loading === "decline" ? "Declining…" : "Decline"}
-      </button>
-      {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
+    <div className="w-full space-y-2">
+      <div className="flex w-full gap-2">
+        <button
+          onClick={() => handle("accept")}
+          disabled={!!loading}
+          className="flex-1 rounded-lg bg-amber px-3 py-2.5 text-sm font-700 text-forge shadow-sm transition-colors hover:bg-amber-dark disabled:opacity-60"
+        >
+          {loading === "accept" ? "Accepting…" : "Accept"}
+        </button>
+        <button
+          onClick={() => handle("decline")}
+          disabled={!!loading}
+          className="flex-1 rounded-lg border border-gray-300 px-3 py-2.5 text-sm font-700 text-steel transition-colors hover:border-red-300 hover:text-red-600 disabled:opacity-60"
+        >
+          {loading === "decline" ? "Declining…" : "Decline"}
+        </button>
+      </div>
+      {error && <p className="text-xs text-red-600">{error}</p>}
     </div>
   );
 }

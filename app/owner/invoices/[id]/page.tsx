@@ -47,14 +47,14 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
   }
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
+    <div className="page-shell max-w-3xl">
       <div className="flex items-center gap-2 mb-6 justify-center">
         <Link href="/owner/invoices" className="text-mist hover:text-forge text-sm transition-colors">Invoices</Link>
         <span className="text-mist">/</span>
         <span className="text-sm text-forge">{invoice.invoice_number}</span>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 mb-6 space-y-4">
+      <div className="surface-card p-4 sm:p-6 mb-6 space-y-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:text-left text-center">
           <div className="w-full">
             <p className="text-xs uppercase tracking-wider text-mist font-600">Invoice</p>
@@ -83,7 +83,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+      <div className="surface-card p-6 mb-6">
         <h2 className="font-display font-700 text-lg text-forge mb-4">Line items</h2>
         <div className="overflow-x-auto rounded-xl border border-gray-100">
           <table className="min-w-full text-sm text-left md:text-left" aria-label="Invoice line items">
