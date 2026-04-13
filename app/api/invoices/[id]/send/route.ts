@@ -62,7 +62,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       .single(),
   ]);
 
-  const tenantName    = escHtml(tenant?.name || profile.tenant_name || "Your Contractor");
+  const tenantName    = escHtml(tenant?.name || "Your Contractor");
   const invoiceFooter = tenant?.invoice_footer ? escHtml(tenant.invoice_footer) : null;
   const portalToken   = (pmRecord as any)?.portal_token;
 
