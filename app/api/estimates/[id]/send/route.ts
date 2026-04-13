@@ -3,6 +3,7 @@ import { Resend } from "resend";
 import { badRequest, errorResponse, jsonResponse } from "@/lib/api";
 import { requireOwner } from "@/lib/auth";
 import { createServerSideClient } from "@/lib/supabase-server";
+import { createServiceClient } from "@/lib/supabase";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { logError } from "@/lib/logger";
 
@@ -42,15 +43,17 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   } catch {}
 
   const supabase = await createServerSideClient();
+  const serviceClient = createServiceClient();
 
-  const { data: estimate } = await supabase
-    .from("estimates")
-    .select(
-      "*, property_managers(full_name, email), properties(name, address, city, state), tenants(name)"
-    )
-    .eq("id", params.id)
-    .eq("tenant_id", profile.tenant_id)
-    .single();
+  const [{ data: estimate }, { data: tenantData }] = await Promise.all([
+    supabase
+      .from("estimates")
+      .select("*, property_managers(full_name, email), properties(name, address, city, state)")
+      .eq("id", params.id)
+      .eq("tenant_id", profile.tenant_id)
+      .single(),
+    serviceClient.from("tenants").select("name").eq("id", profile.tenant_id).single(),
+  ]);
 
   if (!estimate) return badRequest("Estimate not found.");
   if (estimate.status === "converted") return badRequest("Estimate has already been converted to a job.");
@@ -59,7 +62,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const toEmail  = emailOverride || pm?.email;
   if (!toEmail) return badRequest("Property manager email not available.");
 
-  const tenantName  = escHtml((estimate.tenants as any)?.name || "Your Contractor");
+  const tenantName  = escHtml(tenantData?.name || "Your Contractor");
   const pmName      = escHtml(pm?.full_name ?? "Customer");
   const prop        = estimate.properties as any;
   const reviewUrl   = `${siteUrl}/portal/estimate?token=${encodeURIComponent(estimate.approval_token)}`;
@@ -208,10 +211,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   try {
     const { error: emailError } = await resend.emails.send({
-      from: `${(estimate.tenants as any)?.name ?? "Foreman"} <${fromAddress}>`,
+      from: `${tenantData?.name ?? "Foreman"} <${fromAddress}>`,
       to:   toEmail,
       reply_to: pm?.email || undefined,
-      subject: `Estimate ${escHtml(estimate.estimate_number)} from ${(estimate.tenants as any)?.name ?? "your contractor"} — ${total}`,
+      subject: `Estimate ${escHtml(estimate.estimate_number)} from ${tenantData?.name ?? "your contractor"} — ${total}`,
       html,
     });
 

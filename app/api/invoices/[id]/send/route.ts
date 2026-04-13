@@ -4,6 +4,7 @@ import { badRequest, errorResponse, jsonResponse } from "@/lib/api";
 import { requireOwner } from "@/lib/auth";
 import { getOwnerInvoice } from "@/lib/services/owner";
 import { createServerSideClient } from "@/lib/supabase-server";
+import { createServiceClient } from "@/lib/supabase";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { logError } from "@/lib/logger";
 
@@ -51,8 +52,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!managerEmail) return badRequest("Recipient email not provided.");
 
   const supabase = await createServerSideClient();
+  const serviceClient = createServiceClient();
   const [{ data: tenant }, { data: pmRecord }] = await Promise.all([
-    supabase.from("tenants").select("name, email, invoice_footer, website").eq("id", profile.tenant_id).single(),
+    serviceClient.from("tenants").select("name, email, invoice_footer, website").eq("id", profile.tenant_id).single(),
     supabase
       .from("property_managers")
       .select("portal_token")

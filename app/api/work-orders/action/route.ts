@@ -115,10 +115,18 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServiceClient();
 
+    // Fetch tenant name once — used in emails for both accept and decline
+    const { data: tenantData } = await supabase
+      .from("tenants")
+      .select("name")
+      .eq("id", profile.tenant_id)
+      .single();
+    const tenantName = tenantData?.name ?? "Your Contractor";
+
     if (action === "decline") {
       const { data: wo } = await supabase
         .from("work_orders")
-        .select("id, title, property_managers(email, full_name, portal_token), tenants(name)")
+        .select("id, title, property_managers(email, full_name, portal_token)")
         .eq("id", workOrderId)
         .eq("tenant_id", tenantId)
         .single();
@@ -144,7 +152,6 @@ export async function POST(req: NextRequest) {
 
       if (resend && process.env.EMAIL_FROM) {
         const pm = Array.isArray(wo.property_managers) ? wo.property_managers[0] : (wo as any).property_managers;
-        const tenantName = ((Array.isArray(wo.tenants) ? wo.tenants[0] : (wo as any).tenants) as any)?.name ?? "Your Contractor";
         const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "";
         if (pm?.email) {
           const { subject, html } = buildWorkOrderEmail({
@@ -218,7 +225,7 @@ export async function POST(req: NextRequest) {
         const portalUrl = pm?.portal_token ? `${siteUrl}/portal?token=${encodeURIComponent(pm.portal_token)}` : undefined;
         if (pm?.email) {
           const { subject, html } = buildWorkOrderEmail({
-            tenantName: profile.full_name ?? "Your Contractor",
+            tenantName,
             woTitle: wo.title,
             pmName: pm.full_name ?? "there",
             action: "accepted",
