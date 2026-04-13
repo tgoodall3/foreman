@@ -3,12 +3,17 @@ import Link from "next/link";
 import { requireOwner } from "@/lib/auth";
 import { getOwnerInvoice } from "@/lib/services/owner";
 import { formatDate, formatCurrency, INVOICE_STATUS_CONFIG } from "@/lib/utils";
+import { createServiceClient } from "@/lib/supabase";
 import InvoiceActions from "./InvoiceActions";
 import SendInvoiceWithEmail from "@/components/owner/SendInvoiceWithEmail";
 
 export default async function InvoiceDetailPage({ params }: { params: { id: string } }) {
   const profile = await requireOwner();
-  const invoice = await getOwnerInvoice(profile, params.id);
+  const [invoice, { data: tenant }] = await Promise.all([
+    getOwnerInvoice(profile, params.id),
+    createServiceClient().from("tenants").select("stripe_connect_enabled").eq("id", profile.tenant_id).single(),
+  ]);
+  const stripeConnected = !!tenant?.stripe_connect_enabled;
 
   if (!invoice) {
     notFound();
@@ -140,7 +145,7 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
 
       {invoice.status !== "paid" && (
         <div className="space-y-4 mt-6">
-          <InvoiceActions invoiceId={invoice.id} status={invoice.status} />
+          <InvoiceActions invoiceId={invoice.id} status={invoice.status} stripeConnected={stripeConnected} />
           <SendInvoiceWithEmail
             invoiceId={invoice.id}
             defaultEmail={invoice.property_managers?.email || ""}

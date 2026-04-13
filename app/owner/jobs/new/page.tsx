@@ -121,7 +121,7 @@ export default function NewJobPage() {
 
         <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
           <h2 className="font-display font-700 text-lg text-forge">Scheduling</h2>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label htmlFor="sched-date" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Date</label>
               <input id="sched-date" type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} className={inp} />
