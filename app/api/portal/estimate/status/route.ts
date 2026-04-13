@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { Resend } from "resend";
+import { logError } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
   const contentType = req.headers.get("content-type") ?? "";
@@ -12,6 +13,13 @@ export async function POST(req: NextRequest) {
     return isJson
       ? NextResponse.json({ error: message }, { status: 500 })
       : NextResponse.redirect(new URL("/portal", req.nextUrl));
+  }
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    const message = "Missing SUPABASE_SERVICE_ROLE_KEY";
+    return isJson
+      ? NextResponse.json({ error: message }, { status: 500 })
+      : NextResponse.redirect(new URL(`/portal/estimate?token=${req.nextUrl.searchParams.get("token") || ""}&result=error`, siteUrl));
   }
 
   let token: string | undefined;
@@ -43,12 +51,41 @@ export async function POST(req: NextRequest) {
     update.signed_at = new Date().toISOString();
   }
 
-  const { data: estimate } = await supabase
+  // Load current status to make the operation idempotent
+  const { data: existing, error: fetchError } = await supabase
+    .from("estimates")
+    .select("id, status, title, estimate_number, total, tenant_id, property_managers(full_name, email)")
+    .eq("approval_token", token)
+    .single();
+
+  if (fetchError || !existing) {
+    const message = "Estimate not found.";
+    return isJson
+      ? NextResponse.json({ error: message }, { status: 404 })
+      : NextResponse.redirect(new URL(`/portal/estimate?token=${token || ""}&result=error`, siteUrl));
+  }
+
+  const terminalStatuses = ["approved", "declined", "converted"];
+  if (terminalStatuses.includes(existing.status)) {
+    // Already resolved — keep status and skip update
+    if (isJson) return NextResponse.json({ ok: true, status: existing.status, alreadyFinal: true });
+    return NextResponse.redirect(new URL(`/portal/estimate?token=${token}&result=${existing.status}`, siteUrl));
+  }
+
+  const { data: estimate, error: updateError } = await supabase
     .from("estimates")
     .update(update)
-    .eq("approval_token", token)
+    .eq("id", existing.id)
     .select("id, title, estimate_number, total, tenant_id, property_managers(full_name, email)")
     .single();
+
+  if (updateError || !estimate) {
+    logError("Estimate approval update failed", updateError || "estimate_not_found");
+    const message = "Unable to record your response. Please try again.";
+    return isJson
+      ? NextResponse.json({ error: message }, { status: 500 })
+      : NextResponse.redirect(new URL(`/portal/estimate?token=${token}&result=error`, siteUrl));
+  }
 
   // Notify the owner when a PM approves or declines
   if (estimate && process.env.RESEND_API_KEY && process.env.EMAIL_FROM) {

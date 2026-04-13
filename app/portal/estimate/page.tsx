@@ -23,6 +23,10 @@ export default async function PortalEstimatePage({ searchParams }: { searchParam
   const prop   = Array.isArray(estimate.properties)        ? estimate.properties[0]        : (estimate as any).properties;
   const tenant = Array.isArray(estimate.tenants)           ? estimate.tenants[0]           : (estimate as any).tenants;
 
+  const terminalResult = ["approved", "declined", "converted"].includes(estimate.status)
+    ? estimate.status
+    : undefined;
+
   return (
     <PortalEstimateClient
       estimate={estimate}
@@ -30,7 +34,7 @@ export default async function PortalEstimatePage({ searchParams }: { searchParam
       prop={prop}
       tenant={tenant}
       token={searchParams.token}
-      result={searchParams.result}
+      result={searchParams.result ?? terminalResult}
     />
   );
 }
