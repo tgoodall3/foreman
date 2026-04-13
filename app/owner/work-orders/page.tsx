@@ -104,19 +104,19 @@ function WorkOrderCard({ wo, muted = false }: { wo: any; muted?: boolean }) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            <h3 className="font-600 text-forge">{wo.title}</h3>
+            <h3 className="font-700 text-xs xs:text-sm sm:text-base text-forge underline underline-offset-2 decoration-black">{wo.title}</h3>
             <span className={`badge ${priorityCfg.bg} ${priorityCfg.color}`}>{priorityCfg.label}</span>
             <span className={`badge ${statusColors[wo.status]}`}>{wo.status}</span>
           </div>
-          <p className="text-sm text-mist">
+          <p className="text-xs xs:text-sm text-mist">
             {wo.property_managers?.full_name}
             {wo.property_managers?.company && ` · ${wo.property_managers.company}`}
             {" · "}{wo.properties?.name}
           </p>
-          <p className="text-xs text-mist mt-1">{formatDate(wo.created_at)}</p>
+          <p className="text-[11px] xs:text-xs text-mist mt-1">{formatDate(wo.created_at)}</p>
           {job && (
             <div className="mt-2">
-              <Link href={`/owner/jobs/${job.id}`} className="text-xs font-700 text-amber hover:underline">
+              <Link href={`/owner/jobs/${job.id}`} className="text-xs xs:text-sm font-700 text-forge underline underline-offset-2 decoration-black">
                 View job →
               </Link>
             </div>

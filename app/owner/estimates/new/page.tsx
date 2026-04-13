@@ -7,7 +7,7 @@ import Link from "next/link";
 
 interface LineItem { description: string; quantity: number; unit_price: number }
 
-const inp = "w-full min-w-0 border border-gray-300 rounded-lg px-3 py-3 text-sm focus:outline-none focus:border-amber";
+const inp = "w-full min-w-0 max-w-full border border-gray-300 rounded-lg px-3 py-2.5 sm:py-3 text-sm focus:outline-none focus:border-amber";
 
 export default function NewEstimatePage() {
   const router = useRouter();

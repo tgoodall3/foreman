@@ -186,7 +186,7 @@ export default function NewInvoiceForm({ jobs, propertyManagers, selectedJob }: 
             type="date"
             value={dueDate}
             onChange={(event) => setDueDate(event.target.value)}
-            className="w-full min-w-0 border border-gray-300 rounded-lg px-3 py-3 text-sm focus:outline-none focus:border-amber"
+            className="w-full min-w-0 max-w-full border border-gray-300 rounded-lg px-3 py-2.5 sm:py-3 text-sm focus:outline-none focus:border-amber"
           />
         </div>
       </div>
