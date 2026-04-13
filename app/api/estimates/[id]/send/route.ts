@@ -62,7 +62,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const toEmail  = emailOverride || pm?.email;
   if (!toEmail) return badRequest("Property manager email not available.");
 
-  const tenantName  = escHtml(tenantData?.name || "Your Contractor");
+  const tenantName  = escHtml(tenantData?.name || "Foreman customer");
   const pmName      = escHtml(pm?.full_name ?? "Customer");
   const prop        = estimate.properties as any;
   const reviewUrl   = `${siteUrl}/portal/estimate?token=${encodeURIComponent(estimate.approval_token)}`;

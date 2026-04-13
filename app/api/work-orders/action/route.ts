@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
       .select("name")
       .eq("id", profile.tenant_id)
       .single();
-    const tenantName = tenantData?.name ?? "Your Contractor";
+    const tenantName = tenantData?.name ?? "Foreman customer";
 
     if (action === "decline") {
       const { data: wo } = await supabase

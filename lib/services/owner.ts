@@ -294,7 +294,7 @@ export async function getOwnerInvoiceJob(profile: Profile, jobId: string) {
   const supabase = await createServerSideClient();
   const { data, error } = await supabase
     .from("jobs")
-    .select("id, title, line_items, property_manager_id")
+    .select("id, title, line_items, property_id, properties(property_manager_id)")
     .eq("tenant_id", profile.tenant_id)
     .eq("id", jobId)
     .eq("status", "completed")
@@ -309,7 +309,16 @@ export async function getOwnerInvoiceJob(profile: Profile, jobId: string) {
     return null;
   }
 
-  return data as { id: string; title: string; line_items: any[]; property_manager_id?: string | null };
+  const prop = (data as any).properties;
+  const property_manager_id = prop?.property_manager_id ?? null;
+
+  return {
+    id: data.id,
+    title: data.title,
+    line_items: (data as any).line_items ?? [],
+    property_id: (data as any).property_id ?? null,
+    property_manager_id,
+  } as { id: string; title: string; line_items: any[]; property_id?: string | null; property_manager_id?: string | null };
 }
 
 export async function getOwnerInvoice(profile: Profile, invoiceId: string) {

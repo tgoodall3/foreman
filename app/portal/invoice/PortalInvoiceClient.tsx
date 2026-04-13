@@ -40,7 +40,7 @@ export default function PortalInvoiceClient({ invoice, pm, tenant, job, token, p
   const isPayable = ["sent", "overdue"].includes(invoice.status) && !paidSuccess;
   const isOverdue = invoice.status === "overdue";
 
-  const tenantName = tenant?.name || "Your Contractor";
+  const tenantName = tenant?.name || "Foreman customer";
 
   const handlePay = async () => {
     if (!sigName.trim()) {

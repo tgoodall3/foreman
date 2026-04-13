@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const tenantName = tenantData?.name || "Your Contractor";
+  const tenantName = tenantData?.name || "Foreman customer";
   const portalLink = pm.portal_token ? `${process.env.NEXT_PUBLIC_APP_URL}/portal?token=${pm.portal_token}` : null;
 
   await resend.emails.send({

@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
 
   for (const inv of unpaid) {
     const pm         = inv.property_managers as any;
-    const tenantName = tenantMap[inv.tenant_id] || "Your Contractor";
+  const tenantName = tenantMap[inv.tenant_id] || "Foreman customer";
     const jobTitle   = (inv.jobs as any)?.title || "Services";
 
     if (!pm?.email) continue;

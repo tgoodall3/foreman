@@ -7,7 +7,7 @@ import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   const ip = getClientIp(req);
-  if (!checkRateLimit(`signin:${ip}`, 10, 15 * 60 * 1000)) {
+  if (!(await checkRateLimit(`signin:${ip}`, 10, 15 * 60 * 1000))) {
     return errorResponse("Too many sign-in attempts. Please wait 15 minutes and try again.", 429);
   }
 
