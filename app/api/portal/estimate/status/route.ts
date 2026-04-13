@@ -46,8 +46,8 @@ export async function POST(req: NextRequest) {
   const supabase = createServiceClient();
 
   const update: Record<string, string> = { status };
-  if (status === "approved" && signatureName) {
-    update.signature_name = signatureName;
+  if (status === "approved" && signatureName?.trim()) {
+    update.signature_name = signatureName.trim();
     update.signed_at = new Date().toISOString();
   }
 

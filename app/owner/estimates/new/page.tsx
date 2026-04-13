@@ -100,7 +100,7 @@ export default function NewEstimatePage() {
   const fmt = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
 
   return (
-    <div className="p-6 max-w-3xl">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-4">
       <div className="flex items-center gap-2 mb-6">
         <Link href="/owner/estimates" className="text-mist hover:text-forge text-sm transition-colors">Estimates</Link>
         <span className="text-mist">/</span>
@@ -198,8 +198,8 @@ export default function NewEstimatePage() {
 
           <div className="space-y-3">
             {lineItems.map((item, i) => (
-              <div key={i} className="grid grid-cols-12 gap-2 items-start">
-                <div className="col-span-6">
+              <div key={i} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start">
+                <div className="md:col-span-6">
                   {i === 0 && <p className="text-xs text-mist mb-1 uppercase tracking-wider font-600">Description</p>}
                   <input
                     type="text"
@@ -210,7 +210,7 @@ export default function NewEstimatePage() {
                     required
                   />
                 </div>
-                <div className="col-span-2">
+                <div className="md:col-span-2">
                   {i === 0 && <p className="text-xs text-mist mb-1 uppercase tracking-wider font-600">Qty</p>}
                   <input
                     type="number"
@@ -221,7 +221,7 @@ export default function NewEstimatePage() {
                     className={inp}
                   />
                 </div>
-                <div className="col-span-3">
+                <div className="md:col-span-3">
                   {i === 0 && <p className="text-xs text-mist mb-1 uppercase tracking-wider font-600">Unit Price</p>}
                   <input
                     type="number"
@@ -233,7 +233,7 @@ export default function NewEstimatePage() {
                     className={inp}
                   />
                 </div>
-                <div className="col-span-1 flex items-end pb-0.5">
+                <div className="md:col-span-1 flex items-end justify-end pb-0.5">
                   {i === 0 && <p className="text-xs text-mist mb-1 uppercase tracking-wider font-600 invisible">x</p>}
                   {lineItems.length > 1 && (
                     <button type="button" onClick={() => removeLineItem(i)} className="text-mist hover:text-red-500 transition-colors p-2" aria-label="Remove item">×</button>
