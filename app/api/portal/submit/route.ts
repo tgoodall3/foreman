@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { rateLimit } from "@/lib/rateLimit";
 import { createServiceClient } from "@/lib/supabase";
 import { validateInput, portalSubmitSchema } from "@/lib/validation";
 import { errorResponse } from "@/lib/api";
@@ -17,13 +16,18 @@ export async function POST(req: NextRequest) {
 
     const { property_manager_id, tenant_id, property_id, title, description, priority } = validation.data;
 
-    // Rate limit: 5 submissions per PM per hour
-    const rateLimitResult = await rateLimit(property_manager_id);
-    if (!rateLimitResult.success) {
+    const supabase = createServiceClient();
+
+    // Rate limit: 5 submissions per PM per hour (counted via DB)
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { count: recentCount } = await supabase
+      .from("work_orders")
+      .select("id", { count: "exact", head: true })
+      .eq("property_manager_id", property_manager_id)
+      .gte("created_at", oneHourAgo);
+    if ((recentCount ?? 0) >= 5) {
       return errorResponse("Too many submissions. Please wait before submitting again.", 429);
     }
-
-    const supabase = createServiceClient();
 
     // Verify property manager and property belong to tenant
     const { data: pm } = await supabase

@@ -8,8 +8,8 @@ import { Resend } from "resend";
  * expiring in 3 days or 1 day. Also marks estimates as expired if past valid_until.
  */
 export async function GET(req: NextRequest) {
-  const secret = req.headers.get("x-cron-secret") ?? req.nextUrl.searchParams.get("secret");
-  if (secret !== process.env.CRON_SECRET) {
+  const auth = req.headers.get("authorization");
+  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
 </td></tr>
 </table>
 </body></html>`,
-      }).catch(() => {});
+      }).catch((err) => console.error("[email] estimate expiry warning:", err));
       warned++;
     }
   }

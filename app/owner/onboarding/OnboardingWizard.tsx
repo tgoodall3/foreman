@@ -9,7 +9,7 @@ interface Props {
   tenantName: string;
 }
 
-type Step = "welcome" | "worker" | "pm" | "property" | "done";
+type Step = "welcome" | "worker" | "pm" | "property" | "payments" | "done";
 
 const inp = "w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-amber";
 
@@ -30,6 +30,7 @@ export default function OnboardingWizard({ tenantId, tenantName }: Props) {
   const [pmPhone,   setPmPhone]   = useState("");
   const [pmCompany, setPmCompany] = useState("");
   const [pmDone,    setPmDone]    = useState(false);
+  const [pmId,      setPmId]      = useState<string | null>(null);
 
   // Property form
   const [propName,    setPropName]    = useState("");
@@ -40,6 +41,22 @@ export default function OnboardingWizard({ tenantId, tenantName }: Props) {
 
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState("");
+  const [connectLoading, setConnectLoading] = useState(false);
+  const [connectError, setConnectError] = useState("");
+
+  const handleConnect = async () => {
+    setConnectLoading(true);
+    setConnectError("");
+    try {
+      const res = await fetch("/api/billing/connect", { method: "POST" });
+      const data = await res.json();
+      if (data.url) { window.location.href = data.url; return; }
+      setConnectError(data.error || "Could not start Stripe Connect. Try again.");
+    } catch {
+      setConnectError("Network error. Please try again.");
+    }
+    setConnectLoading(false);
+  };
 
   const inviteWorker = async () => {
     if (!workerName.trim() || !workerEmail.trim() || !workerPassword) {
@@ -71,6 +88,7 @@ export default function OnboardingWizard({ tenantId, tenantName }: Props) {
     const data = await res.json();
     setLoading(false);
     if (!res.ok) { setError(data.error || "Failed to add property manager."); return; }
+    if (data.pm?.id) setPmId(data.pm.id);
     setPmDone(true);
     setTimeout(() => setStep("property"), 800);
   };
@@ -84,7 +102,8 @@ export default function OnboardingWizard({ tenantId, tenantName }: Props) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        tenant_id: tenantId,
+        tenantId,
+        propertyManagerId: pmId,
         name: propName,
         address: propAddress,
         city: propCity,
@@ -95,7 +114,7 @@ export default function OnboardingWizard({ tenantId, tenantName }: Props) {
     const data = await res.json();
     setLoading(false);
     if (!res.ok) { setError(data.error || "Failed to add property."); return; }
-    setStep("done");
+    setStep("payments");
   };
 
   // — Step: Welcome —
@@ -150,7 +169,7 @@ export default function OnboardingWizard({ tenantId, tenantName }: Props) {
         <StepIndicator current={1} />
         <div className="bg-white rounded-2xl border border-gray-200 p-6">
           <h2 className="font-display font-800 text-2xl text-forge mb-1">Add your first worker</h2>
-          <p className="text-mist text-sm mb-5">They&amp;apos;ll log in at <strong>/worker</strong> to see and manage their jobs.</p>
+          <p className="text-mist text-sm mb-5">They&apos;ll log in at <strong>/worker</strong> to see and manage their jobs.</p>
 
           <div className="space-y-3">
             <div>
@@ -203,7 +222,7 @@ export default function OnboardingWizard({ tenantId, tenantName }: Props) {
         <StepIndicator current={2} />
         <div className="bg-white rounded-2xl border border-gray-200 p-6">
           <h2 className="font-display font-800 text-2xl text-forge mb-1">Add a property manager</h2>
-          <p className="text-mist text-sm mb-5">They&amp;apos;ll submit work orders and receive invoices via a secure portal link.</p>
+          <p className="text-mist text-sm mb-5">They&apos;ll submit work orders and receive invoices via a secure portal link.</p>
 
           <div className="space-y-3">
             <div>
@@ -286,7 +305,7 @@ export default function OnboardingWizard({ tenantId, tenantName }: Props) {
           {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mt-3">{error}</p>}
 
           <div className="flex gap-3 mt-5">
-            <button onClick={() => setStep("done")} className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-600 hover:bg-gray-50 transition-colors">
+            <button onClick={() => setStep("payments")} className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-600 hover:bg-gray-50 transition-colors">
               Skip
             </button>
             <button
@@ -295,6 +314,53 @@ export default function OnboardingWizard({ tenantId, tenantName }: Props) {
               className="flex-1 bg-amber hover:bg-amber-dark disabled:opacity-50 text-forge font-display font-700 py-2.5 rounded-xl text-sm transition-colors"
             >
               {loading ? "Adding…" : "Save property →"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // — Step: Payments —
+  if (step === "payments") return (
+    <div className="min-h-screen bg-surface flex items-center justify-center p-4">
+      <div className="max-w-md w-full">
+        <div className="bg-white rounded-2xl border border-gray-200 p-6">
+          <div className="w-12 h-12 bg-amber/10 rounded-xl flex items-center justify-center mb-4">
+            <svg className="w-6 h-6 text-amber" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
+          </div>
+          <h2 className="font-display font-800 text-2xl text-forge mb-1">Accept online payments?</h2>
+          <p className="text-mist text-sm mb-5">
+            Connect with Stripe to let clients pay invoices online. You can always set this up later in Settings.
+          </p>
+
+          <div className="space-y-3 mb-6">
+            <div className="border border-gray-200 rounded-xl p-4">
+              <p className="font-600 text-forge text-sm mb-0.5">With online payments</p>
+              <ul className="text-xs text-mist space-y-1 mt-2">
+                <li>• Clients pay invoices directly from their portal</li>
+                <li>• Accept credit cards and ACH bank transfers</li>
+                <li>• Funds deposited directly to your bank account</li>
+              </ul>
+            </div>
+          </div>
+
+          {connectError && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-2">{connectError}</p>}
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={handleConnect}
+              disabled={connectLoading}
+              className="w-full bg-[#635bff] hover:bg-[#5046e5] disabled:opacity-50 text-white font-display font-700 py-3 rounded-xl text-sm transition-colors"
+            >
+              {connectLoading ? "Redirecting to Stripe…" : "Connect with Stripe →"}
+            </button>
+            <button
+              onClick={() => setStep("done")}
+              className="w-full border border-gray-300 text-forge font-600 py-3 rounded-xl text-sm hover:bg-gray-50 transition-colors"
+            >
+              I&apos;ll handle payments manually
             </button>
           </div>
         </div>
@@ -311,7 +377,7 @@ export default function OnboardingWizard({ tenantId, tenantName }: Props) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h2 className="font-display font-800 text-3xl text-forge mb-2">You&amp;apos;re all set!</h2>
+        <h2 className="font-display font-800 text-3xl text-forge mb-2">You&apos;re all set!</h2>
         <p className="text-mist mb-8">
           {tenantName} is ready. Head to your dashboard or create your first job.
         </p>

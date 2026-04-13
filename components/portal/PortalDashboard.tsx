@@ -29,6 +29,8 @@ interface WorkOrder {
   created_at: string;
   properties?: { name: string } | null;
   job_status?: string | null;
+  job_scheduled_date?: string | null;
+  job_scheduled_time?: string | null;
 }
 
 interface Invoice {
@@ -464,72 +466,13 @@ function WorkOrderForm({
 // ─── Pay button ───────────────────────────────────────────────────────────────
 
 function PayButton({ invoiceId, token }: { invoiceId: string; token: string }) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState("");
-  const [allowACH, setAllowACH] = useState(true);
-  const [allowTips, setAllowTips] = useState(false);
-  const [tipAmount, setTipAmount] = useState("0");
-  const [deposit, setDeposit] = useState("");
-
-  const handlePay = async () => {
-    setLoading(true);
-    setError("");
-    const res = await fetch("/api/portal/pay", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        invoice_id: invoiceId,
-        token,
-        allowACH,
-        allowTips,
-        tipAmount: Number(tipAmount) || 0,
-        amount: deposit ? Number(deposit) : null,
-      }),
-    });
-    const data = await res.json();
-    setLoading(false);
-    if (!res.ok) { setError(data.error ?? "Could not create payment link."); return; }
-    window.location.href = data.url;
-  };
-
   return (
-    <div className="space-y-1">
-      <div className="flex gap-2 flex-wrap text-xs">
-        <label className="flex items-center gap-1">
-          <input type="checkbox" checked={allowACH} onChange={(e) => setAllowACH(e.target.checked)} /> ACH
-        </label>
-        <label className="flex items-center gap-1">
-          <input type="checkbox" checked={allowTips} onChange={(e) => setAllowTips(e.target.checked)} /> Tips
-        </label>
-        <input
-          type="number"
-          min="0"
-          step="0.01"
-          value={tipAmount}
-          onChange={(e) => setTipAmount(e.target.value)}
-          disabled={!allowTips}
-          className="w-20 border border-gray-200 rounded px-2 py-1 text-xs disabled:bg-gray-50"
-          placeholder="Tip"
-        />
-        <input
-          type="number"
-          min="0"
-          step="0.01"
-          value={deposit}
-          onChange={(e) => setDeposit(e.target.value)}
-          className="w-24 border border-gray-200 rounded px-2 py-1 text-xs"
-          placeholder="Deposit"
-        />
-      </div>
-      <button
-        onClick={handlePay}
-        disabled={loading}
-        className="bg-amber hover:bg-amber-dark disabled:opacity-50 text-forge font-display font-700 px-4 py-1.5 rounded-lg text-sm transition-colors"
-      >
-        {loading ? "…" : "Pay Now"}
-      </button>
-      {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
-    </div>
+    <a
+      href={`/portal/invoice?token=${encodeURIComponent(token)}&invoice=${encodeURIComponent(invoiceId)}`}
+      className="inline-block bg-amber hover:bg-amber-dark text-forge font-display font-700 px-4 py-1.5 rounded-lg text-sm transition-colors"
+    >
+      Pay Now
+    </a>
   );
 }
 
@@ -658,7 +601,9 @@ export default function PortalDashboard({
   const [commentsState, setComments] = useState<Comment[]>(comments);
   const [estimatesState] = useState<Estimate[]>(estimates);
   const [workOrdersState, setWorkOrdersState] = useState<WorkOrder[]>(workOrders);
-  const [showPast, setShowPast] = useState(false);
+  const [showPastWO, setShowPastWO]   = useState(false);
+  const [showPastInv, setShowPastInv] = useState(false);
+  const [showPastEst, setShowPastEst] = useState(false);
 
   const deriveStatus = (wo: WorkOrder): string => {
     if (wo.job_status === "completed") return "completed";
@@ -856,10 +801,10 @@ export default function PortalDashboard({
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-700 text-forge">Work Orders</h2>
               <button
-                onClick={() => setShowPast((p) => !p)}
+                onClick={() => setShowPastWO((p) => !p)}
                 className="text-xs text-amber font-700 hover:underline"
               >
-                {showPast ? "Hide past" : "Show past"}
+                {showPastWO ? "Hide past" : "Show past"}
               </button>
             </div>
             {recentlySubmitted && (
@@ -895,19 +840,22 @@ export default function PortalDashboard({
               </button>
             )}
 
-            {(showPast ? workOrders : woActive).length === 0 ? (
+            {(showPastWO ? workOrders : woActive).length === 0 ? (
               <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-                <p className="text-4xl mb-3">📋</p>
+                <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                </div>
                 <p className="font-display font-700 text-lg text-forge">No work orders yet</p>
                 <p className="text-mist text-sm mt-1">Submit your first work order above.</p>
               </div>
             ) : (
               <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
-                {(showPast ? workOrders : woActive).map((wo) => {
+                {(showPastWO ? workOrders : woActive).map((wo) => {
                   const derived = deriveStatus(wo);
                   const s = WO_STATUS[derived] ?? WO_STATUS.pending;
                   const prop = Array.isArray(wo.properties) ? wo.properties[0] : wo.properties;
                   const woComments = commentsState.filter((c) => c.work_order_id === wo.id);
+                  const showSchedule = wo.job_scheduled_date && ["accepted", "in_progress", "completed"].includes(derived);
                   return (
                     <div key={wo.id} className="px-4 py-3.5">
                       <div className="flex items-start justify-between gap-2 mb-1">
@@ -921,6 +869,12 @@ export default function PortalDashboard({
                         {prop?.name ? `${prop.name} · ` : ""}
                         {formatDate(wo.created_at.split("T")[0])}
                       </p>
+                      {showSchedule && (
+                        <p className="text-xs text-blue-700 font-600 mt-1">
+                          Scheduled: {formatDate(wo.job_scheduled_date!)}
+                          {wo.job_scheduled_time ? ` at ${wo.job_scheduled_time.slice(0, 5)}` : ""}
+                        </p>
+                      )}
 
                       {woComments.length > 0 && (
                         <div className="bg-gray-50 border border-gray-100 rounded-lg p-2 mt-2 space-y-1">
@@ -955,10 +909,10 @@ export default function PortalDashboard({
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-700 text-forge">Invoices</h2>
               <button
-                onClick={() => setShowPast((p) => !p)}
+                onClick={() => setShowPastInv((p) => !p)}
                 className="text-xs text-amber font-700 hover:underline"
               >
-                {showPast ? "Hide past" : "Show past"}
+                {showPastInv ? "Hide past" : "Show past"}
               </button>
             </div>
             {paidSuccess && (
@@ -966,15 +920,17 @@ export default function PortalDashboard({
                 ✓ Payment received — thank you!
               </div>
             )}
-            {(showPast ? invoices : invActive).length === 0 ? (
+            {(showPastInv ? invoices : invActive).length === 0 ? (
               <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-                <p className="text-4xl mb-3">💵</p>
+                <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                </div>
                 <p className="font-display font-700 text-lg text-forge">No invoices yet</p>
                 <p className="text-mist text-sm mt-1">Invoices from {tenantName} will appear here.</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {(showPast ? invoices : invActive).map((inv) => {
+                {(showPastInv ? invoices : invActive).map((inv) => {
                   const s        = INV_STATUS[inv.status] ?? INV_STATUS.sent;
                   const job      = Array.isArray(inv.jobs) ? inv.jobs[0] : inv.jobs;
                   const payable  = ["sent", "overdue"].includes(inv.status);
@@ -1002,21 +958,23 @@ export default function PortalDashboard({
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-700 text-forge">Estimates</h2>
               <button
-                onClick={() => setShowPast((p) => !p)}
+                onClick={() => setShowPastEst((p) => !p)}
                 className="text-xs text-amber font-700 hover:underline"
               >
-                {showPast ? "Hide past" : "Show past"}
+                {showPastEst ? "Hide past" : "Show past"}
               </button>
             </div>
-            {(showPast ? estimatesState : estActive).length === 0 ? (
+            {(showPastEst ? estimatesState : estActive).length === 0 ? (
               <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-                <p className="text-4xl mb-3">📑</p>
+                <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2M15 11H9m6 4H9" /></svg>
+                </div>
                 <p className="font-display font-700 text-lg text-forge">No estimates yet</p>
                 <p className="text-mist text-sm mt-1">Your contractor hasn’t sent you any estimates.</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {(showPast ? estimatesState : estActive).map((est) => {
+                {(showPastEst ? estimatesState : estActive).map((est) => {
                   const s = EST_STATUS[est.status] ?? EST_STATUS.draft;
                   const needsAction = est.status === "sent";
                   return (

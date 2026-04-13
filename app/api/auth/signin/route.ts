@@ -3,8 +3,14 @@ import { createServerSideClient } from "@/lib/supabase-server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { badRequest, errorResponse, jsonResponse } from "@/lib/api";
 import { logError } from "@/lib/logger";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
+  const ip = getClientIp(req);
+  if (!checkRateLimit(`signin:${ip}`, 10, 15 * 60 * 1000)) {
+    return errorResponse("Too many sign-in attempts. Please wait 15 minutes and try again.", 429);
+  }
+
   const body = await req.json();
   const email = typeof body.email === "string" ? body.email.trim() : "";
   const password = typeof body.password === "string" ? body.password : "";
@@ -19,6 +25,10 @@ export async function POST(req: NextRequest) {
 
     if (error || !data.user) {
       return errorResponse(error?.message || "Unable to sign in.", 401);
+    }
+
+    if (!data.user.email_confirmed_at) {
+      return errorResponse("Please verify your email address before signing in. Check your inbox for a confirmation link.", 403);
     }
 
     const serviceSupabase = createServiceClient(

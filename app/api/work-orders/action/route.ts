@@ -5,8 +5,94 @@ import { validateInput, workOrderActionSchema } from "@/lib/validation";
 import { errorResponse } from "@/lib/api";
 import { checkPlanForApi } from "@/lib/plan";
 import { Resend } from "resend";
+import { audit } from "@/lib/audit";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+
+function escHtml(str: string): string {
+  return String(str)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function buildWorkOrderEmail({
+  tenantName,
+  woTitle,
+  pmName,
+  action,
+  propertyName,
+  portalUrl,
+  siteUrl,
+}: {
+  tenantName: string;
+  woTitle: string;
+  pmName: string;
+  action: "accepted" | "declined";
+  propertyName?: string;
+  portalUrl?: string;
+  siteUrl: string;
+}) {
+  const isAccepted = action === "accepted";
+  const subject = isAccepted
+    ? `Your work order was accepted — ${woTitle}`
+    : `Work order update — ${woTitle}`;
+  const statusColor = isAccepted ? "#16a34a" : "#dc2626";
+  const statusBg    = isAccepted ? "#f0fdf4" : "#fef2f2";
+  const statusBorder= isAccepted ? "#bbf7d0" : "#fecaca";
+  const statusText  = isAccepted ? "Accepted" : "Declined";
+  const bodyText    = isAccepted
+    ? `Your work order has been reviewed and accepted. We will be in touch shortly with scheduling details.`
+    : `Your work order was reviewed and unfortunately cannot be accommodated at this time. Please reply to this email if you have questions or would like to discuss alternatives.`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 16px;">
+  <tr><td align="center">
+    <table width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;">
+      <tr><td style="background:#0f1923;border-radius:12px 12px 0 0;padding:24px 32px;">
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td>
+              <table cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="background:#f59e0b;border-radius:8px;width:36px;height:36px;text-align:center;vertical-align:middle;">
+                    <span style="font-size:18px;font-weight:900;color:#0f1923;line-height:36px;">${escHtml(tenantName.charAt(0).toUpperCase())}</span>
+                  </td>
+                  <td style="padding-left:12px;">
+                    <p style="margin:0;font-size:16px;font-weight:800;color:#fff;">${escHtml(tenantName)}</p>
+                    <p style="margin:2px 0 0;font-size:12px;color:#9ca3af;">Work Order Update</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td></tr>
+      <tr><td style="background:#fff;padding:32px;border-left:1px solid #e5e7eb;border-right:1px solid #e5e7eb;">
+        <p style="margin:0 0 20px;font-size:16px;color:#374151;">Hi ${escHtml(pmName)},</p>
+        <div style="background:${statusBg};border:1px solid ${statusBorder};border-radius:10px;padding:16px 20px;margin-bottom:24px;">
+          <p style="margin:0 0 4px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:${statusColor};">Work Order ${statusText}</p>
+          <p style="margin:0;font-size:16px;font-weight:700;color:#0f1923;">${escHtml(woTitle)}</p>
+          ${propertyName ? `<p style="margin:4px 0 0;font-size:13px;color:#6b7280;">Property: ${escHtml(propertyName)}</p>` : ""}
+        </div>
+        <p style="margin:0 0 24px;font-size:14px;color:#6b7280;line-height:1.6;">${bodyText}</p>
+        ${portalUrl && isAccepted ? `
+        <a href="${portalUrl}" style="display:inline-block;background:#f59e0b;color:#0f1923;padding:14px 32px;border-radius:10px;font-weight:800;font-size:14px;text-decoration:none;">
+          View in Portal
+        </a>` : ""}
+      </td></tr>
+      <tr><td style="background:#f9f8f5;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;padding:16px 32px;text-align:center;">
+        <p style="margin:0;font-size:12px;color:#9ca3af;">Questions? Reply to this email or visit your portal.</p>
+        <p style="margin:6px 0 0;font-size:11px;color:#d1d5db;">Powered by Foreman</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`;
+  return { subject, html };
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -30,10 +116,9 @@ export async function POST(req: NextRequest) {
     const supabase = createServiceClient();
 
     if (action === "decline") {
-      // Verify work order belongs to tenant
       const { data: wo } = await supabase
         .from("work_orders")
-        .select("id, title, property_managers(email, full_name)")
+        .select("id, title, property_managers(email, full_name, portal_token), tenants(name)")
         .eq("id", workOrderId)
         .eq("tenant_id", tenantId)
         .single();
@@ -47,27 +132,29 @@ export async function POST(req: NextRequest) {
 
       if (error) return errorResponse("Failed to decline work order", 500);
 
-      // Notify PM of decline (best-effort)
+      audit({
+        tenant_id: tenantId,
+        actor_id: profile.id,
+        actor_name: profile.full_name,
+        entity_type: "work_order",
+        entity_id: workOrderId,
+        entity_label: wo.title,
+        action: "declined",
+      });
+
       if (resend && process.env.EMAIL_FROM) {
         const pm = Array.isArray(wo.property_managers) ? wo.property_managers[0] : (wo as any).property_managers;
+        const tenantName = ((Array.isArray(wo.tenants) ? wo.tenants[0] : (wo as any).tenants) as any)?.name ?? "Your Contractor";
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "";
         if (pm?.email) {
-          resend.emails.send({
-            from: process.env.EMAIL_FROM!,
-            to: pm.email,
-            subject: `Work order declined: ${wo.title}`,
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 560px; color: #0f1923;">
-                <div style="background: #0f1923; padding: 18px 20px; border-radius: 10px 10px 0 0;">
-                  <span style="font-size: 20px; font-weight: 800; color: #f59e0b; letter-spacing: 1px;">FOREMAN</span>
-                  <p style="color: #9ca3af; font-size: 12px; margin: 4px 0 0;">Your contractor reviewed your request</p>
-                </div>
-                <div style="background: #fff; padding: 20px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
-                  <p style="margin: 0 0 10px; font-weight: 700; font-size: 16px;">${wo.title}</p>
-                  <p style="margin:0; color:#6b7280;">This request was declined. Reply to discuss next steps.</p>
-                </div>
-              </div>
-            `,
-          }).catch(() => {});
+          const { subject, html } = buildWorkOrderEmail({
+            tenantName,
+            woTitle: wo.title,
+            pmName: pm.full_name ?? "there",
+            action: "declined",
+            siteUrl,
+          });
+          resend.emails.send({ from: process.env.EMAIL_FROM!, to: pm.email, subject, html }).catch((err) => console.error("[email] work order declined:", err));
         }
       }
 
@@ -78,7 +165,7 @@ export async function POST(req: NextRequest) {
       // Verify work order and get details
       const { data: wo } = await supabase
         .from("work_orders")
-        .select("title, description, property_id, priority, property_manager_id, properties(name), property_managers(full_name, email)")
+        .select("title, description, property_id, priority, property_manager_id, properties(name), property_managers(full_name, email, portal_token)")
         .eq("id", workOrderId)
         .eq("tenant_id", tenantId)
         .single();
@@ -106,6 +193,17 @@ export async function POST(req: NextRequest) {
 
       if (jobError) return errorResponse("Failed to create job", 500);
 
+      audit({
+        tenant_id: tenantId,
+        actor_id: profile.id,
+        actor_name: profile.full_name,
+        entity_type: "work_order",
+        entity_id: workOrderId,
+        entity_label: wo.title,
+        action: "accepted",
+        metadata: { job_id: job.id },
+      });
+
       // Update work order status and link job
       await supabase
         .from("work_orders")
@@ -114,32 +212,21 @@ export async function POST(req: NextRequest) {
 
       // Notify PM that work is scheduled/accepted (best-effort)
       if (resend && process.env.EMAIL_FROM) {
-        const pm = Array.isArray(wo.property_managers)
-          ? wo.property_managers[0]
-          : (wo as any).property_managers;
+        const pm = Array.isArray(wo.property_managers) ? wo.property_managers[0] : (wo as any).property_managers;
+        const prop = (Array.isArray(wo.properties) ? wo.properties[0] : (wo as any).properties) as { name?: string } | null | undefined;
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "";
+        const portalUrl = pm?.portal_token ? `${siteUrl}/portal?token=${encodeURIComponent(pm.portal_token)}` : undefined;
         if (pm?.email) {
-          const prop = (Array.isArray(wo.properties) ? wo.properties[0] : (wo as any).properties) as
-            | { name?: string }
-            | null
-            | undefined;
-          resend.emails.send({
-            from: process.env.EMAIL_FROM!,
-            to: pm.email,
-            subject: `Work order accepted: ${wo.title}`,
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 560px; color: #0f1923;">
-                <div style="background: #0f1923; padding: 18px 20px; border-radius: 10px 10px 0 0;">
-                  <span style="font-size: 20px; font-weight: 800; color: #f59e0b; letter-spacing: 1px;">FOREMAN</span>
-                  <p style="color: #9ca3af; font-size: 12px; margin: 4px 0 0;">Your contractor accepted your request</p>
-                </div>
-                <div style="background: #fff; padding: 20px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
-                  <p style="margin: 0 0 10px; font-weight: 700; font-size: 16px;">${wo.title}</p>
-                  ${prop?.name ? `<p style="margin:0 0 8px; color:#6b7280;">Property: ${prop.name}</p>` : ""}
-                  <p style="margin:0; color:#6b7280;">We'll follow up with schedule details soon.</p>
-                </div>
-              </div>
-            `,
-          }).catch(() => {});
+          const { subject, html } = buildWorkOrderEmail({
+            tenantName: profile.full_name ?? "Your Contractor",
+            woTitle: wo.title,
+            pmName: pm.full_name ?? "there",
+            action: "accepted",
+            propertyName: prop?.name,
+            portalUrl,
+            siteUrl,
+          });
+          resend.emails.send({ from: process.env.EMAIL_FROM!, to: pm.email, subject, html }).catch((err) => console.error("[email] work order accepted:", err));
         }
       }
 

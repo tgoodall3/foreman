@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireOwner } from "@/lib/auth";
-import { createServiceClient } from "@/lib/supabase";
+import { createServerSideClient } from "@/lib/supabase-server";
 import { formatDate, PRIORITY_CONFIG } from "@/lib/utils";
 import WorkOrderActions from "./WorkOrderActions";
 import MessagePM from "@/components/owner/MessagePM";
@@ -9,13 +9,13 @@ export const dynamic = "force-dynamic";
 
 export default async function WorkOrderDetailPage({ params }: { params: { id: string } }) {
   const profile = await requireOwner();
-  // Use service role to avoid RLS issues if session cookies fail on prod
-  const supabase = createServiceClient();
+  const supabase = await createServerSideClient();
 
   const { data: wo, error } = await supabase
     .from("work_orders")
     .select("id, title, description, status, priority, created_at, tenant_id, property_id, property_managers(full_name, email, company, phone), properties(id, name, address, city, state), jobs(id, title, status)")
     .eq("id", params.id)
+    .eq("tenant_id", profile.tenant_id)
     .maybeSingle();
 
   // If the record isn't found, render a friendly message instead of 404

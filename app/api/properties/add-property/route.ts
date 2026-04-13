@@ -22,23 +22,25 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServiceClient();
 
-    // Verify property manager belongs to tenant
-    const { data: pm } = await supabase
-      .from("property_managers")
-      .select("id")
-      .eq("id", propertyManagerId)
-      .eq("tenant_id", tenantId)
-      .single();
+    // Verify property manager belongs to tenant (only if provided)
+    if (propertyManagerId) {
+      const { data: pm } = await supabase
+        .from("property_managers")
+        .select("id")
+        .eq("id", propertyManagerId)
+        .eq("tenant_id", tenantId)
+        .single();
 
-    if (!pm) {
-      return errorResponse("Property manager not found", 404);
+      if (!pm) {
+        return errorResponse("Property manager not found", 404);
+      }
     }
 
     const { data: property, error } = await supabase
       .from("properties")
       .insert({
         tenant_id: tenantId,
-        property_manager_id: propertyManagerId,
+        property_manager_id: propertyManagerId ?? null,
         name,
         address,
         city,

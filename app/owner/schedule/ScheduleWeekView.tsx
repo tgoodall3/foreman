@@ -605,7 +605,9 @@ export default function ScheduleWeekView({ days, unscheduled, workerMap, weekSta
 
       {totalScheduled === 0 && unscheduled.length === 0 && (
         <div className="text-center py-16">
-          <p className="text-4xl mb-3">📅</p>
+          <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2" strokeWidth={1.5}/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 3v4M15 3v4M4 10h16"/></svg>
+          </div>
           <p className="font-display font-700 text-xl text-forge">Nothing scheduled</p>
           <p className="text-mist text-sm mt-1 mb-4">This week is wide open.</p>
           <Link

@@ -88,7 +88,7 @@ export default function BillingGapClient({ jobs: initialJobs }: { jobs: Job[] })
 
       {!jobs.length ? (
         <div className="bg-white border border-gray-200 rounded-xl p-8 text-center text-mist text-sm">
-          All completed jobs are invoiced. 🎉
+          All completed jobs are invoiced.
         </div>
       ) : (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">

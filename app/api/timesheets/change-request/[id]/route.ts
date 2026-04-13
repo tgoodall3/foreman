@@ -96,7 +96,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           to: worker.email,
           subject: `Your time change request was ${updatedRequest.status}`,
           html,
-        }).catch(() => {});
+        }).catch((err) => console.error("[email] time change request response:", err));
       }
     }
 

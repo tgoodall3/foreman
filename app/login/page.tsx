@@ -65,14 +65,9 @@ function LoginForm() {
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <label htmlFor="password" className="block text-sm font-500 text-chalk">
-                Password
-              </label>
-              <a href="/forgot-password" className="text-xs text-amber hover:underline">
-                Forgot password?
-              </a>
-            </div>
+            <label htmlFor="password" className="block text-sm font-500 text-chalk mb-1">
+              Password
+            </label>
             <input
               id="password"
               type="password"
@@ -84,6 +79,9 @@ function LoginForm() {
               className="w-full bg-forge border border-steel rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-mist focus:border-amber"
               placeholder="••••••••"
             />
+            <a href="/forgot-password" className="text-xs text-amber hover:underline mt-1.5 inline-block">
+              Forgot password?
+            </a>
           </div>
 
           {error && (
@@ -124,12 +122,20 @@ export default function LoginPage() {
           <LoginForm />
         </Suspense>
 
-        <p className="text-center text-mist text-xs mt-6">
-          Property manager?{" "}
-          <a href="/portal" className="text-amber hover:underline">
-            Submit a work order →
-          </a>
-        </p>
+        <div className="mt-6 space-y-2 text-center">
+          <p className="text-mist text-xs">
+            Don&apos;t have an account?{" "}
+            <a href="/signup" className="text-amber hover:underline font-600">
+              Start free trial →
+            </a>
+          </p>
+          <p className="text-mist text-xs">
+            Property manager?{" "}
+            <a href="/portal" className="text-amber hover:underline">
+              Submit a work order →
+            </a>
+          </p>
+        </div>
       </div>
     </main>
   );

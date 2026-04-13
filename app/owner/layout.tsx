@@ -1,4 +1,5 @@
 import TrialBanner from "@/components/ui/TrialBanner";
+import InactivityTimer from "@/components/ui/InactivityTimer";
 import { requireOwner } from "@/lib/auth";
 import { createServerSideClient } from "@/lib/supabase-server";
 import OwnerShell from "@/components/owner/OwnerShell";
@@ -16,6 +17,7 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
   return (
     <OwnerShell profile={profile} tenantName={tenant?.name}>
       <TrialBanner />
+      <InactivityTimer />
       {children}
     </OwnerShell>
   );

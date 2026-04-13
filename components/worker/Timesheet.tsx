@@ -221,23 +221,35 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
         {days.map((date) => {
           const dayEntries = entriesByDate[date] ?? [];
           const dayRequests = requestsByDate[date] ?? [];
-          const pending = dayRequests.find((r) => r.status === "pending");
+          // Most recent request for this day (day-level, not tied to a specific entry)
+          const dayReq = dayRequests.filter((r) => !r.time_entry_id)[0] ?? dayRequests[0];
           const totalHours = dayEntries.reduce((s, e) => s + (hoursWorked(e.clocked_in_at, e.clocked_out_at) ?? 0), 0);
+
+          const reqBadge = (req: Request | undefined) => {
+            if (!req) return null;
+            const s = STATUS_STYLES[req.status];
+            const label = req.status === "pending" ? "Pending review" : req.status === "approved" ? "Approved" : "Declined";
+            return (
+              <span className={`inline-block text-[11px] font-700 px-2 py-0.5 rounded border ${s.bg} ${s.text}`}>
+                {label}
+              </span>
+            );
+          };
 
           return (
             <div
               key={date}
               className={`bg-white border rounded-xl p-4 ${date === today ? "border-amber" : "border-gray-200"}`}
             >
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="text-xs uppercase tracking-wider text-mist font-600">{fmtDate(date)}</p>
                   <p className="font-display font-800 text-lg text-forge">{totalHours > 0 ? `${totalHours.toFixed(1)}h` : "–"}</p>
-                  {pending && <span className="text-xs text-amber font-700">Change requested ({pending.status})</span>}
+                  {dayReq && <div className="mt-1">{reqBadge(dayReq)}</div>}
                 </div>
                 <button
                   onClick={() => openModal(date, null)}
-                  className="text-sm font-600 text-amber hover:underline"
+                  className="text-sm font-600 text-amber hover:underline shrink-0"
                 >
                   Request change
                 </button>
@@ -249,21 +261,21 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
                 ) : (
                   dayEntries.map((e) => {
                     const req = dayRequests.find((r) => r.time_entry_id === e.id);
-                    const style = req ? STATUS_STYLES[req.status] : null;
                     return (
                       <div
                         key={e.id}
-                        className="flex items-start justify-between gap-2 rounded-lg border border-gray-100 px-3 py-2"
+                        className={`flex items-start justify-between gap-2 rounded-lg border px-3 py-2 ${req ? STATUS_STYLES[req.status].bg : "border-gray-100"}`}
                       >
-                        <div>
+                        <div className="min-w-0">
                           <p className="font-600 text-sm text-forge">
                             {fmtTime(e.clocked_in_at)} – {e.clocked_out_at ? fmtTime(e.clocked_out_at) : "open"}
                           </p>
                           {e.notes && <p className="text-xs text-mist mt-0.5">{e.notes}</p>}
+                          {req && <div className="mt-1">{reqBadge(req)}</div>}
                         </div>
                         <button
                           onClick={() => openModal(date, e.id)}
-                          className="text-xs font-600 text-amber hover:underline"
+                          className="text-xs font-600 text-amber hover:underline shrink-0"
                         >
                           Request change
                         </button>

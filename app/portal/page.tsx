@@ -31,9 +31,25 @@ export default async function PortalPage({ searchParams }: { searchParams: { tok
     return (
       <div className="min-h-screen bg-surface flex items-center justify-center p-6">
         <div className="max-w-md text-center bg-white rounded-2xl border border-gray-200 p-8">
-          <p className="text-4xl mb-3">🔒</p>
+          <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+          </div>
           <h1 className="font-display font-800 text-xl text-forge mb-2">Portal link invalid</h1>
           <p className="text-mist text-sm">This link may be expired. Contact your contractor for a new portal link.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (pm.is_active === false) {
+    return (
+      <div className="min-h-screen bg-surface flex items-center justify-center p-6">
+        <div className="max-w-md text-center bg-white rounded-2xl border border-gray-200 p-8">
+          <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+          </div>
+          <h1 className="font-display font-800 text-xl text-forge mb-2">Portal access revoked</h1>
+          <p className="text-mist text-sm">Your portal access has been deactivated. Contact your contractor to restore access.</p>
         </div>
       </div>
     );
@@ -79,17 +95,21 @@ export default async function PortalPage({ searchParams }: { searchParams: { tok
 
   // Stitch job statuses onto work orders so PMs can see progress/completion
   const workOrderIds = (workOrders ?? []).map((w: any) => w.id);
-  let jobStatusMap: Record<string, string> = {};
+  let jobInfoMap: Record<string, { status: string; scheduled_date?: string | null; scheduled_time?: string | null }> = {};
   if (workOrderIds.length) {
     const { data: woJobs } = await supabase
       .from("jobs")
-      .select("id, status, work_order_id")
+      .select("id, status, work_order_id, scheduled_date, scheduled_time")
       .in("work_order_id", workOrderIds);
-    jobStatusMap = Object.fromEntries((woJobs ?? []).map((j: any) => [j.work_order_id, j.status]));
+    jobInfoMap = Object.fromEntries(
+      (woJobs ?? []).map((j: any) => [j.work_order_id, { status: j.status, scheduled_date: j.scheduled_date, scheduled_time: j.scheduled_time }])
+    );
   }
   const workOrdersWithJobs = (workOrders ?? []).map((w: any) => ({
     ...w,
-    job_status: jobStatusMap[w.id],
+    job_status: jobInfoMap[w.id]?.status,
+    job_scheduled_date: jobInfoMap[w.id]?.scheduled_date,
+    job_scheduled_time: jobInfoMap[w.id]?.scheduled_time,
   }));
 
   return (

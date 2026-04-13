@@ -8,6 +8,11 @@ jest.mock("@/lib/services/auth", () => ({
   createOwnerAccount: mockCreateOwnerAccount,
 }));
 jest.mock("@/lib/logger", () => ({ logError: jest.fn() }));
+// Bypass the in-memory rate limiter so tests don't interfere with each other
+jest.mock("@/lib/rate-limit", () => ({
+  checkRateLimit: jest.fn().mockReturnValue(true),
+  getClientIp:    jest.fn().mockReturnValue("127.0.0.1"),
+}));
 
 import { POST } from "../../app/api/auth/signup/route";
 

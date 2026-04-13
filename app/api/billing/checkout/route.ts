@@ -13,6 +13,10 @@ export async function POST(req: NextRequest) {
   const { data: tenant } = await supabase.from("tenants").select("*").eq("id", profile.tenant_id).single();
   if (!tenant) return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
 
+  if (!process.env.STRIPE_PRO_PRICE_ID) {
+    return NextResponse.json({ error: "Billing not configured" }, { status: 500 });
+  }
+
   // Create or retrieve Stripe customer
   let customerId = tenant.stripe_customer_id;
   if (!customerId) {

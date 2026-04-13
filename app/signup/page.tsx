@@ -18,8 +18,9 @@ export default function SignupPage() {
   const [bizPhone, setBizPhone]     = useState("");
   const [bizAddress, setBizAddress] = useState("");
 
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState("");
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState("");
+  const [awaitingEmail, setAwaitingEmail] = useState(false);
 
   const handleAccountNext = (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,6 +60,12 @@ export default function SignupPage() {
     });
     const signInData = await signInRes.json();
     if (!signInRes.ok || signInData.error) {
+      // If signin failed due to email verification, show the check-your-email state
+      if (signInRes.status === 403) {
+        setAwaitingEmail(true);
+        setLoading(false);
+        return;
+      }
       setError("Account created but sign-in failed. Please go to the login page.");
       setLoading(false);
       return;
@@ -83,88 +90,107 @@ export default function SignupPage() {
           <p className="text-mist text-sm mt-2">Field service management for contractors</p>
         </div>
 
-        <div className="bg-forge-light border border-steel rounded-xl p-6">
-          {/* Step indicator */}
-          <div className="flex items-center gap-2 mb-6">
-            {["account", "business"].map((s, i) => (
-              <div key={s} className="flex items-center gap-2 flex-1">
-                <div className={`w-6 h-6 rounded-full text-xs font-700 flex items-center justify-center shrink-0 ${
-                  step === s ? "bg-amber text-forge" :
-                  (step === "business" && s === "account") ? "bg-green-500 text-white" : "bg-steel text-mist"
-                }`}>
-                  {step === "business" && s === "account" ? "✓" : i + 1}
-                </div>
-                <span className={`text-xs font-500 capitalize ${step === s ? "text-white" : "text-mist"}`}>{s}</span>
-                {i === 0 && <div className="flex-1 h-px bg-steel" />}
-              </div>
-            ))}
+        {awaitingEmail && (
+          <div className="bg-forge-light border border-steel rounded-xl p-8 text-center">
+            <div className="w-14 h-14 bg-amber/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-7 h-7 text-amber" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h2 className="font-display font-700 text-white text-xl mb-2">Check your email</h2>
+            <p className="text-mist text-sm mb-1">We sent a confirmation link to</p>
+            <p className="text-amber font-600 text-sm mb-4">{email}</p>
+            <p className="text-mist text-xs">Click the link to verify your account, then sign in.</p>
+            <a href="/login" className="mt-6 inline-block text-amber hover:underline text-sm font-600">
+              Go to sign in →
+            </a>
           </div>
+        )}
 
-          {step === "account" ? (
-            <form onSubmit={handleAccountNext} noValidate className="space-y-4">
-              <h1 className="font-display font-700 text-white text-xl mb-2">Create your account</h1>
-              <div>
-                <label htmlFor="full-name" className="block text-sm font-500 text-chalk mb-1">Full Name</label>
-                <input id="full-name" type="text" value={fullName} onChange={(e) => setFullName(e.target.value)}
-                  required aria-required="true" autoComplete="name"
-                  className="w-full bg-forge border border-steel rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-mist focus:border-amber"
-                  placeholder="Tyler Reynolds" />
-              </div>
-              <div>
-                <label htmlFor="email" className="block text-sm font-500 text-chalk mb-1">Email</label>
-                <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                  required aria-required="true" autoComplete="email"
-                  className="w-full bg-forge border border-steel rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-mist focus:border-amber"
-                  placeholder="you@company.com" />
-              </div>
-              <div>
-                <label htmlFor="password" className="block text-sm font-500 text-chalk mb-1">Password</label>
-                <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-                  required aria-required="true" autoComplete="new-password" minLength={8}
-                  className="w-full bg-forge border border-steel rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-mist focus:border-amber"
-                  placeholder="Min 8 characters" />
-              </div>
-              {error && <div role="alert" className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">{error}</div>}
-              <button type="submit" className="w-full bg-amber hover:bg-amber-dark text-forge font-display font-700 py-2.5 rounded-lg text-base transition-colors min-h-[44px]">
-                Continue →
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={handleSignup} noValidate className="space-y-4">
-              <div className="flex items-center gap-2 mb-2">
-                <button type="button" onClick={() => setStep("account")} className="text-mist hover:text-white text-sm transition-colors">←</button>
-                <h2 className="font-display font-700 text-white text-xl">Your business</h2>
-              </div>
-              <div>
-                <label htmlFor="biz-name" className="block text-sm font-500 text-chalk mb-1">Business Name <span className="text-red-400">*</span></label>
-                <input id="biz-name" type="text" value={bizName} onChange={(e) => setBizName(e.target.value)}
-                  required aria-required="true"
-                  className="w-full bg-forge border border-steel rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-mist focus:border-amber"
-                  placeholder="Precision Contracting Group" />
-              </div>
-              <div>
-                <label htmlFor="biz-phone" className="block text-sm font-500 text-chalk mb-1">Phone</label>
-                <input id="biz-phone" type="tel" value={bizPhone} onChange={(e) => setBizPhone(e.target.value)}
-                  autoComplete="tel"
-                  className="w-full bg-forge border border-steel rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-mist focus:border-amber"
-                  placeholder="(555) 000-0000" />
-              </div>
-              <div>
-                <label htmlFor="biz-address" className="block text-sm font-500 text-chalk mb-1">Address</label>
-                <input id="biz-address" type="text" value={bizAddress} onChange={(e) => setBizAddress(e.target.value)}
-                  autoComplete="street-address"
-                  className="w-full bg-forge border border-steel rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-mist focus:border-amber"
-                  placeholder="123 Main St, Indianapolis, IN" />
-              </div>
-              {error && <div role="alert" className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">{error}</div>}
-              <button type="submit" disabled={loading}
-                className="w-full bg-amber hover:bg-amber-dark disabled:opacity-50 text-forge font-display font-700 py-2.5 rounded-lg text-base transition-colors min-h-[44px]">
-                {loading ? "Setting up account…" : "Finish setup →"}
-              </button>
-              <p className="text-xs text-mist text-center">14-day free trial · No card required until it ends</p>
-            </form>
-          )}
-        </div>
+        {!awaitingEmail && (
+          <div className="bg-forge-light border border-steel rounded-xl p-6">
+            {/* Step indicator */}
+            <div className="flex items-center gap-2 mb-6">
+              {["account", "business"].map((s, i) => (
+                <div key={s} className="flex items-center gap-2 flex-1">
+                  <div className={`w-6 h-6 rounded-full text-xs font-700 flex items-center justify-center shrink-0 ${
+                    step === s ? "bg-amber text-forge" :
+                    (step === "business" && s === "account") ? "bg-green-500 text-white" : "bg-steel text-mist"
+                  }`}>
+                    {step === "business" && s === "account" ? "✓" : i + 1}
+                  </div>
+                  <span className={`text-xs font-500 capitalize ${step === s ? "text-white" : "text-mist"}`}>{s}</span>
+                  {i === 0 && <div className="flex-1 h-px bg-steel" />}
+                </div>
+              ))}
+            </div>
+
+            {step === "account" ? (
+              <form onSubmit={handleAccountNext} noValidate className="space-y-4">
+                <h1 className="font-display font-700 text-white text-xl mb-2">Create your account</h1>
+                <div>
+                  <label htmlFor="full-name" className="block text-sm font-500 text-chalk mb-1">Full Name</label>
+                  <input id="full-name" type="text" value={fullName} onChange={(e) => setFullName(e.target.value)}
+                    required aria-required="true" autoComplete="name"
+                    className="w-full bg-forge border border-steel rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-mist focus:border-amber"
+                    placeholder="Tyler Reynolds" />
+                </div>
+                <div>
+                  <label htmlFor="email" className="block text-sm font-500 text-chalk mb-1">Email</label>
+                  <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                    required aria-required="true" autoComplete="email"
+                    className="w-full bg-forge border border-steel rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-mist focus:border-amber"
+                    placeholder="you@company.com" />
+                </div>
+                <div>
+                  <label htmlFor="password" className="block text-sm font-500 text-chalk mb-1">Password</label>
+                  <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+                    required aria-required="true" autoComplete="new-password" minLength={8}
+                    className="w-full bg-forge border border-steel rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-mist focus:border-amber"
+                    placeholder="Min 8 characters" />
+                </div>
+                {error && <div role="alert" className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">{error}</div>}
+                <button type="submit" className="w-full bg-amber hover:bg-amber-dark text-forge font-display font-700 py-2.5 rounded-lg text-base transition-colors min-h-[44px]">
+                  Continue →
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleSignup} noValidate className="space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <button type="button" onClick={() => setStep("account")} className="text-mist hover:text-white text-sm transition-colors">←</button>
+                  <h2 className="font-display font-700 text-white text-xl">Your business</h2>
+                </div>
+                <div>
+                  <label htmlFor="biz-name" className="block text-sm font-500 text-chalk mb-1">Business Name <span className="text-red-400">*</span></label>
+                  <input id="biz-name" type="text" value={bizName} onChange={(e) => setBizName(e.target.value)}
+                    required aria-required="true"
+                    className="w-full bg-forge border border-steel rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-mist focus:border-amber"
+                    placeholder="Precision Contracting Group" />
+                </div>
+                <div>
+                  <label htmlFor="biz-phone" className="block text-sm font-500 text-chalk mb-1">Phone</label>
+                  <input id="biz-phone" type="tel" value={bizPhone} onChange={(e) => setBizPhone(e.target.value)}
+                    autoComplete="tel"
+                    className="w-full bg-forge border border-steel rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-mist focus:border-amber"
+                    placeholder="(555) 000-0000" />
+                </div>
+                <div>
+                  <label htmlFor="biz-address" className="block text-sm font-500 text-chalk mb-1">Address</label>
+                  <input id="biz-address" type="text" value={bizAddress} onChange={(e) => setBizAddress(e.target.value)}
+                    autoComplete="street-address"
+                    className="w-full bg-forge border border-steel rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-mist focus:border-amber"
+                    placeholder="123 Main St, Indianapolis, IN" />
+                </div>
+                {error && <div role="alert" className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">{error}</div>}
+                <button type="submit" disabled={loading}
+                  className="w-full bg-amber hover:bg-amber-dark disabled:opacity-50 text-forge font-display font-700 py-2.5 rounded-lg text-base transition-colors min-h-[44px]">
+                  {loading ? "Setting up account…" : "Finish setup →"}
+                </button>
+                <p className="text-xs text-mist text-center">14-day free trial · No card required until it ends</p>
+              </form>
+            )}
+          </div>
+        )}
 
         <p className="text-center text-mist text-sm mt-4">
           Already have an account?{" "}

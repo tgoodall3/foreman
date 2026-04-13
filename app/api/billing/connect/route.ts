@@ -64,24 +64,30 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Called when Stripe webhook confirms account is fully enabled
+// Called to refresh Connect status after returning from Stripe onboarding
 export async function PATCH(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { accountId } = body;
-    if (!accountId) return errorResponse("accountId required", 400);
+    const profile = await requireOwner();
+    const supabase = createServiceClient();
 
-    const account = await stripe.accounts.retrieve(accountId);
+    const { data: tenant } = await supabase
+      .from("tenants")
+      .select("stripe_connect_id")
+      .eq("id", profile.tenant_id)
+      .single();
+
+    if (!tenant?.stripe_connect_id) return errorResponse("No Stripe Connect account linked.", 404);
+
+    const account = await stripe.accounts.retrieve(tenant.stripe_connect_id);
     const enabled =
       account.charges_enabled &&
       account.payouts_enabled &&
       account.details_submitted;
 
-    const supabase = createServiceClient();
     await supabase
       .from("tenants")
       .update({ stripe_connect_enabled: enabled })
-      .eq("stripe_connect_id", accountId);
+      .eq("id", profile.tenant_id);
 
     return jsonResponse({ enabled });
   } catch (err) {

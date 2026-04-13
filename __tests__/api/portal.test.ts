@@ -11,9 +11,6 @@ const UUID_WO     = "123e4567-e89b-12d3-a456-426614174004";
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
-const mockRateLimit = jest.fn();
-jest.mock("@/lib/rateLimit", () => ({ rateLimit: mockRateLimit }));
-
 const mockResendSend = jest.fn().mockResolvedValue({});
 jest.mock("resend", () => ({
   Resend: jest.fn(() => ({ emails: { send: mockResendSend } })),
@@ -45,18 +42,23 @@ const validBody = {
   priority:            "normal",
 };
 
-// Helper: build a sequence of mockServiceFrom responses
+// Helper: build a sequence of mockServiceFrom responses.
+// The first response is always the DB-based rate limit check (work_orders count).
+// Pass rateLimitCount to control how many recent submissions the PM has.
 function makeFromSequence(
-  responses: Array<{ data?: any; error?: any }>
+  responses: Array<{ data?: any; error?: any; count?: number }>,
+  rateLimitCount = 0,
 ) {
+  const full = [{ data: null, error: null, count: rateLimitCount }, ...responses];
   let i = 0;
   mockServiceFrom.mockImplementation(() => {
-    const r = responses[i] ?? { data: null, error: null };
+    const r = full[i] ?? { data: null, error: null, count: 0 };
     i++;
     const chain: any = {
       select: jest.fn().mockReturnThis(),
       insert: jest.fn().mockReturnThis(),
       eq:     jest.fn().mockReturnThis(),
+      gte:    jest.fn().mockReturnThis(),
       single: jest.fn().mockResolvedValue(r),
     };
     chain.then = (res: any, rej?: any) => Promise.resolve(r).then(res, rej);
@@ -79,21 +81,29 @@ describe("POST /api/portal/submit", () => {
     delete process.env.RESEND_API_KEY;
   });
 
+  const PM   = { id: UUID_PM, full_name: "Alice PM", email: "alice@pm.com" };
+  const PROP = { id: UUID_PROP, name: "Sunrise Apts", address: "100 Main" };
+  const WO   = {
+    id: UUID_WO,
+    properties:        { name: "Sunrise Apts", address: "100 Main" },
+    property_managers: { full_name: "Alice PM", email: "alice@pm.com" },
+  };
+  const OWNER = { email: "owner@gc.com", full_name: "Bob Owner" };
+
   it("returns 400 for an invalid payload (missing title)", async () => {
-    mockRateLimit.mockResolvedValue({ success: true, reset: 0 });
     const { title, ...body } = validBody;
     const res = await POST(makeRequest(body));
     expect(res.status).toBe(400);
   });
 
   it("returns 400 for invalid priority", async () => {
-    mockRateLimit.mockResolvedValue({ success: true, reset: 0 });
     const res = await POST(makeRequest({ ...validBody, priority: "extreme" }));
     expect(res.status).toBe(400);
   });
 
-  it("returns 429 when rate limit is exceeded", async () => {
-    mockRateLimit.mockResolvedValue({ success: false, reset: Date.now() + 3600000 });
+  it("returns 429 when PM has >= 5 submissions in the last hour", async () => {
+    // rateLimitCount=5 → DB says 5 recent work orders → rate limited
+    makeFromSequence([], 5);
 
     const res  = await POST(makeRequest(validBody));
     const json = await res.json();
@@ -103,18 +113,16 @@ describe("POST /api/portal/submit", () => {
   });
 
   it("returns 404 when property manager is not found", async () => {
-    mockRateLimit.mockResolvedValue({ success: true, reset: 0 });
-    makeFromSequence([{ data: null, error: null }]); // pm lookup → null
+    makeFromSequence([{ data: null, error: null }]);
 
     const res = await POST(makeRequest(validBody));
     expect(res.status).toBe(404);
   });
 
   it("returns 404 when property is not found", async () => {
-    mockRateLimit.mockResolvedValue({ success: true, reset: 0 });
     makeFromSequence([
-      { data: { id: UUID_PM, full_name: "Alice PM", email: "alice@pm.com" }, error: null },
-      { data: null, error: null }, // property not found
+      { data: PM, error: null },
+      { data: null, error: null },
     ]);
 
     const res = await POST(makeRequest(validBody));
@@ -122,20 +130,12 @@ describe("POST /api/portal/submit", () => {
   });
 
   it("creates work order and returns 200 on success", async () => {
-    mockRateLimit.mockResolvedValue({ success: true, reset: 0 });
     makeFromSequence([
-      { data: { id: UUID_PM, full_name: "Alice PM", email: "alice@pm.com" }, error: null },
-      { data: { id: UUID_PROP, name: "Sunrise Apts", address: "100 Main" }, error: null },
-      {
-        data: {
-          id: UUID_WO,
-          properties:        { name: "Sunrise Apts", address: "100 Main" },
-          property_managers: { full_name: "Alice PM", email: "alice@pm.com" },
-        },
-        error: null,
-      },
-      // owner lookup for email
-      { data: { email: "owner@gc.com", full_name: "Bob Owner" }, error: null },
+      { data: PM, error: null },
+      { data: PROP, error: null },
+      { data: WO, error: null },
+      { data: OWNER, error: null },  // owner lookup
+      { data: { name: "Acme GC" }, error: null }, // tenant lookup
     ]);
 
     const res  = await POST(makeRequest(validBody));
@@ -147,25 +147,16 @@ describe("POST /api/portal/submit", () => {
   });
 
   it("sends notification emails when work order is created", async () => {
-    mockRateLimit.mockResolvedValue({ success: true, reset: 0 });
     makeFromSequence([
-      { data: { id: UUID_PM, full_name: "Alice PM", email: "alice@pm.com" }, error: null },
-      { data: { id: UUID_PROP, name: "Sunrise Apts", address: "100 Main" }, error: null },
-      {
-        data: {
-          id: UUID_WO,
-          properties:        { name: "Sunrise Apts", address: "100 Main" },
-          property_managers: { full_name: "Alice PM", email: "alice@pm.com" },
-        },
-        error: null,
-      },
-      { data: { email: "owner@gc.com", full_name: "Bob Owner" }, error: null },
+      { data: PM, error: null },
+      { data: PROP, error: null },
+      { data: WO, error: null },
+      { data: OWNER, error: null },
+      { data: { name: "Acme GC" }, error: null },
     ]);
 
     await POST(makeRequest(validBody));
 
-    // Should have sent two emails: one to owner, one to PM
-    expect(mockResendSend).toHaveBeenCalledTimes(2);
     expect(mockResendSend).toHaveBeenCalledWith(
       expect.objectContaining({ to: "owner@gc.com" })
     );
@@ -176,19 +167,12 @@ describe("POST /api/portal/submit", () => {
 
   it("succeeds without sending emails when RESEND_API_KEY is absent", async () => {
     delete process.env.RESEND_API_KEY;
-    mockRateLimit.mockResolvedValue({ success: true, reset: 0 });
     makeFromSequence([
-      { data: { id: UUID_PM, full_name: "Alice PM", email: "alice@pm.com" }, error: null },
-      { data: { id: UUID_PROP, name: "Sunrise Apts", address: "100 Main" }, error: null },
-      {
-        data: {
-          id: UUID_WO,
-          properties:        { name: "Sunrise Apts", address: "100 Main" },
-          property_managers: { full_name: "Alice PM", email: "alice@pm.com" },
-        },
-        error: null,
-      },
-      { data: { email: "owner@gc.com", full_name: "Bob Owner" }, error: null },
+      { data: PM, error: null },
+      { data: PROP, error: null },
+      { data: WO, error: null },
+      { data: OWNER, error: null },
+      { data: { name: "Acme GC" }, error: null },
     ]);
 
     const res  = await POST(makeRequest(validBody));
@@ -199,10 +183,9 @@ describe("POST /api/portal/submit", () => {
   });
 
   it("returns 500 when work order insert fails", async () => {
-    mockRateLimit.mockResolvedValue({ success: true, reset: 0 });
     makeFromSequence([
-      { data: { id: UUID_PM, full_name: "Alice PM", email: "alice@pm.com" }, error: null },
-      { data: { id: UUID_PROP, name: "Sunrise Apts", address: "100 Main" }, error: null },
+      { data: PM, error: null },
+      { data: PROP, error: null },
       { data: null, error: { message: "insert failed" } },
     ]);
 

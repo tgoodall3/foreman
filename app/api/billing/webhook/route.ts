@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createServiceClient } from "@/lib/supabase";
 import { Resend } from "resend";
+import { audit } from "@/lib/audit";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -61,6 +62,16 @@ export async function POST(req: NextRequest) {
           .update({ status: "paid", paid_at: new Date().toISOString() })
           .eq("id", invoiceId);
 
+        if (tenantId) {
+          audit({
+            tenant_id: tenantId,
+            entity_type: "invoice",
+            entity_id: invoiceId,
+            action: "paid",
+            metadata: { session_id: session.id },
+          });
+        }
+
         if (process.env.RESEND_API_KEY) {
           const { data: inv } = await supabase
             .from("invoices")
@@ -77,7 +88,7 @@ export async function POST(req: NextRequest) {
               to: recipients as string[],
               subject: `Payment received for invoice ${inv?.invoice_number ?? invoiceId}`,
               html: `<p style="font-family: Arial, sans-serif;">Payment received for invoice ${inv?.invoice_number ?? invoiceId}. Thank you!</p>`,
-            }).catch(() => {});
+            }).catch((err) => console.error("[email] invoice paid notification:", err));
           }
         }
       }
@@ -171,7 +182,7 @@ export async function POST(req: NextRequest) {
 </td></tr>
 </table>
 </body></html>`,
-            }).catch(() => {});
+            }).catch((err) => console.error("[email] payment failed notification:", err));
           }
         }
       }

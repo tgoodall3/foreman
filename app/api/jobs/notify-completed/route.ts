@@ -5,6 +5,7 @@ import Stripe from "stripe";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceClient } from "@/lib/supabase";
 import { maybeCreateNextOccurrence } from "@/lib/recurring";
+import { audit } from "@/lib/audit";
 import { formatDate, generateInvoiceNumber } from "@/lib/utils";
 
 // Auto-create and send an invoice when a completed job has line items + PM.
@@ -69,6 +70,15 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (!job) return NextResponse.json({ ok: true });
+
+  audit({
+    tenant_id: job.tenant_id,
+    entity_type: "job",
+    entity_id: job.id,
+    entity_label: job.title,
+    action: "status_changed",
+    metadata: { to: "completed" },
+  });
 
   // Recurring follow-up (best-effort)
   maybeCreateNextOccurrence(supabase as any, jobId, job.tenant_id).catch(() => {});

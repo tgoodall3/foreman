@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { Resend } from "resend";
 import { logError } from "@/lib/logger";
+import { audit } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
   const contentType = req.headers.get("content-type") ?? "";
@@ -87,6 +88,15 @@ export async function POST(req: NextRequest) {
       : NextResponse.redirect(new URL(`/portal/estimate?token=${token}&result=error`, siteUrl));
   }
 
+  audit({
+    tenant_id: estimate.tenant_id,
+    entity_type: "estimate",
+    entity_id: estimate.id,
+    entity_label: estimate.estimate_number,
+    action: status === "approved" ? "approved" : "declined",
+    metadata: signatureName ? { signature_name: signatureName } : {},
+  });
+
   // Notify the owner when a PM approves or declines
   if (estimate && process.env.RESEND_API_KEY && process.env.EMAIL_FROM) {
     const resend = new Resend(process.env.RESEND_API_KEY);
@@ -136,7 +146,7 @@ export async function POST(req: NextRequest) {
 </td></tr>
 </table>
 </body></html>`,
-      }).catch(() => {});
+      }).catch((err) => console.error("[email] estimate status notification:", err));
     }
   }
 

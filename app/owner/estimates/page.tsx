@@ -12,11 +12,11 @@ function daysUntilExpiry(validUntil: string | null): number | null {
 const ARCHIVE_STATUSES = ["approved", "declined", "converted"];
 const ARCHIVE_DAYS = 7;
 
-function isArchived(est: { status: string; created_at: string }) {
+function isArchived(est: { status: string; updated_at: string }) {
   if (!ARCHIVE_STATUSES.includes(est.status)) return false;
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - ARCHIVE_DAYS);
-  return new Date(est.created_at) < cutoff;
+  return new Date(est.updated_at) < cutoff;
 }
 
 export default async function EstimatesPage({
@@ -30,7 +30,7 @@ export default async function EstimatesPage({
 
   let query = supabase
     .from("estimates")
-    .select("id, estimate_number, title, status, total, created_at, valid_until, property_managers(full_name), properties(name)")
+    .select("id, estimate_number, title, status, total, created_at, updated_at, valid_until, property_managers(full_name), properties(name)")
     .eq("tenant_id", profile.tenant_id)
     .order("created_at", { ascending: false });
 
@@ -82,19 +82,19 @@ export default async function EstimatesPage({
             </span>
           )}
         </Link>
-        {archived.length > 0 && (
-          <Link
-            href="/owner/estimates?past=1"
-            className={`px-4 py-1.5 rounded-full text-sm font-600 transition-colors ${
-              showPast ? "bg-forge text-white" : "text-mist hover:text-forge"
-            }`}
-          >
-            Past
+        <Link
+          href="/owner/estimates?past=1"
+          className={`px-4 py-1.5 rounded-full text-sm font-600 transition-colors ${
+            showPast ? "bg-forge text-white" : "text-mist hover:text-forge"
+          }`}
+        >
+          Past
+          {archived.length > 0 && (
             <span className={`ml-1.5 text-xs ${showPast ? "opacity-70" : "opacity-50"}`}>
               {archived.length}
             </span>
-          </Link>
-        )}
+          )}
+        </Link>
       </div>
 
       {/* Status filter (only on active tab) */}

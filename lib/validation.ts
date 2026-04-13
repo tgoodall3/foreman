@@ -47,7 +47,7 @@ export const toggleWorkerSchema = z.object({
 
 export const addPropertySchema = z.object({
   tenantId: uuidSchema,
-  propertyManagerId: uuidSchema,
+  propertyManagerId: uuidSchema.nullable().optional(),
   name: nameSchema,
   address: addressSchema,
   city: citySchema,

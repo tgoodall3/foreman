@@ -24,7 +24,7 @@ async function sendSms(to: string, body: string) {
       "Content-Type": "application/x-www-form-urlencoded",
     },
     body: params.toString(),
-  }).catch(() => {});
+  }).catch((err) => console.error("[sms] notify-assigned:", err));
 }
 
 export async function POST(req: NextRequest) {
@@ -33,12 +33,22 @@ export async function POST(req: NextRequest) {
 
   const supabase = createServiceClient();
 
-  const [{ data: job }, { data: workers }] = await Promise.all([
-    supabase.from("jobs").select("*, properties(name, address, city, state), tenants(name)").eq("id", jobId).single(),
-    supabase.from("profiles").select("email, full_name, phone").in("id", workerIds),
-  ]);
+  const { data: job } = await supabase
+    .from("jobs")
+    .select("*, properties(name, address, city, state), tenants(name)")
+    .eq("id", jobId)
+    .single();
 
-  if (!job || !workers?.length) return NextResponse.json({ ok: true });
+  if (!job) return NextResponse.json({ ok: true });
+
+  // Scope workers to the same tenant as the job to prevent cross-tenant notification abuse
+  const { data: workers } = await supabase
+    .from("profiles")
+    .select("email, full_name, phone")
+    .in("id", workerIds)
+    .eq("tenant_id", job.tenant_id);
+
+  if (!workers?.length) return NextResponse.json({ ok: true });
 
   // Broadcast for in-app toasts (worker dashboard listener)
   supabase
@@ -51,7 +61,7 @@ export async function POST(req: NextRequest) {
         title: job.title,
       },
     })
-    .catch(() => {});
+    .catch((err) => console.error("[broadcast] job-assigned:", err));
 
   // Email notifications (best-effort)
   if (resend && process.env.EMAIL_FROM) {

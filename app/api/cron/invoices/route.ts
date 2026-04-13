@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     .select("id, invoice_number, total, due_date, status, tenant_id, property_managers(full_name, email), jobs(title), tenants(name, email)")
     .in("status", ["sent", "overdue"]);
 
-  if (!unpaid?.length || !resend) {
+  if (!unpaid?.length || !resend || !process.env.EMAIL_FROM) {
     return NextResponse.json({ marked: nowOverdue?.length ?? 0, reminded: 0 });
   }
 

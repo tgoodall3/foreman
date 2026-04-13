@@ -49,7 +49,7 @@ export default function PortalForm({ propertyManager, properties, tenantName }: 
       <div className="min-h-screen bg-surface flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-2xl border border-gray-200 p-8 text-center">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-3xl">✅</span>
+            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
           </div>
           <h1 className="font-display font-800 text-2xl text-forge mb-2">Work Order Submitted</h1>
           <p className="text-mist text-sm mb-6">

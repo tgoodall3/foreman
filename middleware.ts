@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
+import { logError } from "@/lib/logger";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -24,7 +25,7 @@ export async function middleware(request: NextRequest) {
     user = data.user;
   } catch (error) {
     if (error instanceof Error && error.name !== "AuthSessionMissingError") {
-      console.warn("Supabase middleware error:", error);
+      logError("Supabase middleware error", error);
     }
   }
 

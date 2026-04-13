@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
           to: owner.email,
           subject: "New time change request",
           html: `<p>${worker.full_name} submitted a time change request for ${parsed.data.requested_date}.</p>`
-        }).catch(() => {});
+        }).catch((err) => console.error("[email] time change request notification:", err));
       });
     }
 

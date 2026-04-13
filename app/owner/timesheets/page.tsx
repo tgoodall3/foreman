@@ -95,6 +95,8 @@ export default async function TimesheetsPage({
     .from("time_change_requests")
     .select("id, worker_id, time_entry_id, requested_date, requested_clocked_in_at, requested_clocked_out_at, reason, status, created_at, profiles!time_change_requests_worker_id_fkey(full_name)")
     .eq("tenant_id", profile.tenant_id)
+    .gte("requested_date", weekStart)
+    .lte("requested_date", weekEnd)
     .order("created_at", { ascending: false });
 
   // Group entries by worker_id → date

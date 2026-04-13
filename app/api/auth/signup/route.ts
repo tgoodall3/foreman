@@ -2,8 +2,14 @@ import { NextRequest } from "next/server";
 import { badRequest, errorResponse, jsonResponse } from "@/lib/api";
 import { createOwnerAccount } from "@/lib/services/auth";
 import { logError } from "@/lib/logger";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
+  const ip = getClientIp(req);
+  if (!checkRateLimit(`signup:${ip}`, 3, 60 * 60 * 1000)) {
+    return errorResponse("Too many sign-up attempts. Please wait an hour and try again.", 429);
+  }
+
   const body = await req.json();
   const fullName = typeof body.fullName === "string" ? body.fullName.trim() : "";
   const email = typeof body.email === "string" ? body.email.trim() : "";

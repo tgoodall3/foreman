@@ -43,7 +43,7 @@ export default async function RecurringHealthPage() {
 
       {!flagged.length ? (
         <div className="bg-white border border-gray-200 rounded-xl p-8 text-center text-mist text-sm">
-          No overdue recurring jobs. 🎯
+          No overdue recurring jobs — all caught up.
         </div>
       ) : (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">

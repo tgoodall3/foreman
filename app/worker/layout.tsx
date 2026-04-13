@@ -1,5 +1,6 @@
 import { requireWorker } from "@/lib/auth";
 import Link from "next/link";
+import InactivityTimer from "@/components/ui/InactivityTimer";
 
 export default async function WorkerLayout({ children }: { children: React.ReactNode }) {
   const profile = await requireWorker();
@@ -36,6 +37,7 @@ export default async function WorkerLayout({ children }: { children: React.React
         </div>
       </header>
 
+      <InactivityTimer />
       <main id="main-content" className="flex-1 pb-20">
         {children}
       </main>

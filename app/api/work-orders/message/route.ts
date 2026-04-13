@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
             </div>
           </div>
         `,
-      }).catch(() => {});
+      }).catch((err) => console.error("[email] work order message:", err));
     }
 
     return NextResponse.json({ success: true });

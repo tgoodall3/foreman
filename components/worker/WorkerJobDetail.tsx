@@ -297,7 +297,7 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
           <span className={`badge ${statusCfg.bg} ${statusCfg.color}`}>{statusCfg.label}</span>
           <span className={`badge ${priorityCfg.bg} ${priorityCfg.color}`}>{priorityCfg.label}</span>
           {job.scheduled_date && (
-            <span className="text-xs text-mist">📅 {formatDate(job.scheduled_date)}{job.scheduled_time && ` · ${job.scheduled_time}`}</span>
+            <span className="text-xs text-mist">{formatDate(job.scheduled_date)}{job.scheduled_time && ` · ${job.scheduled_time}`}</span>
           )}
         </div>
         </div>

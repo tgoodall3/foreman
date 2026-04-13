@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
               <p style="margin:0 0 6px;">${address}, ${city}, ${state} ${zip}</p>
             </div>
           `,
-        }).catch(() => {});
+        }).catch((err) => console.error("[email] new property notification:", err));
       }
     }
 

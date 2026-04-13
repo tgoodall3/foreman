@@ -1,19 +1,67 @@
 ﻿import { requireOwner } from "@/lib/auth";
 import { getOwnerJobs } from "@/lib/services/owner";
+import { createServerSideClient } from "@/lib/supabase-server";
 import { formatDate, JOB_STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/utils";
 import Link from "next/link";
 
-export default async function JobsPage({ searchParams }: { searchParams: { status?: string; page?: string } }) {
-  const profile = await requireOwner();
-  const page    = Math.max(1, Number(searchParams.page || "1"));
-  const status  = searchParams.status;
-  const { jobs, count, pageSize } = await getOwnerJobs(profile, status, page);
+const ARCHIVE_DAYS = 14;
 
-  const pageCount = Math.ceil(count / pageSize);
+function biweeklyLabel(iso: string): string {
+  const d = new Date(iso);
+  const month = d.toLocaleString("en-US", { month: "long", year: "numeric" });
+  const day = d.getDate();
+  return day <= 14 ? `${month} (1–14)` : `${month} (15–31)`;
+}
+
+function groupByBiweekly<T extends { updated_at?: string; created_at: string }>(items: T[]) {
+  const groups: Record<string, T[]> = {};
+  for (const item of items) {
+    const label = biweeklyLabel(item.updated_at ?? item.created_at);
+    if (!groups[label]) groups[label] = [];
+    groups[label].push(item);
+  }
+  return groups;
+}
+
+export default async function JobsPage({ searchParams }: { searchParams: { status?: string; page?: string; past?: string } }) {
+  const profile  = await requireOwner();
+  const showPast = searchParams.past === "1";
+  const page     = Math.max(1, Number(searchParams.page || "1"));
+  const status   = searchParams.status;
+
   const now = Date.now();
   const ageDays = (iso: string) => (now - new Date(iso).getTime()) / (1000 * 60 * 60 * 24);
-  const archived = jobs.filter((j: any) => j.status === "completed" && ageDays(j.updated_at ?? j.created_at) > 14);
-  const activeJobs = jobs.filter((j: any) => !(j.status === "completed" && ageDays(j.updated_at ?? j.created_at) > 14));
+
+  let activeJobs: any[] = [];
+  let archivedJobs: any[] = [];
+  let count = 0;
+  let pageSize = 25;
+  let pageCount = 1;
+
+  if (showPast) {
+    // Fetch all completed jobs older than cutoff for archive view
+    const supabase = await createServerSideClient();
+    const cutoff = new Date(Date.now() - ARCHIVE_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    const { data } = await supabase
+      .from("jobs")
+      .select("id, title, status, priority, scheduled_date, updated_at, created_at, invoice_id, properties(name)")
+      .eq("tenant_id", profile.tenant_id)
+      .in("status", ["completed", "cancelled", "invoiced"])
+      .lt("updated_at", cutoff)
+      .order("updated_at", { ascending: false });
+    archivedJobs = data ?? [];
+  } else {
+    const result = await getOwnerJobs(profile, status, page);
+    count    = result.count;
+    pageSize = result.pageSize;
+    pageCount = Math.ceil(count / pageSize);
+    // Split: exclude completed older than cutoff from active view
+    activeJobs  = result.jobs.filter((j: any) => !(["completed","cancelled","invoiced"].includes(j.status) && ageDays(j.updated_at ?? j.created_at) > ARCHIVE_DAYS));
+    archivedJobs = result.jobs.filter((j: any) => ["completed","cancelled","invoiced"].includes(j.status) && ageDays(j.updated_at ?? j.created_at) > ARCHIVE_DAYS);
+    count = activeJobs.length;
+  }
+
+  const archivedGroups = groupByBiweekly(archivedJobs);
   const statuses = Object.keys(JOB_STATUS_CONFIG) as (keyof typeof JOB_STATUS_CONFIG)[];
   const showInvoiceCta = status === "completed";
 
@@ -31,6 +79,52 @@ export default async function JobsPage({ searchParams }: { searchParams: { statu
           + New Job
         </Link>
       </div>
+
+      {/* Active / Past toggle */}
+      <div className="flex items-center gap-3 mb-5">
+        <Link href="/owner/jobs" className={`px-4 py-1.5 rounded-full text-sm font-600 transition-colors ${!showPast ? "bg-forge text-white" : "text-mist hover:text-forge"}`}>
+          Active
+        </Link>
+        <Link href="/owner/jobs?past=1" className={`px-4 py-1.5 rounded-full text-sm font-600 transition-colors ${showPast ? "bg-forge text-white" : "text-mist hover:text-forge"}`}>
+          Past {archivedJobs.length > 0 && <span className="ml-1 text-xs opacity-60">{archivedJobs.length}</span>}
+        </Link>
+      </div>
+
+      {/* Past view */}
+      {showPast && (
+        <div className="space-y-6">
+          {Object.keys(archivedGroups).length === 0 ? (
+            <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+              <p className="text-mist text-sm">No past jobs yet</p>
+            </div>
+          ) : (
+            Object.entries(archivedGroups).map(([label, items]) => (
+              <div key={label}>
+                <p className="text-xs font-700 uppercase tracking-widest text-mist mb-2 px-1">{label}</p>
+                <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+                  {items.map((job: any) => {
+                    const statusCfg = JOB_STATUS_CONFIG[job.status as keyof typeof JOB_STATUS_CONFIG];
+                    return (
+                      <div key={job.id} className="flex items-center justify-between px-4 py-3 gap-3">
+                        <div className="min-w-0">
+                          <Link href={`/owner/jobs/${job.id}`} className="font-600 text-forge hover:text-amber text-sm">{job.title}</Link>
+                          <p className="text-xs text-mist mt-0.5">{(job.properties as any)?.name ?? "—"} · {formatDate(job.updated_at ?? job.created_at)}</p>
+                        </div>
+                        <span className={`badge shrink-0 ${statusCfg?.bg ?? "bg-gray-100"} ${statusCfg?.color ?? "text-gray-600"}`}>{statusCfg?.label ?? job.status}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {showPast && <div />}
+
+      {/* Active view */}
+      {!showPast && <>
 
       {/* Status filter */}
       <div className="flex gap-2 flex-wrap mb-6" role="group" aria-label="Filter jobs by status">
@@ -95,7 +189,7 @@ export default async function JobsPage({ searchParams }: { searchParams: { statu
                         <Link href={`/owner/jobs/${job.id}`} className="font-600 text-forge hover:text-amber">{job.title}</Link>
                         <p className="text-xs text-mist mt-0.5">{job.properties?.name || "—"}</p>
                         {job.scheduled_date && (
-                          <p className="text-xs text-mist mt-0.5">📅 {formatDate(job.scheduled_date)}</p>
+                          <p className="text-xs text-mist mt-0.5">{formatDate(job.scheduled_date)}</p>
                         )}
                         <span className={`badge mt-1 ${priorityCfg.bg} ${priorityCfg.color}`}>{priorityCfg.label}</span>
                       </div>
@@ -208,22 +302,7 @@ export default async function JobsPage({ searchParams }: { searchParams: { statu
         )}
       </div>
 
-      {archived.length > 0 && (
-        <div className="mt-6">
-          <h2 className="font-display font-700 text-lg text-mist mb-2">Past jobs (14+ days after completed)</h2>
-          <div className="space-y-2">
-            {archived.map((job: any) => (
-              <div key={job.id} className="bg-white rounded-xl border border-gray-200 p-3 text-mist flex items-center justify-between">
-                <div>
-                  <p className="font-600">{job.title}</p>
-                  <p className="text-xs">Updated {formatDate(job.updated_at ?? job.created_at)}</p>
-                </div>
-                <span className="badge bg-green-100 text-green-700">Completed</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      </>}
     </div>
   );
 }

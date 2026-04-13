@@ -12,7 +12,8 @@ export default function PropertiesClient({ propertyManagers: initial, tenantId, 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [sendingId, setSendingId] = useState<string | null>(null);
+  const [sendingId, setSendingId]   = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   // PM form
   const [pmName, setPmName]       = useState("");
@@ -69,6 +70,20 @@ export default function PropertiesClient({ propertyManagers: initial, tenantId, 
     setView("list");
     addToast("Property added successfully.", "success");
     setSubmitting(false);
+  };
+
+  const handleToggleAccess = async (pm: any) => {
+    setTogglingId(pm.id);
+    const res = await fetch("/api/properties/toggle-pm-access", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ propertyManagerId: pm.id }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setTogglingId(null);
+    if (!res.ok) { addToast(data.error || "Failed to update access", "error"); return; }
+    setPms((prev: any[]) => prev.map((p: any) => p.id === pm.id ? { ...p, is_active: data.is_active } : p));
+    addToast(data.is_active ? `Portal access restored for ${pm.full_name}` : `Portal access revoked for ${pm.full_name}`, data.is_active ? "success" : "error");
   };
 
   const handleSendPortalLink = async (pm: any) => {
@@ -177,7 +192,9 @@ export default function PropertiesClient({ propertyManagers: initial, tenantId, 
       {/* PM List */}
       {pms.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
-          <p className="text-4xl mb-3">🏢</p>
+          <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+          </div>
           <p className="font-display font-700 text-xl text-forge mb-1">No property managers yet</p>
           <p className="text-mist text-sm">Add a property manager to generate their portal link.</p>
         </div>
@@ -187,29 +204,49 @@ export default function PropertiesClient({ propertyManagers: initial, tenantId, 
             <div key={pm.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               <div className="px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-gray-100">
                 <div>
-                  <p className="font-600 text-forge">{pm.full_name}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-600 text-forge">{pm.full_name}</p>
+                    {pm.is_active === false && (
+                      <span className="text-[10px] font-700 uppercase tracking-wider bg-red-100 text-red-600 px-1.5 py-0.5 rounded">Access revoked</span>
+                    )}
+                  </div>
                   <p className="text-xs text-mist">{pm.email}{pm.company && ` · ${pm.company}`}</p>
                 </div>
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                  {pm.is_active !== false && (
+                    <>
+                      <button
+                        onClick={() => copyLink(pm.portal_token)}
+                        className="text-xs bg-amber/10 hover:bg-amber/20 text-amber-dark font-600 px-3 py-1.5 rounded-lg transition-colors min-h-[32px]"
+                        aria-label={`Copy portal link for ${pm.full_name}`}
+                      >
+                        {copiedToken === pm.portal_token ? "✓ Copied!" : "Copy Portal Link"}
+                      </button>
+                      <button
+                        onClick={() => handleSendPortalLink(pm)}
+                        disabled={sendingId === pm.id}
+                        className="text-xs bg-white border border-gray-200 hover:border-forge text-forge font-600 px-3 py-1.5 rounded-lg transition-colors min-h-[32px] disabled:opacity-60"
+                      >
+                        {sendingId === pm.id ? "Sending…" : "Email Portal Link"}
+                      </button>
+                      <button
+                        onClick={() => { setSelectedPm(pm); setView("add-property"); setError(""); }}
+                        className="text-xs bg-forge/10 hover:bg-forge/20 text-forge font-600 px-3 py-1.5 rounded-lg transition-colors min-h-[32px]"
+                      >
+                        + Property
+                      </button>
+                    </>
+                  )}
                   <button
-                    onClick={() => copyLink(pm.portal_token)}
-                    className="text-xs bg-amber/10 hover:bg-amber/20 text-amber-dark font-600 px-3 py-1.5 rounded-lg transition-colors min-h-[32px]"
-                    aria-label={`Copy portal link for ${pm.full_name}`}
+                    onClick={() => handleToggleAccess(pm)}
+                    disabled={togglingId === pm.id}
+                    className={`text-xs font-600 px-3 py-1.5 rounded-lg transition-colors min-h-[32px] disabled:opacity-60 ${
+                      pm.is_active === false
+                        ? "bg-green-50 hover:bg-green-100 text-green-700 border border-green-200"
+                        : "bg-red-50 hover:bg-red-100 text-red-600 border border-red-200"
+                    }`}
                   >
-                    {copiedToken === pm.portal_token ? "✓ Copied!" : "Copy Portal Link"}
-                  </button>
-                  <button
-                    onClick={() => handleSendPortalLink(pm)}
-                    disabled={sendingId === pm.id}
-                    className="text-xs bg-white border border-gray-200 hover:border-forge text-forge font-600 px-3 py-1.5 rounded-lg transition-colors min-h-[32px] disabled:opacity-60"
-                  >
-                    {sendingId === pm.id ? "Sending…" : "Email Portal Link"}
-                  </button>
-                  <button
-                    onClick={() => { setSelectedPm(pm); setView("add-property"); setError(""); }}
-                    className="text-xs bg-forge/10 hover:bg-forge/20 text-forge font-600 px-3 py-1.5 rounded-lg transition-colors min-h-[32px]"
-                  >
-                    + Property
+                    {togglingId === pm.id ? "…" : pm.is_active === false ? "Restore Access" : "Revoke Access"}
                   </button>
                 </div>
               </div>

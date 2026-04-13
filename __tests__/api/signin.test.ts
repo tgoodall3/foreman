@@ -19,6 +19,11 @@ jest.mock("@supabase/supabase-js", () => ({
 }));
 
 jest.mock("@/lib/logger", () => ({ logError: jest.fn() }));
+// Bypass the in-memory rate limiter so tests don't interfere with each other
+jest.mock("@/lib/rate-limit", () => ({
+  checkRateLimit: jest.fn().mockReturnValue(true),
+  getClientIp:    jest.fn().mockReturnValue("127.0.0.1"),
+}));
 
 import { POST } from "../../app/api/auth/signin/route";
 
@@ -65,9 +70,22 @@ describe("POST /api/auth/signin", () => {
     expect(json.error).toMatch(/invalid login/i);
   });
 
+  it("returns 403 when email is not verified", async () => {
+    mockServerSignIn.mockResolvedValue({
+      data:  { user: { id: "user-1", email: "a@b.com", email_confirmed_at: null } },
+      error: null,
+    });
+
+    const res  = await POST(makeRequest({ email: "a@b.com", password: "pass1234" }));
+    const json = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(json.error).toMatch(/verify your email/i);
+  });
+
   it("returns 500 when profile lookup fails", async () => {
     mockServerSignIn.mockResolvedValue({
-      data:  { user: { id: "user-1", email: "a@b.com" } },
+      data:  { user: { id: "user-1", email: "a@b.com", email_confirmed_at: "2024-01-01T00:00:00Z" } },
       error: null,
     });
     buildProfileChain(null, { message: "row not found" });
@@ -78,7 +96,7 @@ describe("POST /api/auth/signin", () => {
 
   it("returns 403 when account is inactive", async () => {
     mockServerSignIn.mockResolvedValue({
-      data:  { user: { id: "user-1", email: "a@b.com" } },
+      data:  { user: { id: "user-1", email: "a@b.com", email_confirmed_at: "2024-01-01T00:00:00Z" } },
       error: null,
     });
     buildProfileChain({ role: "owner", is_active: false });
@@ -92,7 +110,7 @@ describe("POST /api/auth/signin", () => {
 
   it("returns 200 with user and role on success", async () => {
     mockServerSignIn.mockResolvedValue({
-      data:  { user: { id: "user-1", email: "a@b.com" } },
+      data:  { user: { id: "user-1", email: "a@b.com", email_confirmed_at: "2024-01-01T00:00:00Z" } },
       error: null,
     });
     buildProfileChain({ role: "owner", is_active: true });
@@ -107,7 +125,7 @@ describe("POST /api/auth/signin", () => {
 
   it("returns 200 for an active worker role", async () => {
     mockServerSignIn.mockResolvedValue({
-      data:  { user: { id: "worker-1", email: "w@b.com" } },
+      data:  { user: { id: "worker-1", email: "w@b.com", email_confirmed_at: "2024-01-01T00:00:00Z" } },
       error: null,
     });
     buildProfileChain({ role: "worker", is_active: true });
