@@ -160,11 +160,15 @@ export default async function InvoicesPage({ searchParams }: { searchParams: { s
               else if (daysOverdue >= 0) reminderBadge = "Next 3-day";
             }
             return (
-              <div key={inv.id} className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+              <Link
+                key={inv.id}
+                href={`/owner/invoices/${inv.id}`}
+                className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 hover:border-amber/50 transition-colors"
+              >
                 <div className="min-w-0">
-                  <Link href={`/owner/invoices/${inv.id}`} className="font-display font-700 text-forge underline underline-offset-2 decoration-black text-sm">
+                  <p className="font-display font-700 text-forge text-sm">
                     {inv.invoice_number}
-                  </Link>
+                  </p>
                   <p className="text-xs text-mist">{inv.jobs?.title || "—"}</p>
                   <p className="text-xs text-mist">{inv.property_managers?.full_name || "—"}</p>
                   <p className="text-xs text-steel">Due {formatDate(inv.due_date)}</p>
@@ -178,12 +182,9 @@ export default async function InvoicesPage({ searchParams }: { searchParams: { s
                         disabled={inv.status === "paid"}
                       />
                     )}
-                    <Link
-                      href={`/owner/invoices/${inv.id}`}
-                      className="inline-flex items-center justify-center gap-1 bg-white hover:bg-gray-50 text-forge border border-gray-300 text-xs sm:text-sm font-700 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg transition-colors min-h-[34px] sm:min-h-[40px] min-w-[82px] sm:min-w-[96px]"
-                    >
+                    <span className="inline-flex items-center justify-center gap-1 bg-white hover:bg-gray-50 text-forge border border-gray-300 text-xs sm:text-sm font-700 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg transition-colors min-h-[34px] sm:min-h-[40px] min-w-[82px] sm:min-w-[96px]">
                       Open
-                    </Link>
+                    </span>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 sm:flex-col sm:items-end sm:min-w-[140px]">
@@ -192,7 +193,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: { s
                     {cfg.label}
                   </span>
                 </div>
-              </div>
+              </Link>
             );
           })
         )}

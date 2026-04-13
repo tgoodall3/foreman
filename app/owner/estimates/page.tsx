@@ -146,8 +146,10 @@ export default async function EstimatesPage({
         ) : (
           <>
             {/* Desktop table */}
-            <table className="hidden sm:table w-full text-sm" role="grid" aria-label="Estimates list">
-              <thead>
+            <div className="hidden sm:block">
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <table className="w-full text-sm" role="grid" aria-label="Estimates list">
+                  <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
                   <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Number</th>
                   <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Title</th>
@@ -168,7 +170,12 @@ export default async function EstimatesPage({
                         <span className="font-600 text-mist font-mono text-xs">{est.estimate_number}</span>
                       </td>
                       <td className="px-4 py-3">
-                        <p className="font-600 text-forge">{est.title}</p>
+                        <Link
+                          href={`/owner/estimates/${est.id}`}
+                          className="block w-full font-600 text-forge hover:text-amber transition-colors"
+                        >
+                          {est.title}
+                        </Link>
                         {est.properties?.name && (
                           <p className="text-xs text-mist mt-0.5">{est.properties.name}</p>
                         )}
@@ -204,7 +211,9 @@ export default async function EstimatesPage({
                   );
                 })}
               </tbody>
-            </table>
+                </table>
+              </div>
+            </div>
 
             {/* Mobile cards */}
             <div className="sm:hidden divide-y divide-gray-100">

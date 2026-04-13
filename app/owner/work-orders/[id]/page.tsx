@@ -47,46 +47,51 @@ export default async function WorkOrderDetailPage({ params }: { params: { id: st
   const job = Array.isArray(wo.jobs) ? wo.jobs[0] : (wo as any).jobs;
 
   return (
-    <div className="p-6 max-w-4xl">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-6">
+    <div className="px-3 py-5 sm:p-6 max-w-4xl w-full">
+      <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-start sm:justify-between mb-6">
         <div className="min-w-0 space-y-2">
-          <div className="flex flex-wrap items-center gap-1 text-xs text-mist">
+          <div className="flex flex-wrap items-center gap-1 text-[11px] text-mist">
             <Link href="/owner/work-orders" className="text-mist hover:text-forge underline underline-offset-2 decoration-black">Work Orders</Link>
             <span className="text-mist">/</span>
             <span className="text-forge truncate">{wo.title}</span>
           </div>
-          <h1 className="font-display font-800 text-2xl sm:text-3xl text-forge leading-tight break-words">{wo.title}</h1>
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
-            <span className={`badge ${priorityCfg.bg} ${priorityCfg.color}`}>{priorityCfg.label}</span>
-            <span className={`badge ${statusColors[wo.status] ?? "bg-gray-100 text-gray-600"}`}>{wo.status}</span>
-            <span className="text-xs text-mist">Opened {formatDate(wo.created_at.split("T")[0])}</span>
+          <div className="space-y-2">
+            <h1 className="font-display font-800 text-2xl sm:text-3xl text-forge leading-tight break-words">{wo.title}</h1>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`badge ${priorityCfg.bg} ${priorityCfg.color}`}>{priorityCfg.label}</span>
+              <span className={`badge ${statusColors[wo.status] ?? "bg-gray-100 text-gray-600"}`}>{wo.status}</span>
+              <span className="text-xs text-mist">Opened {formatDate(wo.created_at.split("T")[0])}</span>
+            </div>
           </div>
         </div>
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+        <div className="flex w-full sm:w-auto items-stretch sm:items-center gap-2 sm:gap-3">
           {job && (
             <Link
               href={`/owner/jobs/${job.id}`}
-              className="inline-flex items-center justify-center gap-1 bg-amber text-forge font-700 text-xs sm:text-sm px-3 py-1.5 rounded-lg hover:bg-amber-dark transition-colors"
+              className="inline-flex flex-1 sm:flex-none items-center justify-center gap-1 bg-amber text-forge font-700 text-xs sm:text-sm px-3 py-2 rounded-lg hover:bg-amber-dark transition-colors"
             >
               Open Job →
             </Link>
           )}
-          <Link href="/owner/jobs/new" className="text-xs sm:text-sm text-forge underline underline-offset-2 decoration-black font-700">
+          <Link
+            href="/owner/jobs/new"
+            className="inline-flex flex-1 sm:flex-none items-center justify-center text-xs sm:text-sm text-forge font-700 px-3 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 transition-colors"
+          >
             + New Job
           </Link>
         </div>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid md:grid-cols-3 gap-5 sm:gap-6">
         <div className="md:col-span-2 space-y-4">
-          <section className="bg-white rounded-xl border border-gray-200 p-5">
+          <section className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
             <h2 className="font-display font-700 text-lg text-forge mb-2">Description</h2>
             <p className="text-sm text-steel leading-relaxed">{wo.description || "No description provided."}</p>
           </section>
           {job && (
-            <section className="bg-white rounded-xl border border-gray-200 p-5">
+            <section className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
               <h2 className="font-display font-700 text-lg text-forge mb-2">Linked Job</h2>
-              <Link href={`/owner/jobs/${job.id}`} className="text-sm text-amber hover:underline font-600">
+              <Link href={`/owner/jobs/${job.id}`} className="text-sm text-forge underline underline-offset-2 decoration-black font-600">
                 {job.title} ({job.status})
               </Link>
             </section>

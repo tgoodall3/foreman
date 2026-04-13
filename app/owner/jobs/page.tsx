@@ -183,10 +183,14 @@ export default async function JobsPage({ searchParams }: { searchParams: { statu
                 const priorityCfg = PRIORITY_CONFIG[job.priority as keyof typeof PRIORITY_CONFIG];
                 const needsInvoice = job.status === "completed" && !job.invoice_id;
                 return (
-                  <div key={job.id} className={`p-4 space-y-2 ${needsInvoice ? "bg-amber/5" : "bg-white"}`}>
+                  <Link
+                    key={job.id}
+                    href={`/owner/jobs/${job.id}`}
+                    className={`block p-4 space-y-2 ${needsInvoice ? "bg-amber/5" : "bg-white"} hover:bg-gray-50 transition-colors`}
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <Link href={`/owner/jobs/${job.id}`} className="font-600 text-forge hover:text-amber">{job.title}</Link>
+                        <p className="font-700 text-forge">{job.title}</p>
                         <p className="text-xs text-mist mt-0.5">{job.properties?.name || "—"}</p>
                         {job.scheduled_date && (
                           <p className="text-xs text-mist mt-0.5">{formatDate(job.scheduled_date)}</p>
@@ -204,17 +208,19 @@ export default async function JobsPage({ searchParams }: { searchParams: { statu
                       </Link>
                     )}
                     {showInvoiceCta && job.invoice_id && (
-                      <Link href={`/owner/invoices/${job.invoice_id}`} className="text-xs text-amber hover:underline">
+                      <span className="inline-flex items-center gap-1 text-xs font-700 text-forge px-3 py-1 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 transition-colors">
                         View invoice
-                      </Link>
+                      </span>
                     )}
-                  </div>
+                  </Link>
                 );
               })}
             </div>
 
-            <table className="w-full text-sm hidden md:table" role="grid" aria-label="Jobs list">
-              <thead>
+            <div className="hidden md:block">
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <table className="w-full text-sm" role="grid" aria-label="Jobs list">
+                  <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
                   <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Job</th>
                   <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Property</th>
@@ -237,12 +243,12 @@ export default async function JobsPage({ searchParams }: { searchParams: { statu
                       className={`hover:bg-gray-50 transition-colors ${needsInvoice ? "bg-amber/5" : ""}`}
                     >
                       <td className="px-4 py-3">
-                        <Link
-                          href={`/owner/jobs/${job.id}`}
-                          className="font-500 text-forge hover:text-amber transition-colors"
-                        >
-                          {job.title}
-                        </Link>
+                  <Link
+                    href={`/owner/jobs/${job.id}`}
+                    className="block w-full font-600 text-forge hover:text-amber transition-colors"
+                  >
+                    {job.title}
+                  </Link>
                         <span className={`ml-2 badge ${priorityCfg.bg} ${priorityCfg.color} hidden sm:inline`}>
                           {priorityCfg.label}
                         </span>
@@ -279,7 +285,9 @@ export default async function JobsPage({ searchParams }: { searchParams: { statu
                   );
                 })}
               </tbody>
-            </table>
+                </table>
+              </div>
+            </div>
 
             {pageCount > 1 && (
               <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-t border-gray-100">

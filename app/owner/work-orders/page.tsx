@@ -115,8 +115,11 @@ function WorkOrderCard({ wo, muted = false }: { wo: any; muted?: boolean }) {
           </p>
           <p className="text-[11px] xs:text-xs text-mist mt-1">{formatDate(wo.created_at)}</p>
           {job && (
-            <div className="mt-2">
-              <Link href={`/owner/jobs/${job.id}`} className="text-xs xs:text-sm font-700 text-forge underline underline-offset-2 decoration-black">
+            <div className="mt-3">
+              <Link
+                href={`/owner/jobs/${job.id}`}
+                className="inline-flex items-center gap-1 text-xs xs:text-sm font-700 text-forge px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 transition-colors"
+              >
                 View job →
               </Link>
             </div>

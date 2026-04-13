@@ -82,6 +82,16 @@ input, textarea, select, button {
   font-size: 16px; /* Prevents zoom on iOS input focus */
 }
 
+/* Prevent native date/time controls from overflowing on iOS */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  display: block;
+}
+
 /* Add color contrast for muted text on light backgrounds */
 .text-mist {
   color: #8a9bac;
