@@ -117,7 +117,8 @@ export async function POST(req: NextRequest) {
   const { error: updateError } = await supabase
     .from("jobs")
     .update({ invoice_id: invoice.id, status: "invoiced" })
-    .eq("id", jobId);
+    .eq("id", jobId)
+    .eq("tenant_id", profile.tenant_id);
 
   if (updateError) {
     logError("Invoice create job update failed", updateError);

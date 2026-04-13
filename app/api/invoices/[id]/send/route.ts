@@ -63,14 +63,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       .single(),
     serviceClient
       .from("tenants")
-      .select("name, invoice_footer, email, website")
+      .select("name")
       .eq("id", tenantId)
       .single(),
   ]);
 
-  console.log("[invoice/send] tenantId:", tenantId, "tenant:", tenant);
-  const tenantName    = escHtml(tenant?.name || "Foreman customer");
-  const invoiceFooter = tenant?.invoice_footer ? escHtml(tenant.invoice_footer) : null;
+  const tenantName = escHtml(tenant?.name || "Foreman customer");
   const portalToken   = (pmRecord as any)?.portal_token;
 
   // Link directly to the dedicated invoice page so the client can sign and pay
@@ -205,8 +203,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
       <!-- Footer -->
       <tr><td style="background:#f9f8f5;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;padding:16px 32px;text-align:center;">
-        ${invoiceFooter ? `<p style="margin:0 0 8px;font-size:12px;color:#6b7280;">${invoiceFooter}</p>` : ""}
-        <p style="margin:0;font-size:12px;color:#9ca3af;">
+<p style="margin:0;font-size:12px;color:#9ca3af;">
           Questions? Reply to this email or contact ${tenantName} directly.
         </p>
         <p style="margin:6px 0 0;font-size:11px;color:#d1d5db;">Powered by Foreman</p>
@@ -219,12 +216,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 </html>`;
 
   try {
-    const tenantNameRaw = tenant?.name ?? "Foreman";
     const { data, error } = await resend.emails.send({
-      from: `${tenantNameRaw} <${fromAddress}>`,
+      from: `${tenant?.name ?? "Foreman"} <${fromAddress}>`,
       to: managerEmail,
       reply_to: invoice.property_managers?.email || undefined,
-      subject: `Invoice ${invoiceNumber} from ${tenantNameRaw} — ${total} due ${dueDate}`,
+      subject: `Invoice ${invoiceNumber} from ${tenant?.name ?? "Foreman"} — ${total} due ${dueDate}`,
       html,
     });
 
@@ -238,7 +234,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       await supabase
         .from("invoices")
         .update({ status: "sent" })
-        .eq("id", params.id);
+        .eq("id", params.id)
+        .eq("tenant_id", profile.tenant_id);
     }
 
     return jsonResponse({ success: true, emailId: data?.id });

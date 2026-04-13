@@ -103,7 +103,8 @@ export async function POST(req: NextRequest) {
     await supabase
       .from("jobs")
       .update({ invoice_id: invoice.id, status: "invoiced" })
-      .eq("id", job.id);
+      .eq("id", job.id)
+      .eq("tenant_id", profile.tenant_id);
 
     invoiceIds.push(invoice.id);
   }

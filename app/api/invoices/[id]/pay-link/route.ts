@@ -107,7 +107,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       await supabase
         .from("invoices")
         .update({ status: "sent" })
-        .eq("id", params.id);
+        .eq("id", params.id)
+        .eq("tenant_id", profile.tenant_id);
     }
 
     return jsonResponse({ url: session.url });

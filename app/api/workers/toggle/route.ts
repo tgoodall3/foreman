@@ -32,7 +32,8 @@ export async function POST(req: NextRequest) {
     const { error } = await supabase
       .from("profiles")
       .update({ is_active: isActive })
-      .eq("id", workerId);
+      .eq("id", workerId)
+      .eq("tenant_id", profile.tenant_id);
 
     if (error) return errorResponse("Failed to update worker status", 500);
 

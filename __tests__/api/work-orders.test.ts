@@ -127,8 +127,12 @@ describe("POST /api/work-orders/action", () => {
     mockServiceFrom.mockImplementation(() => {
       callCount++;
       if (callCount === 1) {
+        // Tenant name fetch
+        return buildChain({ data: { name: "Acme Contracting" }, error: null });
+      }
+      if (callCount === 2) {
         // Work order exists
-        return buildChain({ data: { id: UUID_WO }, error: null });
+        return buildChain({ data: { id: UUID_WO, title: "Fix roof" }, error: null });
       }
       // Update work order
       return buildChain({ data: {}, error: null });
@@ -158,13 +162,17 @@ describe("POST /api/work-orders/action", () => {
     mockServiceFrom.mockImplementation(() => {
       callCount++;
       if (callCount === 1) {
+        // Tenant name fetch
+        return buildChain({ data: { name: "Acme Contracting" }, error: null });
+      }
+      if (callCount === 2) {
         // Work order lookup
         return buildChain({
           data: { title: "Fix roof", description: "Leak", property_id: UUID_PROP },
           error: null,
         });
       }
-      if (callCount === 2) {
+      if (callCount === 3) {
         // Job insert — must support .insert().select().single()
         return {
           insert: jest.fn().mockReturnThis(),
@@ -191,6 +199,10 @@ describe("POST /api/work-orders/action", () => {
     mockServiceFrom.mockImplementation(() => {
       callCount++;
       if (callCount === 1) {
+        // Tenant name fetch
+        return buildChain({ data: { name: "Acme Contracting" }, error: null });
+      }
+      if (callCount === 2) {
         return buildChain({
           data: { title: "Fix roof", description: "Leak", property_id: UUID_PROP },
           error: null,

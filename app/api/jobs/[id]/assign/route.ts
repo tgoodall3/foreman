@@ -41,7 +41,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const { error } = await supabase
     .from("jobs")
     .update(updates)
-    .eq("id", params.id);
+    .eq("id", params.id)
+    .eq("tenant_id", profile.tenant_id);
 
   if (error) return errorResponse("Failed to update job", 500);
 

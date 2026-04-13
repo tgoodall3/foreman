@@ -27,10 +27,10 @@ export default async function InvoiceDetailPage({ params }: { params: { id: stri
 
   if (["sent", "overdue"].includes(invoice.status)) {
     if (daysOverdue >= 7) {
-      lastReminder = "7-day overdue reminder sent (cron)";
+      lastReminder = "7-day overdue reminder sent";
       nextReminder = null;
     } else if (daysOverdue >= 3) {
-      lastReminder = "3-day overdue reminder sent (cron)";
+      lastReminder = "3-day overdue reminder sent";
       const remindAt = new Date(dueDate);
       remindAt.setUTCDate(remindAt.getUTCDate() + 7);
       nextReminder = `Next: 7-day reminder on ${remindAt.toISOString().slice(0,10)}`;
