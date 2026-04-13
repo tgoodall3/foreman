@@ -90,6 +90,19 @@ input[type="datetime-local"] {
   min-width: 0;
   max-width: 100%;
   display: block;
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 0.75rem;
+}
+
+@media (max-width: 479px) {
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"] {
+    padding-left: 0.65rem;
+    padding-right: 0.65rem;
+    font-size: 16px;
+  }
 }
 
 /* Add color contrast for muted text on light backgrounds */
