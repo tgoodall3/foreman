@@ -68,6 +68,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       .single(),
   ]);
 
+  console.log("[invoice/send] tenantId:", tenantId, "tenant:", tenant);
   const tenantName    = escHtml(tenant?.name || "Foreman customer");
   const invoiceFooter = tenant?.invoice_footer ? escHtml(tenant.invoice_footer) : null;
   const portalToken   = (pmRecord as any)?.portal_token;
@@ -218,11 +219,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 </html>`;
 
   try {
+    const tenantNameRaw = tenant?.name ?? "Foreman";
     const { data, error } = await resend.emails.send({
-      from: `${tenant?.name ?? "Foreman"} <${fromAddress}>`,
+      from: `${tenantNameRaw} <${fromAddress}>`,
       to: managerEmail,
       reply_to: invoice.property_managers?.email || undefined,
-      subject: `Invoice ${invoiceNumber} from ${tenant?.name ?? "your contractor"} — ${total} due ${dueDate}`,
+      subject: `Invoice ${invoiceNumber} from ${tenantNameRaw} — ${total} due ${dueDate}`,
       html,
     });
 
