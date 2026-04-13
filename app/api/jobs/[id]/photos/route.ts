@@ -3,6 +3,7 @@ import { createServerSideClient } from "@/lib/supabase-server";
 import { requireWorker } from "@/lib/auth";
 import { badRequest, errorResponse, jsonResponse } from "@/lib/api";
 import { logError } from "@/lib/logger";
+import { getClientIp } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const profile = await requireWorker();
@@ -63,6 +64,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     .from("job-photos")
     .getPublicUrl(filePath);
 
+  // On-the-fly thumbnail via Storage transformations (no extra file stored)
+  const { data: thumbUrl } = supabase.storage
+    .from("job-photos")
+    .getPublicUrl(filePath, {
+      transform: { width: 400, height: 400, resize: "contain", quality: 75 },
+    });
+
   const { data: photo, error: insertError } = await supabase
     .from("job_photos")
     .insert({
@@ -81,5 +89,47 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return errorResponse("Failed to save photo", 500);
   }
 
-  return jsonResponse({ success: true, photoId: photo.id, url: publicUrl.publicUrl });
+  return jsonResponse({
+    success: true,
+    photoId: photo.id,
+    url: publicUrl.publicUrl,
+    thumbUrl: thumbUrl?.publicUrl ?? publicUrl.publicUrl,
+  });
+}
+
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  const profile = await requireWorker();
+  const supabase = await createServerSideClient();
+
+  const url = req.nextUrl.searchParams.get("url");
+  if (!url) return badRequest("Missing url");
+
+  // Only allow deletion within this tenant/job
+  const { data: photo } = await supabase
+    .from("job_photos")
+    .select("id, url, tenant_id, job_id")
+    .eq("tenant_id", profile.tenant_id)
+    .eq("job_id", params.id)
+    .eq("url", url)
+    .single();
+
+  if (!photo) return badRequest("Photo not found");
+
+  // Derive storage path from URL
+  const pathname = new URL(url).pathname; // /storage/v1/object/public/job-photos/<path>
+  const idx = pathname.indexOf("/job-photos/");
+  const storagePath = idx >= 0 ? pathname.substring(idx + "/job-photos/".length) : null;
+  if (!storagePath) return errorResponse("Invalid storage path", 400);
+
+  // Delete from storage (best-effort) and DB
+  const { error: storageError } = await supabase.storage.from("job-photos").remove([storagePath]);
+  if (storageError) logError("Photo storage delete failed", storageError);
+
+  const { error: dbError } = await supabase.from("job_photos").delete().eq("id", photo.id);
+  if (dbError) {
+    logError("Photo DB delete failed", dbError);
+    return errorResponse("Failed to delete photo", 500);
+  }
+
+  return jsonResponse({ success: true });
 }

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -256,6 +256,18 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
     }
   };
 
+  const handleDeletePhoto = async (photoId: string, url: string) => {
+    setError("");
+    const res = await fetch(`/api/jobs/${job.id}/photos?url=${encodeURIComponent(url)}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      addToast(data.error || "Failed to delete photo", "error");
+      return;
+    }
+    setPhotos((prev) => prev.filter((p) => p.id !== photoId));
+    addToast("Photo deleted", "success");
+  };
+
   const handleAddNote = async () => {
     if (!noteText.trim()) return;
     setAddingNote(true);
@@ -465,16 +477,25 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
         {photos.length > 0 && (
           <div className="grid grid-cols-3 gap-2 mb-4">
             {photos.map((photo) => (
-              <div key={photo.id}>
+              <div key={photo.id} className="relative">
                 <a href={photo.url} target="_blank" rel="noopener noreferrer" aria-label={`View ${photo.type} photo`}>
                   <Image
-                    src={photo.url}
+                    src={photo.thumbUrl || photo.url}
                     alt={photo.caption || `${photo.type} photo`}
                     width={320}
                     height={180}
                     className="w-full h-24 object-cover rounded-lg border border-gray-200"
                   />
                 </a>
+                <button
+                  type="button"
+                  onClick={() => handleDeletePhoto(photo.id, photo.url)}
+                  className="flex absolute top-1 right-1 bg-black text-white rounded-full w-10 h-10 items-center justify-center text-2xl shadow"
+                  style={{ lineHeight: 1 }}
+                  aria-label="Delete photo"
+                >
+                  ×
+                </button>
                 <p className="text-xs text-mist capitalize mt-0.5">{photo.type}</p>
               </div>
             ))}
