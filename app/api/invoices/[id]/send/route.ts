@@ -53,16 +53,22 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const supabase = await createServerSideClient();
   const serviceClient = createServiceClient();
-  const [{ data: tenant }, { data: pmRecord }] = await Promise.all([
-    serviceClient.from("tenants").select("name, email, invoice_footer, website").eq("id", profile.tenant_id).single(),
+  const tenantId = profile.tenant_id;
+
+  const [{ data: pmRecord }, { data: tenant }] = await Promise.all([
     supabase
       .from("property_managers")
       .select("portal_token")
       .eq("id", invoice.property_manager_id ?? "")
       .single(),
+    serviceClient
+      .from("tenants")
+      .select("name, invoice_footer, email, website")
+      .eq("id", tenantId)
+      .single(),
   ]);
 
-  const tenantName    = escHtml(tenant?.name || "Your Contractor");
+  const tenantName    = escHtml(tenant?.name || "Foreman customer");
   const invoiceFooter = tenant?.invoice_footer ? escHtml(tenant.invoice_footer) : null;
   const portalToken   = (pmRecord as any)?.portal_token;
 
