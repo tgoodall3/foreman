@@ -11,6 +11,7 @@ export async function GET() {
 
   const [
     { data: workOrders },
+    { data: workOrderComments },
     { data: timeRequests },
     { data: estimates },
     { data: invoices },
@@ -20,6 +21,14 @@ export async function GET() {
       .select("id, title, status, created_at, properties(name)")
       .eq("tenant_id", tenantId)
       .eq("status", "pending")
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(15),
+
+    supabase
+      .from("work_order_comments")
+      .select("id, message, created_at, property_manager:property_managers!work_order_comments_created_by_pm_fkey(full_name), work_orders(id, title)")
+      .eq("tenant_id", tenantId)
       .gte("created_at", since)
       .order("created_at", { ascending: false })
       .limit(15),
@@ -54,7 +63,7 @@ export async function GET() {
 
   type Notification = {
     id: string;
-    type: "work_order" | "time_request" | "estimate" | "invoice";
+    type: "work_order" | "work_order_comment" | "time_request" | "estimate" | "invoice";
     title: string;
     subtitle: string;
     href: string;
@@ -73,6 +82,21 @@ export async function GET() {
       subtitle: prop ? `Property: ${prop}` : "Pending review",
       href: `/owner/work-orders/${wo.id}`,
       createdAt: wo.created_at,
+      read: false,
+    });
+  }
+
+  for (const comment of workOrderComments ?? []) {
+    const pmName = (comment.property_manager as any)?.full_name ?? "Property manager";
+    const workOrder = Array.isArray((comment as any).work_orders) ? (comment as any).work_orders[0] : (comment as any).work_orders;
+    const preview = comment.message?.length > 48 ? `${comment.message.slice(0, 48)}...` : comment.message;
+    notifications.push({
+      id: `woc_${comment.id}`,
+      type: "work_order_comment",
+      title: `New comment on ${workOrder?.title || "work order"}`,
+      subtitle: `${pmName}: ${preview || "Comment added"}`,
+      href: workOrder?.id ? `/owner/work-orders/${workOrder.id}` : "/owner/work-orders",
+      createdAt: comment.created_at,
       read: false,
     });
   }

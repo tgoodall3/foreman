@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createServiceClient } from "@/lib/supabase";
 import { errorResponse, jsonResponse } from "@/lib/api";
+import { renderDetailCard, renderEmailLayout, renderNoticeCard } from "@/lib/email";
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -50,28 +51,48 @@ export async function POST(req: NextRequest) {
 
     if (error) return errorResponse("Could not save property.", 500);
 
-    // Notify owner (best-effort)
     if (process.env.RESEND_API_KEY) {
-      const { data: owner } = await supabase
-        .from("profiles")
-        .select("email, full_name")
-        .eq("tenant_id", pm.tenant_id)
-        .eq("role", "owner")
-        .single();
+      const [{ data: owner }, { data: tenant }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("email, full_name")
+          .eq("tenant_id", pm.tenant_id)
+          .eq("role", "owner")
+          .single(),
+        supabase.from("tenants").select("name").eq("id", pm.tenant_id).single(),
+      ]);
 
       if (owner?.email) {
+        const tenantName = tenant?.name || "Foreman";
         await resend.emails.send({
           from: process.env.EMAIL_FROM!,
           to: owner.email,
           subject: `New property added by ${pm.full_name}`,
-          html: `
-            <div style="font-family: sans-serif; color:#0f1923; max-width:560px;">
-              <h2 style="margin:0 0 8px;">New Property Added</h2>
-              <p style="margin:0 0 6px;">${pm.full_name} added a property via the portal link.</p>
-              <p style="margin:0 0 6px;"><strong>${name}</strong></p>
-              <p style="margin:0 0 6px;">${address}, ${city}, ${state} ${zip}</p>
-            </div>
-          `,
+          html: renderEmailLayout({
+            tenantName,
+            category: "Portal Property",
+            title: "A property was added from the portal",
+            greeting: `Hi ${owner.full_name || "there"},`,
+            intro: `${pm.full_name} added a new property from the PM portal.`,
+            previewText: `${pm.full_name} added ${name}.`,
+            sections: [
+              renderNoticeCard({
+                tone: "success",
+                eyebrow: "New property",
+                title: name,
+                body: `${address}, ${city}, ${state} ${zip}`,
+              }),
+              renderDetailCard("Property details", [
+                { label: "Submitted by", value: pm.full_name },
+                { label: "Street", value: address },
+                { label: "City", value: city },
+                { label: "State", value: state },
+                { label: "ZIP", value: zip },
+                { label: "Notes", value: notes || "None" },
+              ]),
+            ],
+            footerText: "Open the owner portal if you want to review or edit the new property.",
+          }),
         }).catch((err) => console.error("[email] new property notification:", err));
       }
     }

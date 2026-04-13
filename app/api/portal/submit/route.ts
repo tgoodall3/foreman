@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { validateInput, portalSubmitSchema } from "@/lib/validation";
 import { errorResponse } from "@/lib/api";
+import { renderDetailCard, renderEmailLayout, renderMessageCard, renderNoticeCard } from "@/lib/email";
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -74,9 +75,7 @@ async function uploadWorkOrderPhotos(
 export async function POST(req: NextRequest) {
   try {
     const isMultipart = req.headers.get("content-type")?.includes("multipart/form-data");
-    const body = isMultipart
-      ? await req.formData()
-      : await req.json();
+    const body = isMultipart ? await req.formData() : await req.json();
 
     const payload = isMultipart
       ? {
@@ -98,7 +97,6 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServiceClient();
 
-    // Rate limit: 5 submissions per PM per hour (counted via DB)
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const { count: recentCount } = await supabase
       .from("work_orders")
@@ -109,7 +107,6 @@ export async function POST(req: NextRequest) {
       return errorResponse("Too many submissions. Please wait before submitting again.", 429);
     }
 
-    // Verify property manager and property belong to tenant
     const { data: pm } = await supabase
       .from("property_managers")
       .select("id, full_name, email")
@@ -129,7 +126,6 @@ export async function POST(req: NextRequest) {
 
     if (!prop) return errorResponse("Property not found", 404);
 
-    // Insert work order
     const { data: workOrder, error } = await supabase
       .from("work_orders")
       .insert({
@@ -171,7 +167,6 @@ export async function POST(req: NextRequest) {
       (workOrder as any).photos = [];
     }
 
-    // Get owner email + tenant name
     const [{ data: owner }, { data: tenant }] = await Promise.all([
       supabase.from("profiles").select("email, full_name").eq("tenant_id", tenant_id).eq("role", "owner").single(),
       supabase.from("tenants").select("name").eq("id", tenant_id).single(),
@@ -179,46 +174,94 @@ export async function POST(req: NextRequest) {
 
     const tenantName = tenant?.name || "Foreman";
     const fromAddress = `${tenantName} <${process.env.EMAIL_FROM!}>`;
+    const appUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
+    const property = Array.isArray((workOrder as any).properties)
+      ? (workOrder as any).properties[0]
+      : (workOrder as any).properties;
+    const propertyManager = Array.isArray((workOrder as any).property_managers)
+      ? (workOrder as any).property_managers[0]
+      : (workOrder as any).property_managers;
 
-    // Send notification to owner
     if (owner?.email && process.env.RESEND_API_KEY) {
       await resend.emails.send({
         from: fromAddress,
         to: owner.email,
         subject: `New Work Order: ${title}`,
-        html: `
-          <div style="font-family: sans-serif; max-width: 560px;">
-            <h2 style="color: #0f1923;">New Work Order Submitted</h2>
-            <p><strong>From:</strong> ${workOrder.property_managers?.full_name}</p>
-            <p><strong>Property:</strong> ${workOrder.properties?.name} — ${workOrder.properties?.address}</p>
-            <p><strong>Priority:</strong> ${priority.toUpperCase()}</p>
-            <h3>${title}</h3>
-            <p>${description}</p>
-            <a href="${process.env.NEXT_PUBLIC_APP_URL}/owner/work-orders/${workOrder.id}" 
-               style="display:inline-block; background:#f59e0b; color:#0f1923; padding:10px 20px; border-radius:8px; font-weight:700; text-decoration:none; margin-top:16px;">
-              View Work Order →
-            </a>
-          </div>
-        `,
+        html: renderEmailLayout({
+          tenantName,
+          category: "Portal Work Order",
+          title: "New work order submitted",
+          greeting: `Hi ${owner.full_name || "there"},`,
+          intro: `${propertyManager?.full_name || "A property manager"} submitted a new work order through the portal.`,
+          previewText: `${propertyManager?.full_name || "A property manager"} submitted ${title}.`,
+          sections: [
+            renderNoticeCard({
+              tone: priority === "urgent" || priority === "high" ? "warning" : "neutral",
+              eyebrow: `Priority ${priority.toUpperCase()}`,
+              title,
+              bodyHtml: property?.name
+                ? `For ${property.name}${property.address ? ` at ${property.address}` : ""}.`
+                : undefined,
+            }),
+            renderDetailCard("Request details", [
+              { label: "Submitted by", value: propertyManager?.full_name || "Property manager" },
+              { label: "Property", value: property?.name || "Unknown property" },
+              { label: "Address", value: property?.address || "" },
+            ]),
+            renderMessageCard("Reported issue", description),
+            files.length > 0
+              ? renderNoticeCard({
+                  tone: "neutral",
+                  eyebrow: "Attachments",
+                  title: `${files.length} photo${files.length === 1 ? "" : "s"} included`,
+                  body: "Open the work order to review the uploaded images.",
+                })
+              : "",
+          ],
+          primaryAction: {
+            href: `${appUrl}/owner/work-orders/${workOrder.id}`,
+            label: "Review work order",
+          },
+          footerText: "Review the request in Foreman or reply to this email if you need clarification.",
+        }),
       });
 
-      // Send confirmation to property manager
-      if (workOrder.property_managers?.email) {
+      if (propertyManager?.email) {
         await resend.emails.send({
           from: fromAddress,
-          to: workOrder.property_managers.email,
+          to: propertyManager.email,
           subject: `Work Order Received: ${title}`,
-          html: `
-            <div style="font-family: sans-serif; max-width: 560px;">
-              <h2 style="color: #0f1923;">Work Order Received</h2>
-              <p>Hi ${workOrder.property_managers.full_name},</p>
-              <p>Your work order has been submitted and will be reviewed shortly.</p>
-              <p><strong>Property:</strong> ${workOrder.properties?.name}</p>
-              <p><strong>Issue:</strong> ${title}</p>
-              <p><strong>Priority:</strong> ${priority}</p>
-              <p>You'll receive updates as work progresses.</p>
-            </div>
-          `,
+          html: renderEmailLayout({
+            tenantName,
+            category: "Portal Confirmation",
+            title: "We received your work order",
+            greeting: `Hi ${propertyManager.full_name || "there"},`,
+            intro: "Your request is in review. We will follow up as soon as the team has assessed it.",
+            previewText: `Your work order ${title} was submitted successfully.`,
+            sections: [
+              renderNoticeCard({
+                tone: "success",
+                eyebrow: "Submission received",
+                title,
+                bodyHtml: property?.name ? `Property: ${property.name}` : undefined,
+              }),
+              renderDetailCard("Request details", [
+                { label: "Priority", value: priority },
+                { label: "Property", value: property?.name || "Unknown property" },
+                { label: "Address", value: property?.address || "" },
+              ]),
+              renderMessageCard("Issue summary", description),
+              files.length > 0
+                ? renderNoticeCard({
+                    tone: "neutral",
+                    eyebrow: "Attachments",
+                    title: `${files.length} photo${files.length === 1 ? "" : "s"} uploaded`,
+                    body: "These images were attached to your submission for reference.",
+                  })
+                : "",
+            ],
+            footerText: "You will receive updates by email as the work order moves forward.",
+          }),
         });
       }
     }

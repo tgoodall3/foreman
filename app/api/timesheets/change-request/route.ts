@@ -1,8 +1,9 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { requireWorker } from "@/lib/auth";
 import { createServerSideClient } from "@/lib/supabase-server";
 import { errorResponse } from "@/lib/api";
+import { renderDetailCard, renderEmailLayout, renderMessageCard, renderNoticeCard } from "@/lib/email";
 import { z } from "zod";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
@@ -24,14 +25,12 @@ export async function POST(req: NextRequest) {
     const parsed = schema.safeParse(body);
     if (!parsed.success) return errorResponse("Invalid payload", 400);
 
-    // Validate time order: clocked_out must be after clocked_in
     if (parsed.data.requested_clocked_in_at && parsed.data.requested_clocked_out_at) {
-      const inTime  = new Date(parsed.data.requested_clocked_in_at);
+      const inTime = new Date(parsed.data.requested_clocked_in_at);
       const outTime = new Date(parsed.data.requested_clocked_out_at);
       if (outTime <= inTime) {
         return errorResponse("Clock-out time must be after clock-in time.", 400);
       }
-      // Reject suspiciously long shifts (> 24 hours)
       if (outTime.getTime() - inTime.getTime() > 24 * 60 * 60 * 1000) {
         return errorResponse("Requested shift duration cannot exceed 24 hours.", 400);
       }
@@ -56,26 +55,54 @@ export async function POST(req: NextRequest) {
 
     if (error) return errorResponse("Failed to create request", 500);
 
-    // Notify owners in the tenant (fire-and-forget)
-    const { data: owners } = await supabase
-      .from("profiles")
-      .select("email, full_name")
-      .eq("tenant_id", worker.tenant_id)
-      .eq("role", "owner");
+    const [{ data: owners }, { data: tenant }] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("email, full_name")
+        .eq("tenant_id", worker.tenant_id)
+        .eq("role", "owner"),
+      supabase.from("tenants").select("name").eq("id", worker.tenant_id).single(),
+    ]);
 
     if (owners && owners.length && resend && process.env.EMAIL_FROM) {
+      const tenantName = tenant?.name || "Foreman";
       owners.forEach((owner: any) => {
         resend.emails.send({
           from: process.env.EMAIL_FROM!,
           to: owner.email,
           subject: "New time change request",
-          html: `<p>${worker.full_name} submitted a time change request for ${parsed.data.requested_date}.</p>`
+          html: renderEmailLayout({
+            tenantName,
+            category: "Timesheet Request",
+            title: "A worker submitted a time change request",
+            greeting: `Hi ${owner.full_name || "there"},`,
+            intro: `${worker.full_name} submitted a time change request for review.`,
+            previewText: `${worker.full_name} requested a time change for ${parsed.data.requested_date}.`,
+            sections: [
+              renderNoticeCard({
+                tone: "warning",
+                eyebrow: "Pending review",
+                title: worker.full_name || "Worker",
+                body: `Requested date: ${parsed.data.requested_date}`,
+              }),
+              renderDetailCard("Request details", [
+                { label: "Worker", value: worker.full_name || "Worker" },
+                { label: "Date", value: parsed.data.requested_date },
+                {
+                  label: "Requested time",
+                  value: `${parsed.data.requested_clocked_in_at || "Not provided"} to ${parsed.data.requested_clocked_out_at || "Not provided"}`,
+                },
+              ]),
+              renderMessageCard("Reason", parsed.data.reason),
+            ],
+            footerText: "Review the request from the timesheet change requests page in Foreman.",
+          }),
         }).catch((err) => console.error("[email] time change request notification:", err));
       });
     }
 
     return NextResponse.json({ request: inserted });
-  } catch (err) {
+  } catch {
     return errorResponse("Internal server error", 500);
   }
 }

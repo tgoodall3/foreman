@@ -127,6 +127,30 @@ const PRIORITY_LABEL: Record<string, string> = {
   low: "Low", normal: "Normal", urgent: "Urgent", emergency: "Emergency",
 };
 
+function PropertiesPanel({ properties }: { properties: Property[] }) {
+  if (properties.length === 0) return null;
+
+  return (
+    <section>
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="font-display font-700 text-base text-forge">Your Properties</h2>
+        <p className="text-xs font-600 text-mist">{properties.length} linked</p>
+      </div>
+      <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+        {properties.map((property) => (
+          <div key={property.id} className="px-4 py-3">
+            <p className="text-sm font-600 text-forge">{property.name}</p>
+            <p className="text-xs text-mist mt-0.5">
+              {property.address}, {property.city}, {property.state}
+              {property.zip ? ` ${property.zip}` : ""}
+            </p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function PhotoGrid({ photos }: { photos: WorkOrderPhoto[] }) {
   if (photos.length === 0) return null;
 
@@ -446,6 +470,17 @@ function WorkOrderForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {properties.length === 1 && (
+        <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-3">
+          <p className="text-[11px] font-700 uppercase tracking-wider text-mist">Property</p>
+          <p className="mt-1 text-sm font-600 text-forge">{properties[0].name}</p>
+          <p className="text-xs text-mist mt-0.5">
+            {properties[0].address}, {properties[0].city}, {properties[0].state}
+            {properties[0].zip ? ` ${properties[0].zip}` : ""}
+          </p>
+        </div>
+      )}
+
       {properties.length > 1 && (
         <div>
           <label className="block text-xs font-700 text-mist uppercase tracking-wider mb-1">Property</label>
@@ -779,6 +814,8 @@ export default function PortalDashboard({
         {/* ── Overview ── */}
         {tab === "home" && (
           <>
+            {hasProperties && <PropertiesPanel properties={propertiesState} />}
+
             {/* Summary cards */}
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-white rounded-xl border border-gray-200 p-4">
@@ -882,6 +919,8 @@ export default function PortalDashboard({
         {/* ── Work Orders ── */}
         {tab === "work-orders" && (
           <>
+            {hasProperties && <PropertiesPanel properties={propertiesState} />}
+
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-700 text-forge">Work Orders</h2>
               <button

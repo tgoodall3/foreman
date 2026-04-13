@@ -1,14 +1,13 @@
-
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import Stripe from "stripe";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceClient } from "@/lib/supabase";
+import { renderDetailCard, renderEmailLayout, renderMessageCard, renderNoticeCard } from "@/lib/email";
 import { maybeCreateNextOccurrence } from "@/lib/recurring";
 import { audit } from "@/lib/audit";
 import { formatDate, generateInvoiceNumber } from "@/lib/utils";
 
-// Auto-create and send an invoice when a completed job has line items + PM.
 async function autoInvoiceIfEligible(supabase: SupabaseClient, job: any) {
   if (job.invoice_id) return;
   const lineItems: any[] = job.line_items ?? [];
@@ -82,10 +81,7 @@ export async function POST(req: NextRequest) {
     metadata: { to: "completed" },
   });
 
-  // Recurring follow-up (best-effort)
   maybeCreateNextOccurrence(supabase as any, jobId, job.tenant_id).catch(() => {});
-
-  // Auto-invoice if eligible (best-effort)
   autoInvoiceIfEligible(supabase, job).catch(() => {});
 
   if (!resend || !process.env.EMAIL_FROM) return NextResponse.json({ ok: true });
@@ -101,9 +97,10 @@ export async function POST(req: NextRequest) {
 
   if (!pm?.email) return NextResponse.json({ ok: true });
 
-  // Optional pay link if invoice exists and Stripe is configured
+  const appUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
+
   let payUrl: string | null = null;
-  if (job.invoice_id && stripe && process.env.NEXT_PUBLIC_APP_URL) {
+  if (job.invoice_id && stripe && appUrl) {
     const { data: invoice } = await supabase
       .from("invoices")
       .select("id, invoice_number, total, property_manager_id")
@@ -126,8 +123,8 @@ export async function POST(req: NextRequest) {
               quantity: 1,
             },
           ],
-          success_url: `${process.env.NEXT_PUBLIC_APP_URL}/portal?token=${pm.portal_token || ""}&paid=true`,
-          cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/portal?token=${pm.portal_token || ""}`,
+          success_url: `${appUrl}/portal?token=${pm.portal_token || ""}&paid=true`,
+          cancel_url: `${appUrl}/portal?token=${pm.portal_token || ""}`,
           metadata: { invoice_id: invoice.id, tenant_id: job.tenant_id },
         });
         payUrl = session.url;
@@ -138,34 +135,53 @@ export async function POST(req: NextRequest) {
   }
 
   const tenantName = tenantData?.name || "Foreman customer";
-  const portalLink = pm.portal_token ? `${process.env.NEXT_PUBLIC_APP_URL}/portal?token=${pm.portal_token}` : null;
+  const portalLink = pm.portal_token ? `${appUrl}/portal?token=${pm.portal_token}` : null;
 
   await resend.emails.send({
     from: process.env.EMAIL_FROM!,
     to: pm.email,
     subject: `Work Completed: ${job.title}`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 560px; color: #0f1923;">
-        <div style="background: #0f1923; padding: 20px 24px; border-radius: 8px 8px 0 0;">
-          <span style="font-size: 22px; font-weight: 800; color: #f59e0b; letter-spacing: 1px;">FOREMAN</span>
-          <p style="color: #9ca3af; font-size: 13px; margin: 4px 0 0;">${tenantName}</p>
-        </div>
-        <div style="background: #fff; padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-          <h2 style="margin: 0 0 8px; font-size: 20px;">Work Completed ✓</h2>
-          <p style="color: #6b7280; margin: 0 0 20px; font-size: 14px;">Hi ${pm.full_name}, the following work has been completed at your property.</p>
-
-          <table style="background: #f9f8f5; border-radius: 8px; padding: 16px; width: 100%; margin-bottom: 20px; border-collapse: collapse;">
-            <tr><td style="padding: 4px 0; font-size: 13px; color: #6b7280; width: 100px;">Job</td><td style="padding: 4px 0; font-size: 14px; font-weight: 600;">${job.title}</td></tr>
-            ${prop ? `<tr><td style="padding: 4px 0; font-size: 13px; color: #6b7280;">Property</td><td style="padding: 4px 0; font-size: 14px;">${prop.name}${prop.city ? `, ${prop.city}` : ""}</td></tr>` : ""}
-            <tr><td style="padding: 4px 0; font-size: 13px; color: #6b7280;">Completed</td><td style="padding: 4px 0; font-size: 14px;">${formatDate(new Date())}</td></tr>
-          </table>
-
-          ${payUrl ? `<a href="${payUrl}" style="display:inline-block; background:#f59e0b; color:#0f1923; padding:12px 16px; border-radius:10px; font-weight:700; text-decoration:none;">Pay invoice</a>` : ""}
-          ${!payUrl && portalLink ? `<a href="${portalLink}" style="display:inline-block; margin-top:8px; color:#f59e0b; font-weight:700;">View in portal</a>` : ""}
-          ${job.description ? `<p style="font-size: 14px; color: #6b7280; margin-top:16px;">If you have questions, reply to this email or contact ${tenantName} directly.</p>` : ""}
-        </div>
-      </div>
-    `,
+    html: renderEmailLayout({
+      tenantName,
+      category: "Job Update",
+      title: "Work completed",
+      greeting: `Hi ${pm.full_name},`,
+      intro: "The following work has been completed at your property.",
+      previewText: `${job.title} has been completed.`,
+      sections: [
+        renderNoticeCard({
+          tone: "success",
+          eyebrow: "Completed",
+          title: job.title,
+          bodyHtml: prop?.name ? `Property: ${prop.name}${prop.city ? `, ${prop.city}` : ""}` : undefined,
+        }),
+        renderDetailCard("Completion details", [
+          { label: "Job", value: job.title },
+          { label: "Property", value: prop?.name || "" },
+          { label: "Completed", value: formatDate(new Date()) },
+        ]),
+        job.description ? renderMessageCard("Scope of work", job.description) : "",
+      ],
+      primaryAction: payUrl
+        ? {
+            href: payUrl,
+            label: "Pay invoice",
+          }
+        : portalLink
+          ? {
+              href: portalLink,
+              label: "View in portal",
+            }
+          : undefined,
+      secondaryAction: payUrl && portalLink
+        ? {
+            href: portalLink,
+            label: "Open portal",
+            variant: "secondary",
+          }
+        : undefined,
+      footerText: `Reply to this email if you have questions for ${tenantName}.`,
+    }),
   });
 
   return NextResponse.json({ ok: true });

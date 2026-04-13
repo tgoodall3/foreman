@@ -5,7 +5,7 @@ import Link from "next/link";
 
 interface Notification {
   id: string;
-  type: "work_order" | "time_request" | "estimate" | "invoice";
+  type: "work_order" | "work_order_comment" | "time_request" | "estimate" | "invoice";
   title: string;
   subtitle: string;
   href: string;
@@ -27,6 +27,14 @@ const TYPE_STYLES: Record<string, { dot: string; icon: JSX.Element }> = {
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+      </svg>
+    ),
+  },
+  work_order_comment: {
+    dot: "bg-sky-500",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h8M8 14h5m-7 6l-2-2V6a2 2 0 012-2h12a2 2 0 012 2v8a2 2 0 01-2 2H8l-4 4z" />
       </svg>
     ),
   },

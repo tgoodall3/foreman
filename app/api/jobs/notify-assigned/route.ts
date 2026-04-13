@@ -1,14 +1,15 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { Resend } from "resend";
+import { renderDetailCard, renderEmailLayout, renderMessageCard, renderNoticeCard } from "@/lib/email";
 import { formatDate } from "@/lib/utils";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 async function sendSms(to: string, body: string) {
-  const sid   = process.env.TWILIO_SID;
+  const sid = process.env.TWILIO_SID;
   const token = process.env.TWILIO_TOKEN;
-  const from  = process.env.TWILIO_FROM;
+  const from = process.env.TWILIO_FROM;
   if (!sid || !token || !from) return;
 
   const params = new URLSearchParams();
@@ -42,8 +43,8 @@ export async function POST(req: NextRequest) {
   if (!job) return NextResponse.json({ ok: true });
 
   const { data: tenantData } = await supabase.from("tenants").select("name").eq("id", job.tenant_id).single();
+  const appUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
 
-  // Scope workers to the same tenant as the job to prevent cross-tenant notification abuse
   const { data: workers } = await supabase
     .from("profiles")
     .select("email, full_name, phone")
@@ -52,7 +53,6 @@ export async function POST(req: NextRequest) {
 
   if (!workers?.length) return NextResponse.json({ ok: true });
 
-  // Broadcast for in-app toasts (worker dashboard listener)
   supabase
     .channel(`assignments-${job.tenant_id}`)
     .send({
@@ -65,39 +65,60 @@ export async function POST(req: NextRequest) {
     })
     .catch((err) => console.error("[broadcast] job-assigned:", err));
 
-  // Email notifications (best-effort)
   if (resend && process.env.EMAIL_FROM) {
+    const tenantName = tenantData?.name || "Foreman";
+
     for (const worker of workers) {
       await resend.emails.send({
         from: process.env.EMAIL_FROM!,
         to: worker.email,
         subject: `New Job Assigned: ${job.title}`,
-        html: `
-        <div style="font-family: sans-serif; max-width: 560px; color: #0f1923;">
-          <h2>Hi ${worker.full_name},</h2>
-          <p>You've been assigned a new job by <strong>${tenantData?.name ?? ""}</strong>.</p>
-          <table style="background:#f5f4f0; border-radius:8px; padding:16px; width:100%; margin:16px 0;">
-            <tr><td style="font-weight:600; padding-bottom:8px;">Job:</td><td>${job.title}</td></tr>
-            ${job.scheduled_date ? `<tr><td style="font-weight:600; padding-bottom:8px;">Date:</td><td>${formatDate(job.scheduled_date)}${job.scheduled_time ? ` at ${job.scheduled_time}` : ""}</td></tr>` : ""}
-            ${job.properties ? `<tr><td style="font-weight:600; padding-bottom:8px;">Location:</td><td>${(job.properties as any).name}<br>${(job.properties as any).address}, ${(job.properties as any).city}, ${(job.properties as any).state}</td></tr>` : ""}
-            ${job.description ? `<tr><td style="font-weight:600; padding-bottom:8px;">Details:</td><td>${job.description}</td></tr>` : ""}
-          </table>
-          <a href="${process.env.NEXT_PUBLIC_APP_URL}/worker" style="display:inline-block; background:#f59e0b; color:#0f1923; padding:10px 20px; border-radius:8px; font-weight:700; text-decoration:none;">
-            View My Jobs →
-          </a>
-        </div>
-      `,
+        html: renderEmailLayout({
+          tenantName,
+          category: "Worker Assignment",
+          title: "You have a new job assignment",
+          greeting: `Hi ${worker.full_name},`,
+          intro: `You were assigned a new job by ${tenantName}.`,
+          previewText: `New assignment: ${job.title}.`,
+          sections: [
+            renderNoticeCard({
+              tone: "warning",
+              eyebrow: "New assignment",
+              title: job.title,
+              bodyHtml: job.properties ? `Location: ${(job.properties as any).name}` : undefined,
+            }),
+            renderDetailCard("Assignment details", [
+              {
+                label: "Date",
+                value: job.scheduled_date
+                  ? `${formatDate(job.scheduled_date)}${job.scheduled_time ? ` at ${job.scheduled_time}` : ""}`
+                  : "Unscheduled",
+              },
+              {
+                label: "Location",
+                htmlValue: job.properties
+                  ? `${(job.properties as any).name}<br />${(job.properties as any).address}, ${(job.properties as any).city}, ${(job.properties as any).state}`
+                  : "Not set",
+              },
+            ]),
+            job.description ? renderMessageCard("Job details", job.description) : "",
+          ],
+          primaryAction: {
+            href: `${appUrl}/worker`,
+            label: "View my jobs",
+          },
+          footerText: "Open your worker dashboard to review the assignment and update status.",
+        }),
       });
     }
   }
 
-  // SMS notifications (best-effort via Twilio REST)
   if (process.env.TWILIO_SID && process.env.TWILIO_TOKEN && process.env.TWILIO_FROM) {
     for (const worker of workers) {
       if (!worker.phone) continue;
       const when = job.scheduled_date ? `${formatDate(job.scheduled_date)}${job.scheduled_time ? " at " + job.scheduled_time : ""}` : "unscheduled";
       const loc = job.properties ? `${(job.properties as any).name ?? ""}` : "";
-      const body = `New job assigned: ${job.title}${loc ? " at " + loc : ""}${when ? " (" + when + ")" : ""}. View: ${process.env.NEXT_PUBLIC_APP_URL}/worker`;
+      const body = `New job assigned: ${job.title}${loc ? " at " + loc : ""}${when ? " (" + when + ")" : ""}. View: ${appUrl}/worker`;
       sendSms(worker.phone, body);
     }
   }

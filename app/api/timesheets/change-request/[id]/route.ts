@@ -3,6 +3,7 @@ import { Resend } from "resend";
 import { requireOwner } from "@/lib/auth";
 import { createServerSideClient } from "@/lib/supabase-server";
 import { errorResponse } from "@/lib/api";
+import { renderDetailCard, renderEmailLayout, renderMessageCard, renderNoticeCard } from "@/lib/email";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -19,7 +20,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     const supabase = await createServerSideClient();
 
-    // Load the request
     const { data: request } = await supabase
       .from("time_change_requests")
       .select("id, tenant_id, worker_id, time_entry_id, requested_clocked_in_at, requested_clocked_out_at, requested_date, reason")
@@ -33,7 +33,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     if (action === "approve") {
       if (request.time_entry_id) {
-        // Update an existing entry with provided times
         const { data } = await supabase
           .from("time_entries")
           .update({
@@ -46,7 +45,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           .maybeSingle();
         updatedEntry = data ?? null;
       } else if (request.requested_clocked_in_at && request.requested_clocked_out_at) {
-        // Create a new entry when the worker forgot to clock
         const { data } = await supabase
           .from("time_entries")
           .insert({
@@ -72,30 +70,47 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     if (error) return errorResponse("Failed to update request.", 500);
 
-    // Notify the worker (best-effort)
     if (process.env.RESEND_API_KEY) {
-      const { data: worker } = await supabase
-        .from("profiles")
-        .select("email, full_name")
-        .eq("id", request.worker_id)
-        .maybeSingle();
+      const [{ data: worker }, { data: tenant }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("email, full_name")
+          .eq("id", request.worker_id)
+          .maybeSingle(),
+        supabase.from("tenants").select("name").eq("id", profile.tenant_id).single(),
+      ]);
 
       if (worker?.email) {
-        const html = `
-          <div style="font-family: Arial, sans-serif; color: #0f1923;">
-            <p style="font-size:14px; margin:0 0 8px;">Your time change request has been ${updatedRequest.status}.</p>
-            <p style="font-size:13px; margin:0 0 6px;"><strong>Date:</strong> ${request.requested_date}</p>
-            <p style="font-size:13px; margin:0 0 6px;"><strong>Requested:</strong> ${request.requested_clocked_in_at ?? "—"} to ${request.requested_clocked_out_at ?? "—"}</p>
-            <p style="font-size:13px; margin:0 0 10px;"><strong>Reason:</strong> ${request.reason}</p>
-            <p style="font-size:12px; color:#6b7280; margin:0;">If this looks wrong, reply to your owner.</p>
-          </div>
-        `;
-
+        const tenantName = tenant?.name || "Foreman";
         await resend.emails.send({
           from: process.env.EMAIL_FROM!,
           to: worker.email,
           subject: `Your time change request was ${updatedRequest.status}`,
-          html,
+          html: renderEmailLayout({
+            tenantName,
+            category: "Timesheet Request",
+            title: `Request ${updatedRequest.status}`,
+            greeting: `Hi ${worker.full_name || "there"},`,
+            intro: `Your time change request has been ${updatedRequest.status}.`,
+            previewText: `Your time change request was ${updatedRequest.status}.`,
+            sections: [
+              renderNoticeCard({
+                tone: updatedRequest.status === "approved" ? "success" : "danger",
+                eyebrow: "Decision",
+                title: updatedRequest.status === "approved" ? "Request approved" : "Request declined",
+                body: `Date: ${request.requested_date}`,
+              }),
+              renderDetailCard("Request details", [
+                { label: "Date", value: request.requested_date },
+                {
+                  label: "Requested time",
+                  value: `${request.requested_clocked_in_at || "Not provided"} to ${request.requested_clocked_out_at || "Not provided"}`,
+                },
+              ]),
+              renderMessageCard("Reason", request.reason),
+            ],
+            footerText: "Reply to your owner if you have questions about this decision.",
+          }),
         }).catch((err) => console.error("[email] time change request response:", err));
       }
     }

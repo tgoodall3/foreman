@@ -4,6 +4,7 @@ import { Resend } from "resend";
 import { requireOwner } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase";
 import { errorResponse } from "@/lib/api";
+import { renderDetailCard, renderEmailLayout, renderMessageCard, renderNoticeCard } from "@/lib/email";
 
 const messageSchema = z.object({
   workOrderId: z.string().uuid(),
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
 
     const { data: wo } = await supabase
       .from("work_orders")
-      .select("id, title, tenant_id, property_manager_id, properties(name), property_managers(full_name, email)")
+      .select("id, title, tenant_id, property_manager_id, properties(name), property_managers(full_name, email, portal_token)")
       .eq("id", workOrderId)
       .single();
 
@@ -38,27 +39,45 @@ export async function POST(req: NextRequest) {
     const pm = Array.isArray(wo.property_managers)
       ? wo.property_managers[0]
       : (wo as any).property_managers;
-
     const property = Array.isArray(wo.properties) ? wo.properties[0] : (wo as any).properties;
 
     if (resend && pm?.email && process.env.EMAIL_FROM) {
+      const { data: tenant } = await supabase.from("tenants").select("name").eq("id", wo.tenant_id).single();
+      const tenantName = tenant?.name || "Foreman";
+      const appUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
+
       await resend.emails.send({
         from: process.env.EMAIL_FROM!,
         to: pm.email,
         subject: `Message about work order: ${wo.title}`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 560px; color: #0f1923;">
-            <div style="background: #0f1923; padding: 16px 18px; border-radius: 10px 10px 0 0;">
-              <span style="font-size: 18px; font-weight: 800; color: #f59e0b; letter-spacing: 1px;">FOREMAN</span>
-              <p style="color: #9ca3af; font-size: 12px; margin: 4px 0 0;">${profile.full_name || "Owner"} left a note</p>
-            </div>
-            <div style="background: #fff; padding: 18px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
-              <p style="margin: 0 0 8px; font-weight: 700;">${wo.title}</p>
-              ${property?.name ? `<p style="margin:0 0 6px; color:#6b7280;">Property: ${property.name}</p>` : ""}
-              <p style="margin:12px 0 4px; font-size: 14px; white-space: pre-wrap;">${message}</p>
-            </div>
-          </div>
-        `,
+        html: renderEmailLayout({
+          tenantName,
+          category: "Work Order Message",
+          title: "New message about your work order",
+          greeting: `Hi ${pm.full_name || "there"},`,
+          intro: `${profile.full_name || tenantName} sent a message about one of your work orders.`,
+          previewText: `New message on ${wo.title}.`,
+          sections: [
+            renderNoticeCard({
+              tone: "neutral",
+              eyebrow: "Work order",
+              title: wo.title,
+              bodyHtml: property?.name ? `Property: ${property.name}` : undefined,
+            }),
+            renderDetailCard("Conversation details", [
+              { label: "From", value: profile.full_name || "Owner" },
+              { label: "Property", value: property?.name || "" },
+            ]),
+            renderMessageCard("Message", message),
+          ],
+          primaryAction: pm.portal_token
+            ? {
+                href: `${appUrl}/portal?token=${encodeURIComponent(pm.portal_token)}`,
+                label: "Open portal",
+              }
+            : undefined,
+          footerText: "Reply to this email if you need to continue the conversation.",
+        }),
       }).catch((err) => console.error("[email] work order message:", err));
     }
 

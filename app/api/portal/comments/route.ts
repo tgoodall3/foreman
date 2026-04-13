@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { createServiceClient } from "@/lib/supabase";
 import { errorResponse, jsonResponse } from "@/lib/api";
+import { renderDetailCard, renderEmailLayout, renderMessageCard, renderNoticeCard } from "@/lib/email";
+import { Resend } from "resend";
 
 const listSchema = z.object({
   token: z.string().min(10),
@@ -22,6 +24,8 @@ const EXT_MAP: Record<string, string> = {
   "image/heic": "heic",
   "image/heif": "heif",
 };
+
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 type WorkOrderPhoto = {
   url: string;
@@ -51,10 +55,9 @@ export async function GET(req: NextRequest) {
     .single();
   if (!pm) return errorResponse("Invalid token.", 403);
 
-  // Verify this work order belongs to the PM (not just the tenant)
   const { data: wo } = await supabase
     .from("work_orders")
-    .select("id")
+    .select("id, title, properties(name)")
     .eq("id", work_order_id)
     .eq("property_manager_id", pm.id)
     .single();
@@ -94,10 +97,9 @@ export async function POST(req: NextRequest) {
     .single();
   if (!pm) return errorResponse("Invalid token.", 403);
 
-  // Verify work order belongs to PM
   const { data: wo } = await supabase
     .from("work_orders")
-    .select("id")
+    .select("id, title, properties(name)")
     .eq("id", work_order_id)
     .eq("property_manager_id", pm.id)
     .single();
@@ -166,6 +168,57 @@ export async function POST(req: NextRequest) {
       .eq("id", work_order_id);
 
     if (updateError) return errorResponse("Failed to save comment photos.", 500);
+  }
+
+  if (resend && process.env.EMAIL_FROM) {
+    const [{ data: owner }, { data: tenant }] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("email, full_name")
+        .eq("tenant_id", pm.tenant_id)
+        .eq("role", "owner")
+        .single(),
+      supabase.from("tenants").select("name").eq("id", pm.tenant_id).single(),
+    ]);
+
+    if (owner?.email) {
+      const property = Array.isArray((wo as any)?.properties) ? (wo as any).properties[0] : (wo as any)?.properties;
+      const tenantName = tenant?.name || "Foreman";
+      const appUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
+
+      await resend.emails.send({
+        from: process.env.EMAIL_FROM!,
+        to: owner.email,
+        subject: `New PM comment: ${((wo as any)?.title as string) || "Work order"}`,
+        html: renderEmailLayout({
+          tenantName,
+          category: "Portal Comment",
+          title: "A property manager added a comment",
+          greeting: `Hi ${owner.full_name || "there"},`,
+          intro: `${pm.full_name} added a new comment to a work order.`,
+          previewText: `${pm.full_name} commented on ${(wo as any)?.title || "a work order"}.`,
+          sections: [
+            renderNoticeCard({
+              tone: "neutral",
+              eyebrow: "Work order",
+              title: ((wo as any)?.title as string) || "Work order",
+              bodyHtml: property?.name ? `Property: ${property.name}` : undefined,
+            }),
+            renderDetailCard("Comment details", [
+              { label: "Commented by", value: pm.full_name },
+              { label: "Property", value: property?.name || "" },
+              { label: "Photos", value: uploadedPhotos.length > 0 ? `${uploadedPhotos.length} attached` : "None" },
+            ]),
+            renderMessageCard("Comment", message),
+          ],
+          primaryAction: {
+            href: `${appUrl}/owner/work-orders/${work_order_id}`,
+            label: "Open work order",
+          },
+          footerText: "Review the work order in Foreman to respond or continue the conversation.",
+        }),
+      }).catch((err) => console.error("[email] portal comment:", err));
+    }
   }
 
   return jsonResponse({ comment: note, photos: uploadedPhotos });

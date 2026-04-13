@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { createServiceClient } from "@/lib/supabase";
 import { Resend } from "resend";
 import { audit } from "@/lib/audit";
+import { renderDetailCard, renderEmailLayout, renderNoticeCard } from "@/lib/email";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -92,7 +93,26 @@ export async function POST(req: NextRequest) {
               from: process.env.EMAIL_FROM!,
               to: recipients as string[],
               subject: `Payment received for invoice ${inv?.invoice_number ?? invoiceId}`,
-              html: `<p style="font-family: Arial, sans-serif;">Payment received for invoice ${inv?.invoice_number ?? invoiceId}. Thank you!</p>`,
+              html: renderEmailLayout({
+                tenantName,
+                category: "Billing Update",
+                title: "Payment received",
+                intro: "Your invoice payment was received successfully.",
+                previewText: `Payment received for invoice ${inv?.invoice_number ?? invoiceId}.`,
+                sections: [
+                  renderNoticeCard({
+                    tone: "success",
+                    eyebrow: "Paid",
+                    title: `Invoice ${inv?.invoice_number ?? invoiceId}`,
+                    body: "Thank you. No further action is needed.",
+                  }),
+                  renderDetailCard("Receipt details", [
+                    { label: "Invoice", value: inv?.invoice_number ?? invoiceId },
+                    { label: "Status", value: "Paid" },
+                  ]),
+                ],
+                footerText: "Keep this email for your records or reply if you need a copy of the receipt.",
+              }),
             }).catch((err) => console.error("[email] invoice paid notification:", err));
           }
         }
