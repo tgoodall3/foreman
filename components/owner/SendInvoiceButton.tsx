@@ -32,7 +32,7 @@ export default function SendInvoiceButton({ invoiceId, disabled, label = "Send" 
       type="button"
       onClick={send}
       disabled={disabled || sending}
-      className="inline-flex items-center gap-1 bg-forge hover:bg-forge-light disabled:opacity-50 text-white text-xs font-700 px-3 py-1.5 rounded-lg transition-colors"
+      className="inline-flex items-center justify-center gap-1 bg-forge hover:bg-forge-light disabled:opacity-50 text-white text-xs sm:text-sm font-700 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg transition-colors min-h-[34px] sm:min-h-[40px] min-w-[82px] sm:min-w-[96px]"
     >
       {sending ? "Sending…" : label}
     </button>

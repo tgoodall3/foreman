@@ -141,27 +141,22 @@ export default async function OwnerToday() {
                       isUnassigned ? "bg-amber/5 border border-amber/40" : ""
                     }`}
                   >
-                    <div className="flex items-center gap-3 min-w-[70px]">
-                      <p className="text-xs font-700 text-forge tabular-nums">
-                        {job.scheduled_time ? job.scheduled_time.slice(0, 5) : "—"}
-                      </p>
-                      <div className="flex flex-col min-w-0">
-                        <Link href={`/owner/jobs/${job.id}`} className="font-600 text-sm text-forge hover:text-amber truncate">
-                          {job.title}
-                        </Link>
-                        <div className="flex flex-wrap gap-1 mt-1 items-center">
-                          {prop?.name && <span className="text-xs text-mist">{prop.name}</span>}
-                          {isUnassigned && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-amber/30 text-[11px] font-700 text-forge">
-                              Unassigned
-                            </span>
-                          )}
-                          {assignedNames.map((name) => (
-                            <span key={name} className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-gray-100 text-xs font-500 text-steel">
-                              {name.split(" ")[0]}
-                            </span>
-                          ))}
-                        </div>
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <Link href={`/owner/jobs/${job.id}`} className="font-700 text-xs xs:text-sm text-forge underline underline-offset-2 decoration-black truncate">
+                        {job.title}
+                      </Link>
+                      <div className="flex flex-wrap gap-2 items-center">
+                        {prop?.name && <span className="text-[11px] xs:text-xs text-mist">{prop.name}</span>}
+                        {isUnassigned && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-amber/30 text-[11px] font-700 text-forge">
+                            Unassigned
+                          </span>
+                        )}
+                        {assignedNames.map((name) => (
+                          <span key={name} className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 text-[11px] font-700 text-steel">
+                            {name.split(" ")[0]}
+                          </span>
+                        ))}
                       </div>
                     </div>
 
@@ -210,9 +205,9 @@ export default async function OwnerToday() {
                   return (
                     <div key={wo.id} className="px-4 py-3 space-y-2">
                       <div className="flex items-start justify-between gap-2">
-                        <Link href={`/owner/work-orders/${wo.id}`} className="font-600 text-sm text-forge hover:text-amber line-clamp-1">
-                          {wo.title}
-                        </Link>
+                <Link href={`/owner/work-orders/${wo.id}`} className="font-700 text-xs xs:text-sm text-forge underline underline-offset-2 decoration-black line-clamp-1">
+                  {wo.title}
+                </Link>
                         <span className={`badge shrink-0 ${priorityCfg.bg} ${priorityCfg.color}`}>{priorityCfg.label}</span>
                       </div>
                       <p className="text-xs text-mist line-clamp-1">
@@ -270,7 +265,7 @@ export default async function OwnerToday() {
                 return (
                   <Link key={job.id} href={`/owner/jobs/${job.id}`} className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors">
                     <div className="min-w-0">
-                      <p className="font-500 text-sm text-forge truncate">{job.title}</p>
+                      <p className="font-700 text-xs xs:text-sm text-forge underline underline-offset-2 decoration-black truncate">{job.title}</p>
                       <p className="text-xs text-mist mt-0.5 line-clamp-1">
                         {prop?.name ? `${prop.name} · ` : ""}
                         {job.scheduled_date ? formatDate(job.scheduled_date) : "Not scheduled"}

@@ -181,7 +181,13 @@ export default function NewInvoiceForm({ jobs, propertyManagers, selectedJob }: 
 
         <div>
           <label htmlFor="due-date" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Due Date</label>
-          <input id="due-date" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-amber" />
+          <input
+            id="due-date"
+            type="date"
+            value={dueDate}
+            onChange={(event) => setDueDate(event.target.value)}
+            className="w-full min-w-0 border border-gray-300 rounded-lg px-3 py-3 text-sm focus:outline-none focus:border-amber"
+          />
         </div>
       </div>
 

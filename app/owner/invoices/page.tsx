@@ -162,7 +162,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: { s
             return (
               <div key={inv.id} className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <div className="min-w-0">
-                  <Link href={`/owner/invoices/${inv.id}`} className="font-display font-700 text-forge hover:text-amber text-sm">
+                  <Link href={`/owner/invoices/${inv.id}`} className="font-display font-700 text-forge underline underline-offset-2 decoration-black text-sm">
                     {inv.invoice_number}
                   </Link>
                   <p className="text-xs text-mist">{inv.jobs?.title || "—"}</p>
@@ -180,7 +180,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: { s
                     )}
                     <Link
                       href={`/owner/invoices/${inv.id}`}
-                      className="inline-flex items-center gap-1 bg-white hover:bg-gray-50 text-forge border border-gray-300 text-xs font-700 px-3 py-1.5 rounded-lg transition-colors"
+                      className="inline-flex items-center justify-center gap-1 bg-white hover:bg-gray-50 text-forge border border-gray-300 text-xs sm:text-sm font-700 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg transition-colors min-h-[34px] sm:min-h-[40px] min-w-[82px] sm:min-w-[96px]"
                     >
                       Open
                     </Link>
