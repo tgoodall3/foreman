@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (authError || !authData.user) {
+      console.error("auth.admin.createUser failed:", authError?.message, authError?.status);
       const isDuplicate = authError?.message?.toLowerCase().includes("already registered")
         || authError?.message?.toLowerCase().includes("duplicate");
       return errorResponse(
