@@ -66,6 +66,7 @@ interface Estimate {
   total: number;
   title: string;
   created_at: string;
+  approval_token?: string | null;
 }
 
 interface Comment {
@@ -77,7 +78,6 @@ interface Comment {
 }
 
 interface Props {
-  token: string;
   propertyManager: PropertyManager;
   tenantName: string;
   properties: Property[];
@@ -174,13 +174,11 @@ function PhotoGrid({ photos }: { photos: WorkOrderPhoto[] }) {
 }
 
 function PropertyCreate({
-  token,
   tenantName,
   defaultOpen = false,
   inline = false,
   onCreated,
 }: {
-  token: string;
   tenantName: string;
   defaultOpen?: boolean;
   inline?: boolean;
@@ -205,7 +203,7 @@ function PropertyCreate({
     const res = await fetch("/api/portal/property", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token, name, address, city, state, zip, notes }),
+      body: JSON.stringify({ name, address, city, state, zip, notes }),
     });
     const data = await res.json().catch(() => ({}));
     setSaving(false);
@@ -285,11 +283,9 @@ function PropertyCreate({
 
 // ─── Comment Form ──────────────────────────────────────────────────────────────
 function CommentForm({
-  token,
   workOrderId,
   onAdded,
 }: {
-  token: string;
   workOrderId: string;
   onAdded: (comment: Comment, photos: WorkOrderPhoto[]) => void;
 }) {
@@ -303,7 +299,6 @@ function CommentForm({
     if (!message.trim()) return;
     setSubmitting(true); setError("");
     const formData = new FormData();
-    formData.append("token", token);
     formData.append("work_order_id", workOrderId);
     formData.append("message", message.trim());
     for (const file of photoFiles) {
@@ -375,9 +370,22 @@ function PortalHeader({ tenantName, pmName }: { tenantName: string; pmName: stri
             <p className="text-white/50 text-xs mt-0.5">Client Portal</p>
           </div>
         </div>
-        <div className="text-right">
-          <p className="text-white text-sm font-600">Hi, {pmName.split(" ")[0]}</p>
-          <p className="text-white/40 text-xs">Property Manager</p>
+        <div className="flex items-center gap-3">
+          <div className="text-right">
+            <p className="text-white text-sm font-600">Hi, {pmName.split(" ")[0]}</p>
+            <p className="text-white/40 text-xs">Property Manager</p>
+          </div>
+          <form action="/api/auth/signout" method="POST">
+            <button
+              type="submit"
+              className="text-white/40 hover:text-white/80 transition-colors p-1"
+              title="Sign out"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </button>
+          </form>
         </div>
       </div>
     </header>
@@ -387,18 +395,12 @@ function PortalHeader({ tenantName, pmName }: { tenantName: string; pmName: stri
 // ─── Work Order Form ──────────────────────────────────────────────────────────
 
 function WorkOrderForm({
-  pmId,
-  tenantId,
   tenantName,
-  token,
   properties,
   onSubmitted,
   onPropertyAdded,
 }: {
-  pmId: string;
-  tenantId: string;
   tenantName: string;
-  token: string;
   properties: Property[];
   onSubmitted: (wo: WorkOrder) => void;
   onPropertyAdded: (p: Property) => void;
@@ -417,11 +419,7 @@ function WorkOrderForm({
     setSubmitting(true);
     setError("");
 
-    const selectedProperty = properties.find((property) => property.id === propertyId) ?? properties[0];
-
     const formData = new FormData();
-    formData.append("property_manager_id", selectedProperty?.property_manager_id || pmId);
-    formData.append("tenant_id", tenantId);
     formData.append("property_id", propertyId);
     formData.append("title", title);
     formData.append("description", description);
@@ -461,7 +459,6 @@ function WorkOrderForm({
           <p className="text-sm text-steel">Add one below to start sending work orders.</p>
         </div>
         <PropertyCreate
-          token={token}
           tenantName={tenantName}
           inline
           defaultOpen
@@ -587,10 +584,10 @@ function WorkOrderForm({
 
 // ─── Pay button ───────────────────────────────────────────────────────────────
 
-function PayButton({ invoiceId, token }: { invoiceId: string; token: string }) {
+function PayButton({ invoiceId }: { invoiceId: string }) {
   return (
     <a
-      href={`/portal/invoice?token=${encodeURIComponent(token)}&invoice=${encodeURIComponent(invoiceId)}`}
+      href={`/portal/invoice?invoice=${encodeURIComponent(invoiceId)}`}
       className="inline-block bg-amber hover:bg-amber-dark text-forge font-display font-700 px-4 py-1.5 rounded-lg text-sm transition-colors"
     >
       Pay Now
@@ -601,14 +598,13 @@ function PayButton({ invoiceId, token }: { invoiceId: string; token: string }) {
 // ─── Invoice Card ─────────────────────────────────────────────────────────────
 
 function InvoiceCard({
-  inv, s, job, payable, items, token,
+  inv, s, job, payable, items,
 }: {
   inv: Invoice;
   s: { label: string; bg: string; color: string };
   job: { title: string } | null | undefined;
   payable: boolean;
   items: any[];
-  token: string;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -642,7 +638,7 @@ function InvoiceCard({
                 {expanded ? "Hide details" : "View details"}
               </button>
             )}
-            {payable && <PayButton invoiceId={inv.id} token={token} />}
+            {payable && <PayButton invoiceId={inv.id} />}
             {inv.status === "paid" && (
               <span className="text-xs text-green-700 font-700 bg-green-50 border border-green-200 rounded-lg px-3 py-1.5">
                 ✓ Paid
@@ -705,7 +701,6 @@ function InvoiceCard({
 type Tab = "home" | "work-orders" | "invoices" | "estimates";
 
 export default function PortalDashboard({
-  token,
   propertyManager,
   tenantName,
   properties,
@@ -908,7 +903,7 @@ export default function PortalDashboard({
                         <div className="flex items-center gap-3 shrink-0">
                           <span className={`badge text-xs ${s.bg} ${s.color}`}>{s.label}</span>
                           <p className="font-700 text-forge text-sm">{formatCurrency(inv.total)}</p>
-                          <PayButton invoiceId={inv.id} token={token} />
+                          <PayButton invoiceId={inv.id} />
                         </div>
                       </div>
                     );
@@ -948,10 +943,7 @@ export default function PortalDashboard({
                   </button>
                 </div>
                 <WorkOrderForm
-                  pmId={propertyManager.id}
-                  tenantId={propertyManager.tenant_id}
                   tenantName={tenantName}
-                  token={token}
                   properties={propertiesState}
                   onSubmitted={handleSubmitted}
                   onPropertyAdded={(p) => setProperties((prev) => [...prev, p])}
@@ -1027,7 +1019,6 @@ export default function PortalDashboard({
                       )}
 
                       <CommentForm
-                        token={token}
                         workOrderId={wo.id}
                         onAdded={(comment, photos) => {
                           setComments((prev) => [...prev, comment]);
@@ -1088,7 +1079,6 @@ export default function PortalDashboard({
                       job={job}
                       payable={payable}
                       items={items}
-                      token={token}
                     />
                   );
                 })}
@@ -1138,7 +1128,7 @@ export default function PortalDashboard({
                           <p className="font-700 text-forge">{formatCurrency(est.total)}</p>
                           {needsAction ? (
                             <a
-                              href={`/portal/estimate?token=${token}`}
+                              href={`/portal/estimate?token=${est.approval_token ?? ""}`}
                               className="mt-2 inline-block bg-forge hover:bg-forge-light text-white text-xs font-700 px-3 py-1.5 rounded-lg transition-colors"
                             >
                               Review &amp; Sign →

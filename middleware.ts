@@ -29,6 +29,22 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Portal route protection.
+  // /portal/setup and /portal/estimate are intentionally public (token-gated flows).
+  const isPortalRoute =
+    pathname === "/portal" ||
+    (pathname.startsWith("/portal/") &&
+      !pathname.startsWith("/portal/setup") &&
+      !pathname.startsWith("/portal/estimate") &&
+      !pathname.startsWith("/portal/revoked"));
+
+  if (isPortalRoute && !user) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("next", pathname);
+    return NextResponse.redirect(url);
+  }
+
   // Plan enforcement for owner routes.
   // /owner/settings is always accessible so expired users can reach billing.
   if (
@@ -73,5 +89,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/owner/:path*", "/worker/:path*"],
+  matcher: ["/owner/:path*", "/worker/:path*", "/portal", "/portal/:path*"],
 };

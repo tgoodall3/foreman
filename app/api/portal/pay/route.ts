@@ -1,7 +1,7 @@
-﻿import { NextRequest } from "next/server";
+import { NextRequest } from "next/server";
 import Stripe from "stripe";
 import { badRequest, errorResponse, jsonResponse } from "@/lib/api";
-import { resolvePortalPmScope } from "@/lib/portal";
+import { getPortalPm } from "@/lib/portal";
 import { createServiceClient } from "@/lib/supabase";
 import { logError } from "@/lib/logger";
 
@@ -9,27 +9,31 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { invoice_id, token, allowACH, allowTips, tipAmount, amount } = body ?? {};
+    const pm = await getPortalPm();
+    if (!pm) return errorResponse("Unauthorized", 401);
 
-    // Avoid "undefined" redirects by falling back to app URL or request origin
+    const body = await req.json();
+    const { invoice_id, allowACH, allowTips, tipAmount, amount } = body ?? {};
+
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || req.nextUrl?.origin;
     if (!siteUrl) return errorResponse("Site URL is not configured.", 500);
-
-    if (!invoice_id || !token) return badRequest("invoice_id and token are required.");
+    if (!invoice_id) return badRequest("invoice_id is required.");
 
     const supabase = createServiceClient();
 
-    // Verify token → find the PM
-    const { pm, propertyManagerIds } = await resolvePortalPmScope(
-      supabase as any,
-      token,
-      "id, tenant_id, full_name, email"
-    );
+    // Resolve all PM IDs for this email (handles re-invites)
+    let propertyManagerIds = [pm.id];
+    if (pm.email) {
+      const { data: aliases } = await supabase
+        .from("property_managers")
+        .select("id")
+        .eq("tenant_id", pm.tenant_id)
+        .eq("email", pm.email);
+      if (aliases && aliases.length > 0) {
+        propertyManagerIds = Array.from(new Set(aliases.map((a: { id: string }) => a.id)));
+      }
+    }
 
-    if (!pm) return errorResponse("Invalid portal token.", 403);
-
-    // Load invoice + tenant's Stripe Connect account
     const [{ data: invoice }, { data: tenant }] = await Promise.all([
       supabase
         .from("invoices")
@@ -53,11 +57,9 @@ export async function POST(req: NextRequest) {
     if (!tenant?.stripe_connect_id || !tenant?.stripe_connect_enabled) {
       return errorResponse("This contractor has not connected their Stripe account yet.", 402);
     }
-    const connectAccountId = tenant.stripe_connect_id;
 
     const jobTitle = (invoice.jobs as any)?.title ?? "Services";
-    // Return to the dedicated invoice page so the client sees the paid confirmation
-    const returnBase = `${siteUrl}/portal/invoice?token=${encodeURIComponent(token)}&invoice=${encodeURIComponent(invoice_id)}`;
+    const returnBase = `${siteUrl}/portal/invoice?invoice=${encodeURIComponent(invoice_id)}`;
 
     const baseAmount = typeof amount === "number" && amount > 0 && amount <= invoice.total ? amount : invoice.total;
     const tip = allowTips && typeof tipAmount === "number" && tipAmount > 0 ? tipAmount : 0;
@@ -90,8 +92,8 @@ export async function POST(req: NextRequest) {
       ],
       return_url: `${returnBase}&paid=true`,
       payment_intent_data: {
-        application_fee_amount: 0, // Platform fee in cents — set if you want to take a cut
-        transfer_data: { destination: connectAccountId },
+        application_fee_amount: 0,
+        transfer_data: { destination: tenant.stripe_connect_id },
       },
       metadata: {
         invoice_id: invoice.id,

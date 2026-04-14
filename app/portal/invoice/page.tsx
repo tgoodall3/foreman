@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase";
-import { resolvePortalPmScope } from "@/lib/portal";
+import { requirePortalPm } from "@/lib/portal";
 import PortalInvoiceClient from "./PortalInvoiceClient";
 
 export const dynamic = "force-dynamic";
@@ -8,22 +8,27 @@ export const dynamic = "force-dynamic";
 export default async function PortalInvoicePage({
   searchParams,
 }: {
-  searchParams: { token?: string; invoice?: string; paid?: string };
+  searchParams: { invoice?: string; paid?: string };
 }) {
-  if (!searchParams.token || !searchParams.invoice) notFound();
+  if (!searchParams.invoice) notFound();
+
+  const pm = await requirePortalPm("id, tenant_id, full_name, email, company, is_active");
 
   const supabase = createServiceClient();
 
-  // Verify the portal token → PM
-  const { pm, propertyManagerIds } = await resolvePortalPmScope(
-    supabase,
-    searchParams.token,
-    "id, tenant_id, full_name, email, company"
-  );
+  // Resolve all PM IDs for this email (handles re-invites)
+  let propertyManagerIds = [pm.id];
+  if (pm.email) {
+    const { data: aliases } = await supabase
+      .from("property_managers")
+      .select("id")
+      .eq("tenant_id", pm.tenant_id)
+      .eq("email", pm.email);
+    if (aliases && aliases.length > 0) {
+      propertyManagerIds = Array.from(new Set(aliases.map((a: { id: string }) => a.id)));
+    }
+  }
 
-  if (!pm) notFound();
-
-  // Load invoice and verify it belongs to this PM
   const { data: invoice } = await supabase
     .from("invoices")
     .select(
@@ -45,7 +50,6 @@ export default async function PortalInvoicePage({
       pm={pm}
       tenant={tenant}
       job={job}
-      token={searchParams.token}
       paidSuccess={searchParams.paid === "true"}
     />
   );

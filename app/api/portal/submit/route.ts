@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { validateInput, portalSubmitSchema } from "@/lib/validation";
 import { errorResponse } from "@/lib/api";
+import { getPortalPm } from "@/lib/portal";
 import { renderDetailCard, renderEmailLayout, renderMessageCard, renderNoticeCard } from "@/lib/email";
 import { Resend } from "resend";
 
@@ -74,13 +75,15 @@ async function uploadWorkOrderPhotos(
 
 export async function POST(req: NextRequest) {
   try {
+    // Identity is resolved from the session — never from the client body.
+    const pm = await getPortalPm();
+    if (!pm) return errorResponse("Unauthorized", 401);
+
     const isMultipart = req.headers.get("content-type")?.includes("multipart/form-data");
     const body = isMultipart ? await req.formData() : await req.json();
 
     const payload = isMultipart
       ? {
-          property_manager_id: asString(body.get("property_manager_id")),
-          tenant_id: asString(body.get("tenant_id")),
           property_id: asString(body.get("property_id")),
           title: asString(body.get("title")),
           description: asString(body.get("description")),
@@ -93,35 +96,28 @@ export async function POST(req: NextRequest) {
       return errorResponse((validation as any).error, 400);
     }
 
-    const { property_manager_id, tenant_id, property_id, title, description, priority } = validation.data;
+    const { property_id, title, description, priority } = validation.data;
 
     const supabase = createServiceClient();
 
+    // Rate limit: max 5 submissions per PM per hour.
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const { count: recentCount } = await supabase
       .from("work_orders")
       .select("id", { count: "exact", head: true })
-      .eq("property_manager_id", property_manager_id)
+      .eq("property_manager_id", pm.id)
       .gte("created_at", oneHourAgo);
     if ((recentCount ?? 0) >= 5) {
       return errorResponse("Too many submissions. Please wait before submitting again.", 429);
     }
 
-    const { data: pm } = await supabase
-      .from("property_managers")
-      .select("id, full_name, email")
-      .eq("id", property_manager_id)
-      .eq("tenant_id", tenant_id)
-      .single();
-
-    if (!pm) return errorResponse("Property manager not found", 404);
-
+    // Verify the property belongs to this PM and tenant.
     const { data: prop } = await supabase
       .from("properties")
       .select("id, name, address")
       .eq("id", property_id)
-      .eq("tenant_id", tenant_id)
-      .eq("property_manager_id", property_manager_id)
+      .eq("tenant_id", pm.tenant_id)
+      .eq("property_manager_id", pm.id)
       .single();
 
     if (!prop) return errorResponse("Property not found", 404);
@@ -129,9 +125,9 @@ export async function POST(req: NextRequest) {
     const { data: workOrder, error } = await supabase
       .from("work_orders")
       .insert({
-        tenant_id,
+        tenant_id: pm.tenant_id,
         property_id,
-        property_manager_id,
+        property_manager_id: pm.id,
         title: title.trim(),
         description: description.trim(),
         priority,
@@ -143,16 +139,16 @@ export async function POST(req: NextRequest) {
     if (error) return errorResponse("Failed to create work order", 500);
 
     const files = isMultipart
-      ? body.getAll("photos").filter((entry): entry is File => entry instanceof File && entry.size > 0)
+      ? body.getAll("photos").filter((entry: FormDataEntryValue): entry is File => entry instanceof File && entry.size > 0)
       : [];
 
     if (files.length > 0) {
       const uploadedPhotos = await uploadWorkOrderPhotos(
         supabase,
         files,
-        tenant_id,
+        pm.tenant_id,
         workOrder.id,
-        property_manager_id,
+        pm.id,
         "submission"
       );
 
@@ -168,8 +164,8 @@ export async function POST(req: NextRequest) {
     }
 
     const [{ data: owner }, { data: tenant }] = await Promise.all([
-      supabase.from("profiles").select("email, full_name").eq("tenant_id", tenant_id).eq("role", "owner").single(),
-      supabase.from("tenants").select("name").eq("id", tenant_id).single(),
+      supabase.from("profiles").select("email, full_name").eq("tenant_id", pm.tenant_id).eq("role", "owner").single(),
+      supabase.from("tenants").select("name").eq("id", pm.tenant_id).single(),
     ]);
 
     const tenantName = tenant?.name || "Foreman";

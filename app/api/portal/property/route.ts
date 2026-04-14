@@ -1,14 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { z } from "zod";
 import { createServiceClient } from "@/lib/supabase";
 import { errorResponse, jsonResponse } from "@/lib/api";
 import { renderDetailCard, renderEmailLayout, renderNoticeCard } from "@/lib/email";
+import { getPortalPm } from "@/lib/portal";
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 const schema = z.object({
-  token: z.string().min(10),
   name: z.string().min(2).max(120),
   address: z.string().min(5).max(200),
   city: z.string().min(2).max(80),
@@ -19,20 +19,15 @@ const schema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const pm = await getPortalPm();
+    if (!pm) return errorResponse("Unauthorized", 401);
+
     const body = await req.json();
     const parsed = schema.safeParse(body);
     if (!parsed.success) return errorResponse("Invalid input.", 400);
-    const { token, name, address, city, state, zip, notes } = parsed.data;
+    const { name, address, city, state, zip, notes } = parsed.data;
 
     const supabase = createServiceClient();
-
-    const { data: pm } = await supabase
-      .from("property_managers")
-      .select("id, tenant_id, full_name, email")
-      .eq("portal_token", token)
-      .single();
-
-    if (!pm) return errorResponse("Invalid link.", 404);
 
     const { data: property, error } = await supabase
       .from("properties")

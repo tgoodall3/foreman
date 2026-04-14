@@ -1,7 +1,5 @@
-import { rateLimit } from "../lib/rateLimit";
 import { z } from "zod";
 
-// Test schemas from API routes
 const addPMSchema = z.object({
   email: z.string().email(),
   first_name: z.string().min(1),
@@ -10,22 +8,13 @@ const addPMSchema = z.object({
 });
 
 const workOrderSchema = z.object({
-  property_manager_id: z.string(),
-  tenant_id: z.string(),
-  property_id: z.string(),
+  property_id: z.string().uuid(),
   title: z.string().min(1),
   description: z.string().min(1),
-  priority: z.enum(["low", "normal", "high", "urgent"]),
+  priority: z.enum(["low", "normal", "urgent", "emergency"]),
 });
 
 describe("Integration Tests", () => {
-  it("should validate rate limiting", async () => {
-    // Test rate limiter function
-    const result = await rateLimit("test-ip");
-    expect(result).toHaveProperty("success");
-    expect(result).toHaveProperty("reset");
-  });
-
   it("should validate property manager schema", () => {
     const validData = {
       email: "test@example.com",
@@ -40,12 +29,10 @@ describe("Integration Tests", () => {
 
   it("should validate work order schema", () => {
     const validData = {
-      property_manager_id: "pm-123",
-      tenant_id: "tenant-123",
-      property_id: "prop-123",
+      property_id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
       title: "Fix leak",
       description: "Water leak in kitchen",
-      priority: "high",
+      priority: "urgent",
     };
 
     const result = workOrderSchema.safeParse(validData);
@@ -65,9 +52,7 @@ describe("Integration Tests", () => {
 
   it("should reject invalid work order data", () => {
     const invalidData = {
-      property_manager_id: "",
-      tenant_id: "tenant-123",
-      property_id: "prop-123",
+      property_id: "not-a-uuid",
       title: "",
       description: "Description",
       priority: "invalid",

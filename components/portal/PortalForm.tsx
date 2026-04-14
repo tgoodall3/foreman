@@ -3,12 +3,11 @@
 import { useState } from "react";
 
 interface Props {
-  propertyManager: any;
   properties: any[];
   tenantName: string;
 }
 
-export default function PortalForm({ propertyManager, properties, tenantName }: Props) {
+export default function PortalForm({ properties, tenantName }: Props) {
   const [title, setTitle]               = useState("");
   const [description, setDescription]   = useState("");
   const [propertyId, setPropertyId]     = useState(properties[0]?.id || "");
@@ -26,8 +25,6 @@ export default function PortalForm({ propertyManager, properties, tenantName }: 
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        property_manager_id: propertyManager.id,
-        tenant_id: propertyManager.tenant_id,
         property_id: propertyId,
         title,
         description,

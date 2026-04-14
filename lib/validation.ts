@@ -66,8 +66,6 @@ export const workOrderActionSchema = z.object({
 });
 
 export const portalSubmitSchema = z.object({
-  property_manager_id: uuidSchema,
-  tenant_id: uuidSchema,
   property_id: uuidSchema,
   title: nameSchema,
   description: z.string().min(1).max(1000).trim(),

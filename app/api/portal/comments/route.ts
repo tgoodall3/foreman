@@ -3,16 +3,14 @@ import { z } from "zod";
 import { createServiceClient } from "@/lib/supabase";
 import { errorResponse, jsonResponse } from "@/lib/api";
 import { renderDetailCard, renderEmailLayout, renderMessageCard, renderNoticeCard } from "@/lib/email";
-import { resolvePortalPmScope } from "@/lib/portal";
+import { getPortalPm } from "@/lib/portal";
 import { Resend } from "resend";
 
 const listSchema = z.object({
-  token: z.string().min(10),
   work_order_id: z.string().uuid(),
 });
 
 const createSchema = z.object({
-  token: z.string().min(10),
   work_order_id: z.string().uuid(),
   message: z.string().min(1).max(500),
 });
@@ -42,25 +40,21 @@ function asString(value: FormDataEntryValue | null) {
 }
 
 export async function GET(req: NextRequest) {
+  const pm = await getPortalPm();
+  if (!pm) return errorResponse("Unauthorized", 401);
+
   const params = Object.fromEntries(req.nextUrl.searchParams.entries());
   const parsed = listSchema.safeParse(params);
   if (!parsed.success) return errorResponse("Invalid input.", 400);
 
   const supabase = createServiceClient();
-  const { token, work_order_id } = parsed.data;
-
-  const { pm, propertyManagerIds } = await resolvePortalPmScope(
-    supabase as any,
-    token,
-    "id, tenant_id, email"
-  );
-  if (!pm) return errorResponse("Invalid token.", 403);
+  const { work_order_id } = parsed.data;
 
   const { data: wo } = await supabase
     .from("work_orders")
-    .select("id, title, properties(name)")
+    .select("id")
     .eq("id", work_order_id)
-    .in("property_manager_id", propertyManagerIds)
+    .eq("property_manager_id", pm.id)
     .single();
   if (!wo) return errorResponse("Work order not found.", 404);
 
@@ -76,11 +70,13 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const pm = await getPortalPm();
+  if (!pm) return errorResponse("Unauthorized", 401);
+
   const isMultipart = req.headers.get("content-type")?.includes("multipart/form-data");
   const body = isMultipart ? await req.formData() : await req.json().catch(() => ({}));
   const payload = isMultipart
     ? {
-        token: asString(body.get("token")),
         work_order_id: asString(body.get("work_order_id")),
         message: asString(body.get("message")),
       }
@@ -89,20 +85,13 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return errorResponse("Invalid input.", 400);
 
   const supabase = createServiceClient();
-  const { token, work_order_id, message } = parsed.data;
-
-  const { pm, propertyManagerIds } = await resolvePortalPmScope(
-    supabase as any,
-    token,
-    "id, tenant_id, full_name, email"
-  );
-  if (!pm) return errorResponse("Invalid token.", 403);
+  const { work_order_id, message } = parsed.data;
 
   const { data: wo } = await supabase
     .from("work_orders")
     .select("id, title, properties(name)")
     .eq("id", work_order_id)
-    .in("property_manager_id", propertyManagerIds)
+    .eq("property_manager_id", pm.id)
     .single();
   if (!wo) return errorResponse("Work order not found.", 404);
 
@@ -120,7 +109,7 @@ export async function POST(req: NextRequest) {
   if (error) return errorResponse("Failed to add comment.", 500);
 
   const files = isMultipart
-    ? body.getAll("photos").filter((entry): entry is File => entry instanceof File && entry.size > 0)
+    ? body.getAll("photos").filter((entry: FormDataEntryValue): entry is File => entry instanceof File && entry.size > 0)
     : [];
 
   const uploadedPhotos: WorkOrderPhoto[] = [];
@@ -159,7 +148,6 @@ export async function POST(req: NextRequest) {
       .from("work_orders")
       .select("photos")
       .eq("id", work_order_id)
-      .in("property_manager_id", propertyManagerIds)
       .single();
 
     const existingPhotos = Array.isArray((workOrder as any)?.photos) ? (workOrder as any).photos : [];
