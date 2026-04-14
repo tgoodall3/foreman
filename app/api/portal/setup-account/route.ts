@@ -39,8 +39,11 @@ export async function POST(req: NextRequest) {
 
     if (authError || !authData.user) {
       console.error("auth.admin.createUser failed:", authError?.message, authError?.status);
-      const isDuplicate = authError?.message?.toLowerCase().includes("already registered")
-        || authError?.message?.toLowerCase().includes("duplicate");
+      const msg = authError?.message?.toLowerCase() ?? "";
+      const isDuplicate = msg.includes("already registered")
+        || msg.includes("duplicate")
+        || msg.includes("already exists")
+        || authError?.status === 422;
       return errorResponse(
         isDuplicate
           ? "An account already exists for this email. Sign in or reset your password."

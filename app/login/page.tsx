@@ -30,9 +30,18 @@ function LoginForm() {
       return;
     }
 
-    if (result.role === "owner") window.location.href = "/owner";
-    else if (result.role === "worker") window.location.href = "/worker";
-    else window.location.href = "/";
+    const next = searchParams.get("next");
+    if (next?.startsWith("/")) {
+      window.location.href = next;
+    } else if (result.role === "owner") {
+      window.location.href = "/owner";
+    } else if (result.role === "worker") {
+      window.location.href = "/worker";
+    } else if (result.role === "property_manager") {
+      window.location.href = "/portal";
+    } else {
+      window.location.href = "/";
+    }
   };
 
   return (
