@@ -4,6 +4,7 @@ import { createServiceClient } from "@/lib/supabase";
 import { errorResponse, jsonResponse } from "@/lib/api";
 import { renderDetailCard, renderEmailLayout, renderMessageCard, renderNoticeCard } from "@/lib/email";
 import { getPortalPm } from "@/lib/portal";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { Resend } from "resend";
 
 const listSchema = z.object({
@@ -72,6 +73,10 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const pm = await getPortalPm();
   if (!pm) return errorResponse("Unauthorized", 401);
+
+  if (!(await checkRateLimit(`portal-comments:${pm.id}`, 20, 60 * 60 * 1000))) {
+    return errorResponse("Too many comments. Please wait before posting again.", 429);
+  }
 
   const isMultipart = req.headers.get("content-type")?.includes("multipart/form-data");
   const body = isMultipart ? await req.formData() : await req.json().catch(() => ({}));

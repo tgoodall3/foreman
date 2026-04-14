@@ -6,6 +6,7 @@ import NavigationProgress from "@/components/ui/NavigationProgress";
 import RegisterSW from "@/components/pwa/RegisterSW";
 
 export function generateMetadata(): Metadata {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://foremanapp.io";
   return {
     title: { default: "Foreman", template: "%s | Foreman" },
     description: "Field service management for general contractors",
@@ -14,6 +15,18 @@ export function generateMetadata(): Metadata {
       capable: true,
       statusBarStyle: "default",
       title: "Foreman",
+    },
+    openGraph: {
+      title: "Foreman",
+      description: "Field service management for general contractors",
+      url: appUrl,
+      siteName: "Foreman",
+      type: "website",
+    },
+    twitter: {
+      card: "summary",
+      title: "Foreman",
+      description: "Field service management for general contractors",
     },
     other: {
       ...Sentry.getTraceData(),

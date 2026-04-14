@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { requireOwner } from "@/lib/auth";
 import { createServerSideClient } from "@/lib/supabase-server";
 import { formatDate, PRIORITY_CONFIG } from "@/lib/utils";
@@ -120,7 +121,14 @@ export default async function WorkOrderDetailPage({ params }: { params: { id: st
                     rel="noreferrer"
                     className="overflow-hidden rounded-xl border border-gray-200 bg-white"
                   >
-                    <img src={photo.url} alt={photo.caption || "Work order photo"} className="h-32 w-full object-cover" />
+                    <Image
+                      src={photo.url}
+                      alt={photo.caption || "Work order photo"}
+                      width={512}
+                      height={256}
+                      sizes="(max-width: 640px) 50vw, 33vw"
+                      className="h-32 w-full object-cover"
+                    />
                     {photo.caption && <p className="px-3 py-2 text-xs text-mist line-clamp-1">{photo.caption}</p>}
                   </a>
                 ))}
@@ -164,7 +172,14 @@ export default async function WorkOrderDetailPage({ params }: { params: { id: st
                               rel="noreferrer"
                               className="overflow-hidden rounded-xl border border-gray-200 bg-white"
                             >
-                              <img src={photo.url} alt={photo.caption || "Comment photo"} className="h-28 w-full object-cover" />
+                              <Image
+                                src={photo.url}
+                                alt={photo.caption || "Comment photo"}
+                                width={512}
+                                height={224}
+                                sizes="(max-width: 640px) 50vw, 33vw"
+                                className="h-28 w-full object-cover"
+                              />
                               {photo.caption && <p className="px-3 py-2 text-xs text-mist line-clamp-1">{photo.caption}</p>}
                             </a>
                           ))}

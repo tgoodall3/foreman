@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -165,7 +166,14 @@ function PhotoGrid({ photos }: { photos: WorkOrderPhoto[] }) {
           rel="noreferrer"
           className="group overflow-hidden rounded-lg border border-gray-200 bg-white"
         >
-          <img src={photo.url} alt={photo.caption || "Work order photo"} className="h-28 w-full object-cover transition-transform group-hover:scale-[1.02]" />
+          <Image
+            src={photo.url}
+            alt={photo.caption || "Work order photo"}
+            width={448}
+            height={224}
+            sizes="(max-width: 640px) 50vw, 33vw"
+            className="h-28 w-full object-cover transition-transform group-hover:scale-[1.02]"
+          />
           {photo.caption && <p className="px-2 py-1.5 text-[11px] text-mist line-clamp-1">{photo.caption}</p>}
         </a>
       ))}

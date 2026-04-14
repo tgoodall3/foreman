@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { createServiceClient } from "@/lib/supabase";
 import { errorResponse, jsonResponse } from "@/lib/api";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 const schema = z.object({
   token: z.string().min(10),
@@ -10,6 +11,11 @@ const schema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = getClientIp(req);
+    if (!(await checkRateLimit(`portal-setup:${ip}`, 5, 15 * 60 * 1000))) {
+      return errorResponse("Too many attempts. Please wait 15 minutes and try again.", 429);
+    }
+
     const body = await req.json();
     const parsed = schema.safeParse(body);
     if (!parsed.success) return errorResponse("Invalid input.", 400);

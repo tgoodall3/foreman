@@ -144,6 +144,11 @@ export default function LoginPage() {
               Submit a work order →
             </a>
           </p>
+          <p className="text-mist text-xs pt-2">
+            <a href="/legal/privacy" className="hover:text-chalk hover:underline">Privacy Policy</a>
+            {" · "}
+            <a href="/legal/terms" className="hover:text-chalk hover:underline">Terms of Service</a>
+          </p>
         </div>
       </div>
     </main>
