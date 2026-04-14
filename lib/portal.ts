@@ -22,15 +22,16 @@ export async function requirePortalPm(select = "id, tenant_id, full_name, email,
   if (!user) redirect("/login?next=/portal");
 
   const service = createServiceClient();
-  const { data: pm } = await service
+  const { data: pmRaw } = await service
     .from("property_managers")
     .select(select)
     .eq("profile_id", user.id)
     .single();
 
+  const pm = pmRaw as unknown as PortalPm | null;
   if (!pm) redirect("/login?next=/portal");
   if (pm.is_active === false) redirect("/portal/revoked");
-  return pm as PortalPm;
+  return pm;
 }
 
 /**
@@ -44,14 +45,15 @@ export async function getPortalPm(select = "id, tenant_id, full_name, email, com
     if (!user) return null;
 
     const service = createServiceClient();
-    const { data: pm } = await service
+    const { data: pmRaw } = await service
       .from("property_managers")
       .select(select)
       .eq("profile_id", user.id)
       .single();
 
+    const pm = pmRaw as unknown as PortalPm | null;
     if (!pm || pm.is_active === false) return null;
-    return pm as PortalPm;
+    return pm;
   } catch {
     return null;
   }

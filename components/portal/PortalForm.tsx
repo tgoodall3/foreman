@@ -5,9 +5,10 @@ import { useState } from "react";
 interface Props {
   properties: any[];
   tenantName: string;
+  pmName: string;
 }
 
-export default function PortalForm({ properties, tenantName }: Props) {
+export default function PortalForm({ properties, tenantName, pmName }: Props) {
   const [title, setTitle]               = useState("");
   const [description, setDescription]   = useState("");
   const [propertyId, setPropertyId]     = useState(properties[0]?.id || "");
@@ -84,7 +85,7 @@ export default function PortalForm({ properties, tenantName }: Props) {
           <div className="mb-6">
             <h1 className="font-display font-800 text-2xl text-forge">Submit Work Order</h1>
             <p className="text-mist text-sm mt-1">
-              Hi {propertyManager.full_name} — fill out the form below and we&apos;ll get back to you shortly.
+              Hi {pmName} — fill out the form below and we&apos;ll get back to you shortly.
             </p>
           </div>
 
