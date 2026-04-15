@@ -34,13 +34,18 @@ export async function POST(req: NextRequest) {
     let accountId = tenant.stripe_connect_id;
     if (!accountId) {
       const account = await stripe.accounts.create({
-        type: "express",
-        email: tenant.email,
-        business_profile: { name: tenant.name ?? undefined },
+        controller: {
+          stripe_dashboard: { type: "express" },
+          fees: { payer: "application" },
+          losses: { payments: "application" },
+          requirement_collection: "stripe",
+        },
         capabilities: {
           card_payments: { requested: true },
           transfers: { requested: true },
         },
+        ...(tenant.email ? { email: tenant.email } : {}),
+        ...(tenant.name  ? { business_profile: { name: tenant.name } } : {}),
       });
       accountId = account.id;
       await supabase
@@ -53,19 +58,20 @@ export async function POST(req: NextRequest) {
     const accountLink = await stripe.accountLinks.create({
       account: accountId,
       refresh_url: `${siteUrl}/api/billing/connect/refresh`,
-      return_url: `${siteUrl}/owner/settings/billing?connect=success`,
+      return_url:  `${siteUrl}/owner/settings/billing?connect=success`,
       type: "account_onboarding",
     });
 
     return jsonResponse({ url: accountLink.url });
-  } catch (err) {
-    logError("Stripe Connect onboarding error", err);
-    return errorResponse("Failed to start Stripe Connect onboarding.", 500);
+  } catch (err: any) {
+    const stripeMessage = err?.raw?.message || err?.message || "unknown";
+    logError(`Stripe Connect onboarding error: ${stripeMessage}`, err);
+    return errorResponse(`Failed to start Stripe Connect onboarding: ${stripeMessage}`, 500);
   }
 }
 
 // Called to refresh Connect status after returning from Stripe onboarding
-export async function PATCH(req: NextRequest) {
+export async function PATCH(_req: NextRequest) {
   try {
     const profile = await requireOwner();
     const supabase = createServiceClient();
