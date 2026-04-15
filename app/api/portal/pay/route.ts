@@ -9,11 +9,21 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 export async function POST(req: NextRequest) {
   try {
-    const pm = await getPortalPm();
-    if (!pm) return errorResponse("Unauthorized", 401);
-
     const body = await req.json();
-    const { invoice_id, allowACH, allowTips, tipAmount, amount } = body ?? {};
+    const { invoice_id, allowACH, allowTips, tipAmount, amount, portal_token } = body ?? {};
+
+    // Try session auth first; fall back to portal_token for clients without accounts
+    let pm = await getPortalPm();
+    if (!pm && portal_token) {
+      const supabaseService = createServiceClient();
+      const { data: pmRaw } = await supabaseService
+        .from("property_managers")
+        .select("id, tenant_id, full_name, email, company, is_active")
+        .eq("portal_token", portal_token)
+        .single();
+      if (pmRaw && pmRaw.is_active !== false) pm = pmRaw as any;
+    }
+    if (!pm) return errorResponse("Unauthorized", 401);
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || req.nextUrl?.origin;
     if (!siteUrl) return errorResponse("Site URL is not configured.", 500);
@@ -59,7 +69,7 @@ export async function POST(req: NextRequest) {
     }
 
     const jobTitle = (invoice.jobs as any)?.title ?? "Services";
-    const returnBase = `${siteUrl}/portal/invoice?invoice=${encodeURIComponent(invoice_id)}`;
+    const returnBase = `${siteUrl}/portal/invoice?invoice=${encodeURIComponent(invoice_id)}${portal_token ? `&token=${encodeURIComponent(portal_token)}` : ""}`;
 
     const baseAmount = typeof amount === "number" && amount > 0 && amount <= invoice.total ? amount : invoice.total;
     const tip = allowTips && typeof tipAmount === "number" && tipAmount > 0 ? tipAmount : 0;

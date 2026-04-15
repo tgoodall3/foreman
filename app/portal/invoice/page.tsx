@@ -1,6 +1,6 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase";
-import { requirePortalPm } from "@/lib/portal";
+import { getPortalPm } from "@/lib/portal";
 import PortalInvoiceClient from "./PortalInvoiceClient";
 
 export const dynamic = "force-dynamic";
@@ -8,22 +8,38 @@ export const dynamic = "force-dynamic";
 export default async function PortalInvoicePage({
   searchParams,
 }: {
-  searchParams: { invoice?: string; paid?: string };
+  searchParams: { invoice?: string; token?: string; paid?: string };
 }) {
   if (!searchParams.invoice) notFound();
 
-  const pm = await requirePortalPm("id, tenant_id, full_name, email, company, is_active");
-
   const supabase = createServiceClient();
 
+  // 1. Try session auth first (logged-in portal users)
+  let pm = await getPortalPm("id, tenant_id, full_name, email, company, is_active");
+
+  // 2. Fall back to portal_token in the URL (clients clicking the invoice email link)
+  if (!pm && searchParams.token) {
+    const { data: pmRaw } = await supabase
+      .from("property_managers")
+      .select("id, tenant_id, full_name, email, company, is_active")
+      .eq("portal_token", searchParams.token)
+      .single();
+
+    if (pmRaw && pmRaw.is_active !== false) {
+      pm = pmRaw as any;
+    }
+  }
+
+  if (!pm) redirect("/login?next=/portal");
+
   // Resolve all PM IDs for this email (handles re-invites)
-  let propertyManagerIds = [pm.id];
-  if (pm.email) {
+  let propertyManagerIds = [pm!.id];
+  if (pm!.email) {
     const { data: aliases } = await supabase
       .from("property_managers")
       .select("id")
-      .eq("tenant_id", pm.tenant_id)
-      .eq("email", pm.email);
+      .eq("tenant_id", pm!.tenant_id)
+      .eq("email", pm!.email);
     if (aliases && aliases.length > 0) {
       propertyManagerIds = Array.from(new Set(aliases.map((a: { id: string }) => a.id)));
     }
@@ -36,7 +52,7 @@ export default async function PortalInvoicePage({
     )
     .eq("id", searchParams.invoice)
     .in("property_manager_id", propertyManagerIds)
-    .eq("tenant_id", pm.tenant_id)
+    .eq("tenant_id", pm!.tenant_id)
     .single();
 
   if (!invoice) notFound();
@@ -47,9 +63,10 @@ export default async function PortalInvoicePage({
   return (
     <PortalInvoiceClient
       invoice={invoice}
-      pm={pm}
+      pm={pm!}
       tenant={tenant}
       job={job}
+      portalToken={searchParams.token}
       paidSuccess={searchParams.paid === "true"}
     />
   );

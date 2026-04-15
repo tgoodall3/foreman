@@ -24,9 +24,10 @@ type Props = {
   tenant: any;
   job: any;
   paidSuccess: boolean;
+  portalToken?: string;
 };
 
-export default function PortalInvoiceClient({ invoice, pm, tenant, job, paidSuccess }: Props) {
+export default function PortalInvoiceClient({ invoice, pm, tenant, job, paidSuccess, portalToken }: Props) {
   const [sigName, setSigName]         = useState("");
   const [sigError, setSigError]       = useState("");
   const [payError, setPayError]       = useState("");
@@ -57,6 +58,7 @@ export default function PortalInvoiceClient({ invoice, pm, tenant, job, paidSucc
         invoice_id: invoice.id,
         allowACH: true,
         signature_name: sigName.trim(),
+        portal_token: portalToken,
       }),
     });
 
