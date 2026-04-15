@@ -118,8 +118,11 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="flex justify-center mb-3">
-            <img src="/logo.png" alt="Foreman" className="h-14 w-auto" />
+          <div className="flex items-center justify-center gap-3 mb-2">
+            <div className="rounded overflow-hidden h-10 w-10 shrink-0">
+              <img src="/logo_inverse.png" alt="Foreman" className="h-10 w-10" />
+            </div>
+            <span className="font-display font-800 text-white text-3xl tracking-wide">FOREMAN</span>
           </div>
           <p className="text-mist text-sm">Field service management for contractors</p>
         </div>
