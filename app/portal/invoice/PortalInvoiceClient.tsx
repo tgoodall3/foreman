@@ -4,7 +4,14 @@ import { useState, useCallback } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import { EmbeddedCheckout, EmbeddedCheckoutProvider } from "@stripe/react-stripe-js";
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+// Stripe is loaded lazily — only when the user clicks Pay, not on page load.
+let stripePromise: ReturnType<typeof loadStripe> | null = null;
+function getStripe() {
+  if (!stripePromise) {
+    stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+  }
+  return stripePromise;
+}
 
 function fmt(n: number | null | undefined) {
   if (n == null) return "$0.00";
@@ -266,7 +273,7 @@ export default function PortalInvoiceClient({ invoice, pm, tenant, job, paidSucc
                 ← Back
               </button>
               <EmbeddedCheckoutProvider
-                stripe={stripePromise}
+                stripe={getStripe()}
                 options={{ fetchClientSecret }}
               >
                 <EmbeddedCheckout />
