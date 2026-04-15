@@ -4,7 +4,7 @@ import { Resend } from "resend";
 import { requireOwner } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase";
 import { errorResponse } from "@/lib/api";
-import { renderDetailCard, renderEmailLayout, renderNoticeCard } from "@/lib/email";
+import { getFromAddress, renderDetailCard, renderEmailLayout, renderNoticeCard } from "@/lib/email";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -36,9 +36,9 @@ export async function POST(req: NextRequest) {
 
     // If the PM already has an account, send a sign-in nudge instead of a setup link.
     if (pm.profile_id) {
-      if (resend && process.env.EMAIL_FROM) {
+      if (resend) {
         await resend.emails.send({
-          from: process.env.EMAIL_FROM,
+          from: getFromAddress(tenantName),
           to: pm.email,
           subject: `Access your ${tenantName} portal`,
           html: renderEmailLayout({
@@ -85,9 +85,9 @@ export async function POST(req: NextRequest) {
 
     const setupLink = `${appUrl}/portal/setup?token=${setupToken}&next=/portal`;
 
-    if (resend && process.env.EMAIL_FROM) {
+    if (resend) {
       await resend.emails.send({
-        from: process.env.EMAIL_FROM,
+        from: getFromAddress(tenantName),
         to: pm.email,
         subject: `You're invited to the ${tenantName} portal`,
         html: renderEmailLayout({

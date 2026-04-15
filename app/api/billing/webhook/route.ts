@@ -3,7 +3,7 @@ import Stripe from "stripe";
 import { createServiceClient } from "@/lib/supabase";
 import { Resend } from "resend";
 import { audit } from "@/lib/audit";
-import { renderDetailCard, renderEmailLayout, renderNoticeCard } from "@/lib/email";
+import { getFromAddress, renderDetailCard, renderEmailLayout, renderNoticeCard } from "@/lib/email";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
           const recipients = [pmEmail, tenantEmail].filter(Boolean);
           if (recipients.length) {
             await resend.emails.send({
-              from: process.env.EMAIL_FROM!,
+              from: getFromAddress(tenantName),
               to: recipients as string[],
               subject: `Payment received for invoice ${inv?.invoice_number ?? invoiceId}`,
               html: renderEmailLayout({
@@ -176,37 +176,29 @@ export async function POST(req: NextRequest) {
           if (ownerEmail) {
             const appUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "";
             await resend.emails.send({
-              from: process.env.EMAIL_FROM,
+              from: getFromAddress(),
               to: ownerEmail,
               subject: "Action required: Your Foreman subscription payment failed",
-              html: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 16px;">
-<tr><td align="center">
-<table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
-  <tr><td style="background:#0f1923;border-radius:12px 12px 0 0;padding:24px 32px;">
-    <p style="margin:0;font-size:18px;font-weight:800;color:#fff;">Foreman</p>
-    <p style="margin:4px 0 0;font-size:12px;color:#9ca3af;">Billing Notice</p>
-  </td></tr>
-  <tr><td style="background:#fff;padding:32px;border:1px solid #e5e7eb;border-top:none;">
-    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:16px 20px;margin-bottom:24px;">
-      <p style="margin:0;font-size:14px;font-weight:700;color:#dc2626;">Payment failed</p>
-      <p style="margin:4px 0 0;font-size:13px;color:#991b1b;">We were unable to charge your card on file.</p>
-    </div>
-    <p style="margin:0 0 16px;font-size:14px;color:#6b7280;line-height:1.6;">
-      Hi ${owner?.full_name ?? "there"}, your Foreman subscription payment did not go through. Please update your payment method to keep your account active.
-    </p>
-    <a href="${appUrl}/owner/settings/billing" style="display:inline-block;background:#f59e0b;color:#0f1923;padding:14px 32px;border-radius:10px;font-weight:800;font-size:15px;text-decoration:none;">
-      Update Payment Method →
-    </a>
-    <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;">If you believe this is an error, reply to this email and we'll sort it out.</p>
-  </td></tr>
-  <tr><td style="background:#f9f8f5;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;padding:16px 32px;text-align:center;">
-    <p style="margin:0;font-size:11px;color:#d1d5db;">Powered by Foreman</p>
-  </td></tr>
-</table>
-</td></tr>
-</table>
-</body></html>`,
+              html: renderEmailLayout({
+                tenantName: "Foreman",
+                category: "Billing Notice",
+                title: "Subscription payment failed",
+                greeting: `Hi ${owner?.full_name ?? "there"},`,
+                intro: "Your Foreman subscription payment did not go through. Please update your payment method to keep your account active.",
+                sections: [
+                  renderNoticeCard({
+                    tone: "danger",
+                    eyebrow: "Action required",
+                    title: "We were unable to charge your card on file",
+                    body: "Update your payment method before your next billing cycle to avoid service interruption.",
+                  }),
+                ],
+                primaryAction: {
+                  href: `${appUrl}/owner/settings/billing`,
+                  label: "Update Payment Method",
+                },
+                footerText: "If you believe this is an error, reply to this email and we'll sort it out.",
+              }),
             }).catch((err) => console.error("[email] payment failed notification:", err));
           }
         }

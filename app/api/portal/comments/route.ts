@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { createServiceClient } from "@/lib/supabase";
 import { errorResponse, jsonResponse } from "@/lib/api";
-import { renderDetailCard, renderEmailLayout, renderMessageCard, renderNoticeCard } from "@/lib/email";
+import { getFromAddress, renderDetailCard, renderEmailLayout, renderMessageCard, renderNoticeCard } from "@/lib/email";
 import { getPortalPm } from "@/lib/portal";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { Resend } from "resend";
@@ -181,7 +181,7 @@ export async function POST(req: NextRequest) {
       const appUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
 
       await resend.emails.send({
-        from: process.env.EMAIL_FROM!,
+        from: getFromAddress(tenantName),
         to: owner.email,
         subject: `New PM comment: ${((wo as any)?.title as string) || "Work order"}`,
         html: renderEmailLayout({

@@ -3,7 +3,7 @@ import { createServiceClient } from "@/lib/supabase";
 import { validateInput, portalSubmitSchema } from "@/lib/validation";
 import { errorResponse } from "@/lib/api";
 import { getPortalPm } from "@/lib/portal";
-import { renderDetailCard, renderEmailLayout, renderMessageCard, renderNoticeCard } from "@/lib/email";
+import { getFromAddress, renderDetailCard, renderEmailLayout, renderMessageCard, renderNoticeCard } from "@/lib/email";
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -169,7 +169,6 @@ export async function POST(req: NextRequest) {
     ]);
 
     const tenantName = tenant?.name || "Foreman";
-    const fromAddress = `${tenantName} <${process.env.EMAIL_FROM!}>`;
     const appUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
     const property = Array.isArray((workOrder as any).properties)
       ? (workOrder as any).properties[0]
@@ -180,7 +179,7 @@ export async function POST(req: NextRequest) {
 
     if (owner?.email && process.env.RESEND_API_KEY) {
       await resend.emails.send({
-        from: fromAddress,
+        from: getFromAddress(tenantName),
         to: owner.email,
         subject: `New Work Order: ${title}`,
         html: renderEmailLayout({
@@ -224,7 +223,7 @@ export async function POST(req: NextRequest) {
 
       if (propertyManager?.email) {
         await resend.emails.send({
-          from: fromAddress,
+          from: getFromAddress(tenantName),
           to: propertyManager.email,
           subject: `Work Order Received: ${title}`,
           html: renderEmailLayout({

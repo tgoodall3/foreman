@@ -225,12 +225,10 @@ describe("workOrderActionSchema", () => {
 // ---------------------------------------------------------------------------
 describe("portalSubmitSchema", () => {
   const valid = {
-    property_manager_id: UUID,
-    tenant_id:           UUID2,
-    property_id:         UUID,
-    title:               "Broken window",
-    description:         "The window in unit 3 is cracked.",
-    priority:            "normal" as const,
+    property_id:  UUID,
+    title:        "Broken window",
+    description:  "The window in unit 3 is cracked.",
+    priority:     "normal" as const,
   };
 
   it("accepts a valid portal submission", () => {
@@ -255,9 +253,9 @@ describe("portalSubmitSchema", () => {
     ).toBe(false);
   });
 
-  it("rejects non-UUID property_manager_id", () => {
+  it("rejects non-UUID property_id", () => {
     expect(
-      validateInput(portalSubmitSchema, { ...valid, property_manager_id: "not-a-uuid" }).success
+      validateInput(portalSubmitSchema, { ...valid, property_id: "not-a-uuid" }).success
     ).toBe(false);
   });
 });

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { createServiceClient } from "@/lib/supabase";
 import { errorResponse, jsonResponse } from "@/lib/api";
-import { renderDetailCard, renderEmailLayout, renderNoticeCard } from "@/lib/email";
+import { getFromAddress, renderDetailCard, renderEmailLayout, renderNoticeCard } from "@/lib/email";
 import { getPortalPm } from "@/lib/portal";
 import { Resend } from "resend";
 
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
       if (owner?.email) {
         const tenantName = tenant?.name || "Foreman";
         await resend.emails.send({
-          from: process.env.EMAIL_FROM!,
+          from: getFromAddress(tenantName),
           to: owner.email,
           subject: `New property added by ${pm.full_name}`,
           html: renderEmailLayout({

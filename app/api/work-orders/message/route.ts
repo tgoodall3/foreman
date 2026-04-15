@@ -4,7 +4,7 @@ import { Resend } from "resend";
 import { requireOwner } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase";
 import { errorResponse } from "@/lib/api";
-import { renderDetailCard, renderEmailLayout, renderMessageCard, renderNoticeCard } from "@/lib/email";
+import { getFromAddress, renderDetailCard, renderEmailLayout, renderMessageCard, renderNoticeCard } from "@/lib/email";
 
 const messageSchema = z.object({
   workOrderId: z.string().uuid(),
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
       const appUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
 
       await resend.emails.send({
-        from: process.env.EMAIL_FROM!,
+        from: getFromAddress(tenantName),
         to: pm.email,
         subject: `Message about work order: ${wo.title}`,
         html: renderEmailLayout({

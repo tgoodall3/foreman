@@ -1,5 +1,6 @@
 /**
  * Tests for POST /api/portal/submit
+ * Auth is session-based via getPortalPm(). Identity is never client-supplied.
  */
 import { NextRequest } from "next/server";
 
@@ -21,6 +22,11 @@ jest.mock("@/lib/supabase", () => ({
   createServiceClient: jest.fn(() => ({ from: mockServiceFrom })),
 }));
 
+const mockGetPortalPm = jest.fn();
+jest.mock("@/lib/portal", () => ({
+  getPortalPm: (...args: any[]) => mockGetPortalPm(...args),
+}));
+
 jest.mock("next/headers", () => ({ cookies: jest.fn(() => ({ get: jest.fn() })) }));
 
 import { POST } from "../../app/api/portal/submit/route";
@@ -33,18 +39,31 @@ function makeRequest(body: object) {
   });
 }
 
+// property_manager_id and tenant_id are no longer client-supplied
 const validBody = {
-  property_manager_id: UUID_PM,
-  tenant_id:           UUID_TENANT,
-  property_id:         UUID_PROP,
-  title:               "Broken window",
-  description:         "Window cracked in unit 3.",
-  priority:            "normal",
+  property_id:  UUID_PROP,
+  title:        "Broken window",
+  description:  "Window cracked in unit 3.",
+  priority:     "normal",
 };
 
-// Helper: build a sequence of mockServiceFrom responses.
-// The first response is always the DB-based rate limit check (work_orders count).
-// Pass rateLimitCount to control how many recent submissions the PM has.
+const PM    = { id: UUID_PM, tenant_id: UUID_TENANT, full_name: "Alice PM", email: "alice@pm.com", is_active: true };
+const PROP  = { id: UUID_PROP, name: "Sunrise Apts", address: "100 Main" };
+const WO    = {
+  id: UUID_WO,
+  properties:        { name: "Sunrise Apts", address: "100 Main" },
+  property_managers: { full_name: "Alice PM", email: "alice@pm.com" },
+};
+const OWNER = { email: "owner@gc.com", full_name: "Bob Owner" };
+
+/**
+ * Build a sequence of mockServiceFrom responses.
+ * DB call order in the route:
+ *   1. work_orders count  (rate limit check)
+ *   2. properties         (property ownership check)
+ *   3. work_orders insert
+ *   4+. profiles + tenants (Promise.all for email)
+ */
 function makeFromSequence(
   responses: Array<{ data?: any; error?: any; count?: number }>,
   rateLimitCount = 0,
@@ -72,23 +91,21 @@ function makeFromSequence(
 describe("POST /api/portal/submit", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    process.env.RESEND_API_KEY = "test-key";
-    process.env.EMAIL_FROM     = "noreply@example.com";
-    process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
+    mockGetPortalPm.mockResolvedValue(PM);
+    process.env.RESEND_API_KEY       = "test-key";
+    process.env.EMAIL_FROM           = "noreply@example.com";
+    process.env.NEXT_PUBLIC_APP_URL  = "http://localhost:3000";
   });
 
   afterEach(() => {
     delete process.env.RESEND_API_KEY;
   });
 
-  const PM   = { id: UUID_PM, full_name: "Alice PM", email: "alice@pm.com" };
-  const PROP = { id: UUID_PROP, name: "Sunrise Apts", address: "100 Main" };
-  const WO   = {
-    id: UUID_WO,
-    properties:        { name: "Sunrise Apts", address: "100 Main" },
-    property_managers: { full_name: "Alice PM", email: "alice@pm.com" },
-  };
-  const OWNER = { email: "owner@gc.com", full_name: "Bob Owner" };
+  it("returns 401 when not authenticated", async () => {
+    mockGetPortalPm.mockResolvedValue(null);
+    const res = await POST(makeRequest(validBody));
+    expect(res.status).toBe(401);
+  });
 
   it("returns 400 for an invalid payload (missing title)", async () => {
     const { title, ...body } = validBody;
@@ -102,7 +119,6 @@ describe("POST /api/portal/submit", () => {
   });
 
   it("returns 429 when PM has >= 5 submissions in the last hour", async () => {
-    // rateLimitCount=5 → DB says 5 recent work orders → rate limited
     makeFromSequence([], 5);
 
     const res  = await POST(makeRequest(validBody));
@@ -112,18 +128,8 @@ describe("POST /api/portal/submit", () => {
     expect(json.error).toMatch(/too many/i);
   });
 
-  it("returns 404 when property manager is not found", async () => {
+  it("returns 404 when property is not found or does not belong to PM", async () => {
     makeFromSequence([{ data: null, error: null }]);
-
-    const res = await POST(makeRequest(validBody));
-    expect(res.status).toBe(404);
-  });
-
-  it("returns 404 when property is not found", async () => {
-    makeFromSequence([
-      { data: PM, error: null },
-      { data: null, error: null },
-    ]);
 
     const res = await POST(makeRequest(validBody));
     expect(res.status).toBe(404);
@@ -131,44 +137,35 @@ describe("POST /api/portal/submit", () => {
 
   it("scopes the property lookup to the submitting PM", async () => {
     const propertyEq = jest.fn();
-
     let callCount = 0;
+
     mockServiceFrom.mockImplementation(() => {
       callCount++;
 
+      // call 1: rate limit check
       if (callCount === 1) {
-        const response = { data: null, error: null, count: 0 };
+        const r = { data: null, error: null, count: 0 };
         const chain: any = {
           select: jest.fn().mockReturnThis(),
           eq: jest.fn().mockReturnThis(),
           gte: jest.fn().mockReturnThis(),
-          single: jest.fn().mockResolvedValue(response),
+          single: jest.fn().mockResolvedValue(r),
         };
-        chain.then = (res: any, rej?: any) => Promise.resolve(response).then(res, rej);
+        chain.then = (res: any, rej?: any) => Promise.resolve(r).then(res, rej);
         return chain;
       }
 
-      if (callCount === 2) {
-        const response = { data: PM, error: null };
-        const chain: any = {
-          select: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockReturnThis(),
-          single: jest.fn().mockResolvedValue(response),
-        };
-        chain.then = (res: any, rej?: any) => Promise.resolve(response).then(res, rej);
-        return chain;
-      }
-
-      const response = { data: null, error: null };
+      // call 2: property lookup — spy on eq calls
+      const r = { data: null, error: null };
       const chain: any = {
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockImplementation((field: string, value: any) => {
           propertyEq(field, value);
           return chain;
         }),
-        single: jest.fn().mockResolvedValue(response),
+        single: jest.fn().mockResolvedValue(r),
       };
-      chain.then = (res: any, rej?: any) => Promise.resolve(response).then(res, rej);
+      chain.then = (res: any, rej?: any) => Promise.resolve(r).then(res, rej);
       return chain;
     });
 
@@ -180,11 +177,10 @@ describe("POST /api/portal/submit", () => {
 
   it("creates work order and returns 200 on success", async () => {
     makeFromSequence([
-      { data: PM, error: null },
-      { data: PROP, error: null },
-      { data: WO, error: null },
-      { data: OWNER, error: null },  // owner lookup
-      { data: { name: "Acme GC" }, error: null }, // tenant lookup
+      { data: PROP,              error: null },
+      { data: WO,                error: null },
+      { data: OWNER,             error: null },
+      { data: { name: "Acme GC" }, error: null },
     ]);
 
     const res  = await POST(makeRequest(validBody));
@@ -197,10 +193,9 @@ describe("POST /api/portal/submit", () => {
 
   it("sends notification emails when work order is created", async () => {
     makeFromSequence([
-      { data: PM, error: null },
-      { data: PROP, error: null },
-      { data: WO, error: null },
-      { data: OWNER, error: null },
+      { data: PROP,              error: null },
+      { data: WO,                error: null },
+      { data: OWNER,             error: null },
       { data: { name: "Acme GC" }, error: null },
     ]);
 
@@ -217,10 +212,9 @@ describe("POST /api/portal/submit", () => {
   it("succeeds without sending emails when RESEND_API_KEY is absent", async () => {
     delete process.env.RESEND_API_KEY;
     makeFromSequence([
-      { data: PM, error: null },
-      { data: PROP, error: null },
-      { data: WO, error: null },
-      { data: OWNER, error: null },
+      { data: PROP,              error: null },
+      { data: WO,                error: null },
+      { data: OWNER,             error: null },
       { data: { name: "Acme GC" }, error: null },
     ]);
 
@@ -233,7 +227,6 @@ describe("POST /api/portal/submit", () => {
 
   it("returns 500 when work order insert fails", async () => {
     makeFromSequence([
-      { data: PM, error: null },
       { data: PROP, error: null },
       { data: null, error: { message: "insert failed" } },
     ]);

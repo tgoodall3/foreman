@@ -3,7 +3,7 @@ import { Resend } from "resend";
 import Stripe from "stripe";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceClient } from "@/lib/supabase";
-import { renderDetailCard, renderEmailLayout, renderMessageCard, renderNoticeCard } from "@/lib/email";
+import { getFromAddress, renderDetailCard, renderEmailLayout, renderMessageCard, renderNoticeCard } from "@/lib/email";
 import { maybeCreateNextOccurrence } from "@/lib/recurring";
 import { audit } from "@/lib/audit";
 import { formatDate, generateInvoiceNumber } from "@/lib/utils";
@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
   const portalLink = pm.portal_token ? `${appUrl}/portal?token=${pm.portal_token}` : null;
 
   await resend.emails.send({
-    from: process.env.EMAIL_FROM!,
+    from: getFromAddress(tenantName),
     to: pm.email,
     subject: `Work Completed: ${job.title}`,
     html: renderEmailLayout({

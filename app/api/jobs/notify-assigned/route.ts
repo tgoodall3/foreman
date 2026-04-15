@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { Resend } from "resend";
-import { renderDetailCard, renderEmailLayout, renderMessageCard, renderNoticeCard } from "@/lib/email";
+import { getFromAddress, renderDetailCard, renderEmailLayout, renderMessageCard, renderNoticeCard } from "@/lib/email";
 import { formatDate } from "@/lib/utils";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
 
     for (const worker of workers) {
       await resend.emails.send({
-        from: process.env.EMAIL_FROM!,
+        from: getFromAddress(tenantName),
         to: worker.email,
         subject: `New Job Assigned: ${job.title}`,
         html: renderEmailLayout({

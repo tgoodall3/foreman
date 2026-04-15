@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { Resend } from "resend";
+import { getFromAddress, renderDetailCard, renderEmailLayout, renderNoticeCard } from "@/lib/email";
 
 /**
  * GET /api/cron/estimates
@@ -47,43 +48,36 @@ export async function GET(req: NextRequest) {
 
     for (const est of expiringSoon) {
       const owner = ownerByTenant[est.tenant_id];
-      if (!owner?.email || !process.env.EMAIL_FROM) continue;
+      if (!owner?.email) continue;
 
       const daysLeft = est.valid_until === warn1Str ? 1 : 3;
       const pmName = (est.property_managers as any)?.full_name ?? "your client";
 
       await resend.emails.send({
-        from: process.env.EMAIL_FROM,
+        from: getFromAddress(),
         to: owner.email,
         subject: `Estimate expiring in ${daysLeft} day${daysLeft > 1 ? "s" : ""}: ${est.estimate_number}`,
-        html: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="padding:32px 16px;">
-<tr><td align="center">
-<table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;">
-  <tr><td style="background:#0f1923;border-radius:12px 12px 0 0;padding:24px 32px;">
-    <p style="margin:0;font-size:18px;font-weight:800;color:#fff;">Foreman</p>
-    <p style="margin:4px 0 0;font-size:12px;color:#9ca3af;">Estimate Expiry Warning</p>
-  </td></tr>
-  <tr><td style="background:#fff;padding:32px;border:1px solid #e5e7eb;border-top:none;">
-    <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:16px 20px;margin-bottom:24px;">
-      <p style="margin:0;font-size:13px;font-weight:700;color:#d97706;">Expiring in ${daysLeft} day${daysLeft > 1 ? "s" : ""}</p>
-    </div>
-    <p style="margin:0 0 16px;font-size:14px;color:#374151;">Hi ${owner.full_name ?? "there"},</p>
-    <p style="margin:0 0 24px;font-size:14px;color:#6b7280;line-height:1.6;">
-      Estimate <strong>${est.estimate_number}</strong> for <strong>${pmName}</strong> expires on <strong>${est.valid_until}</strong>.
-      Follow up now to keep the deal moving.
-    </p>
-    <a href="${appUrl}/owner/estimates/${est.id}" style="display:inline-block;background:#f59e0b;color:#0f1923;padding:14px 32px;border-radius:10px;font-weight:800;font-size:15px;text-decoration:none;">
-      View Estimate →
-    </a>
-  </td></tr>
-  <tr><td style="background:#f9f8f5;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;padding:16px 32px;text-align:center;">
-    <p style="margin:0;font-size:11px;color:#d1d5db;">Powered by Foreman</p>
-  </td></tr>
-</table>
-</td></tr>
-</table>
-</body></html>`,
+        html: renderEmailLayout({
+          tenantName: "Foreman",
+          category: "Estimate Expiry Warning",
+          title: `Estimate expiring in ${daysLeft} day${daysLeft > 1 ? "s" : ""}`,
+          greeting: `Hi ${owner.full_name ?? "there"},`,
+          intro: `Estimate ${est.estimate_number} for ${pmName} expires on ${est.valid_until}. Follow up now to keep the deal moving.`,
+          previewText: `Estimate ${est.estimate_number} expires in ${daysLeft} day${daysLeft > 1 ? "s" : ""}.`,
+          sections: [
+            renderNoticeCard({
+              tone: "warning",
+              eyebrow: `Expiring in ${daysLeft} day${daysLeft > 1 ? "s" : ""}`,
+              title: est.estimate_number,
+              body: `Client: ${pmName} · Expires: ${est.valid_until}`,
+            }),
+          ],
+          primaryAction: {
+            href: `${appUrl}/owner/estimates/${est.id}`,
+            label: "View Estimate",
+          },
+          footerText: "Log in to your dashboard to follow up or extend the expiry.",
+        }),
       }).catch((err) => console.error("[email] estimate expiry warning:", err));
       warned++;
     }

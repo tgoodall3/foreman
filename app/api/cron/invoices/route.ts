@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { Resend } from "resend";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { getFromAddress, renderDetailCard, renderEmailLayout, renderNoticeCard } from "@/lib/email";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -38,68 +39,57 @@ export async function GET(req: NextRequest) {
     for (const t of tenants ?? []) tenantMap[t.id] = t.name;
   }
 
-  if (!unpaid?.length || !resend || !process.env.EMAIL_FROM) {
+  if (!unpaid?.length || !resend) {
     return NextResponse.json({ marked: nowOverdue?.length ?? 0, reminded: 0 });
   }
 
   let reminded = 0;
 
   for (const inv of unpaid) {
-    const pm         = inv.property_managers as any;
-  const tenantName = tenantMap[inv.tenant_id] || "Foreman customer";
-    const jobTitle   = (inv.jobs as any)?.title || "Services";
+    const pm          = inv.property_managers as any;
+    const tenantName  = tenantMap[inv.tenant_id] || "Foreman customer";
+    const jobTitle    = (inv.jobs as any)?.title || "Services";
 
     if (!pm?.email) continue;
 
-    const dueDate    = new Date(inv.due_date + "T00:00:00Z");
-    const msOverdue  = Date.now() - dueDate.getTime();
+    const dueDate     = new Date(inv.due_date + "T00:00:00Z");
+    const msOverdue   = Date.now() - dueDate.getTime();
     const daysOverdue = Math.floor(msOverdue / (1000 * 60 * 60 * 24));
 
     // Send at exactly 3 and 7 days overdue (window: same calendar day)
     if (daysOverdue !== 3 && daysOverdue !== 7) continue;
 
-    const subject = daysOverdue === 3
-      ? `Reminder: Invoice ${inv.invoice_number} is 3 days overdue`
-      : `Final Notice: Invoice ${inv.invoice_number} is 7 days overdue`;
-
-    const urgencyColor = daysOverdue >= 7 ? "#dc2626" : "#f59e0b";
+    const isFinal = daysOverdue >= 7;
+    const subject = isFinal
+      ? `Final Notice: Invoice ${inv.invoice_number} is 7 days overdue`
+      : `Reminder: Invoice ${inv.invoice_number} is 3 days overdue`;
 
     await resend!.emails.send({
-      from: process.env.EMAIL_FROM!,
+      from: getFromAddress(tenantName),
       to:   pm.email,
       subject,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 560px; color: #0f1923;">
-          <div style="background: #0f1923; padding: 20px 24px; border-radius: 8px 8px 0 0;">
-            <span style="font-size: 22px; font-weight: 800; color: #f59e0b; letter-spacing: 1px;">FOREMAN</span>
-            <p style="color: #9ca3af; font-size: 13px; margin: 4px 0 0;">${tenantName}</p>
-          </div>
-          <div style="background: #fff; padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-            <div style="background: ${urgencyColor}15; border-left: 4px solid ${urgencyColor}; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px;">
-              <p style="margin: 0; font-weight: 700; color: ${urgencyColor}; font-size: 15px;">
-                Payment ${daysOverdue} day${(daysOverdue as number) !== 1 ? "s" : ""} overdue
-              </p>
-            </div>
-
-            <p style="margin: 0 0 16px; font-size: 14px;">Hi ${pm.full_name},</p>
-            <p style="margin: 0 0 20px; font-size: 14px; color: #6b7280;">
-              Invoice <strong>${inv.invoice_number}</strong> for <strong>${jobTitle}</strong> remains unpaid.
-              Please arrange payment at your earliest convenience.
-            </p>
-
-            <table style="background: #f9f8f5; border-radius: 8px; padding: 16px; width: 100%; margin-bottom: 20px; border-collapse: collapse;">
-              <tr><td style="padding: 4px 0; font-size: 13px; color: #6b7280; width: 120px;">Invoice</td><td style="padding: 4px 0; font-size: 14px; font-weight: 600;">${inv.invoice_number}</td></tr>
-              <tr><td style="padding: 4px 0; font-size: 13px; color: #6b7280;">Amount Due</td><td style="padding: 4px 0; font-size: 18px; font-weight: 800; color: ${urgencyColor};">${formatCurrency(inv.total)}</td></tr>
-              <tr><td style="padding: 4px 0; font-size: 13px; color: #6b7280;">Due Date</td><td style="padding: 4px 0; font-size: 14px;">${formatDate(inv.due_date)}</td></tr>
-            </table>
-
-            <p style="font-size: 13px; color: #9ca3af;">
-              If you have questions, contact ${tenantName} directly.
-              If payment has already been sent, please disregard this notice.
-            </p>
-          </div>
-        </div>
-      `,
+      html: renderEmailLayout({
+        tenantName,
+        category: "Invoice Reminder",
+        title: isFinal ? "Final payment notice" : "Invoice payment reminder",
+        greeting: `Hi ${pm.full_name ?? "there"},`,
+        intro: `Invoice ${inv.invoice_number} for ${jobTitle} remains unpaid. Please arrange payment at your earliest convenience.`,
+        previewText: `${isFinal ? "Final notice" : "Reminder"}: Invoice ${inv.invoice_number} is ${daysOverdue} days overdue.`,
+        sections: [
+          renderNoticeCard({
+            tone: isFinal ? "danger" : "warning",
+            eyebrow: `${daysOverdue} days overdue`,
+            title: `Amount due: ${formatCurrency(inv.total)}`,
+          }),
+          renderDetailCard("Invoice details", [
+            { label: "Invoice", value: inv.invoice_number },
+            { label: "For", value: jobTitle },
+            { label: "Amount", value: formatCurrency(inv.total) },
+            { label: "Due date", value: formatDate(inv.due_date) },
+          ]),
+        ],
+        footerText: `If you have questions, contact ${tenantName} directly. If payment has already been sent, please disregard this notice.`,
+      }),
     });
 
     reminded++;

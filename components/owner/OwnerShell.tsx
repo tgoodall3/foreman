@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import NotificationBell from "@/components/owner/NotificationBell";
@@ -149,8 +150,8 @@ export default function OwnerShell({ profile, tenantName, children }: OwnerShell
     <div className="min-h-screen flex flex-col bg-surface">
       <header className="lg:hidden bg-forge px-4 py-3 flex items-center justify-between border-b border-steel">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-amber rounded flex items-center justify-center">
-            <span className="font-display font-800 text-forge text-lg">F</span>
+          <div className="rounded overflow-hidden h-8 w-8 shrink-0">
+            <Image src="/logo_inverse.png" alt="Foreman" width={32} height={32} className="h-8 w-auto" />
           </div>
           <div className="min-w-0">
             <p className="font-display font-800 text-white text-lg leading-none tracking-wide">FOREMAN</p>
@@ -232,8 +233,8 @@ export default function OwnerShell({ profile, tenantName, children }: OwnerShell
         <aside className="hidden lg:flex lg:w-72 bg-forge flex-col shrink-0" aria-label="Main navigation">
           <div className="px-4 py-5 border-b border-steel">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-amber rounded flex items-center justify-center shrink-0">
-                <span className="font-display font-800 text-forge text-lg">F</span>
+              <div className="rounded overflow-hidden h-8 w-8 shrink-0">
+                <Image src="/logo_inverse.png" alt="Foreman" width={32} height={32} className="h-8 w-auto" />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="font-display font-800 text-white text-lg leading-none tracking-wide">FOREMAN</p>

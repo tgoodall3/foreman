@@ -3,7 +3,7 @@ import { Resend } from "resend";
 import { requireOwner } from "@/lib/auth";
 import { createServerSideClient } from "@/lib/supabase-server";
 import { errorResponse } from "@/lib/api";
-import { renderDetailCard, renderEmailLayout, renderMessageCard, renderNoticeCard } from "@/lib/email";
+import { getFromAddress, renderDetailCard, renderEmailLayout, renderMessageCard, renderNoticeCard } from "@/lib/email";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       if (worker?.email) {
         const tenantName = tenant?.name || "Foreman";
         await resend.emails.send({
-          from: process.env.EMAIL_FROM!,
+          from: getFromAddress(tenantName),
           to: worker.email,
           subject: `Your time change request was ${updatedRequest.status}`,
           html: renderEmailLayout({
