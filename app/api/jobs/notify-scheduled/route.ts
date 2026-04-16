@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
     footerText: "Questions? Reply to this email or visit your portal.",
   });
 
-  resend.emails.send({
+  await resend.emails.send({
     from: getFromAddress(tenantName),
     to: pm.email,
     subject: `Job scheduled for ${formattedDate} — ${job.title}`,

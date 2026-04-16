@@ -118,7 +118,8 @@ export async function POST(req: NextRequest) {
             pmName: pm.full_name ?? "there",
             action: "declined",
           });
-          resend.emails.send({ from: getFromAddress(tenantName), to: pm.email, subject, html }).catch((err) => console.error("[email] work order declined:", err));
+          await resend.emails.send({ from: getFromAddress(tenantName), to: pm.email, subject, html })
+            .catch((err) => console.error("[email] work order declined:", err));
         }
       }
 
@@ -136,9 +137,6 @@ export async function POST(req: NextRequest) {
 
       if (!wo) return errorResponse("Work order not found", 404);
 
-      // Smart-ish defaults: carry over priority, schedule for today, start as scheduled
-      const today = new Date().toISOString().split("T")[0];
-
       const { data: job, error: jobError } = await supabase
         .from("jobs")
         .insert({
@@ -147,9 +145,8 @@ export async function POST(req: NextRequest) {
           property_id: propertyId || wo.property_id,
           title: title || wo.title,
           description: description || wo.description,
-          status: "scheduled",
+          status: "pending",
           priority: wo.priority || "normal",
-          scheduled_date: today,
           assigned_workers: [],
         })
         .select()
@@ -174,7 +171,8 @@ export async function POST(req: NextRequest) {
         .update({ status: "accepted", job_id: job.id })
         .eq("id", workOrderId);
 
-      // Notify PM that work is scheduled/accepted (best-effort)
+      // Notify PM that their work order was accepted (awaited so the email
+      // completes before the serverless function terminates)
       if (resend) {
         const pm = Array.isArray(wo.property_managers) ? wo.property_managers[0] : (wo as any).property_managers;
         const prop = (Array.isArray(wo.properties) ? wo.properties[0] : (wo as any).properties) as { name?: string } | null | undefined;
@@ -189,7 +187,8 @@ export async function POST(req: NextRequest) {
             propertyName: prop?.name,
             portalUrl,
           });
-          resend.emails.send({ from: getFromAddress(tenantName), to: pm.email, subject, html }).catch((err) => console.error("[email] work order accepted:", err));
+          await resend.emails.send({ from: getFromAddress(tenantName), to: pm.email, subject, html })
+            .catch((err) => console.error("[email] work order accepted:", err));
         }
       }
 
