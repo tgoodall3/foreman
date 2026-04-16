@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import PhotoLightbox from "@/components/ui/PhotoLightbox";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -154,30 +155,41 @@ function PropertiesPanel({ properties }: { properties: Property[] }) {
 }
 
 function PhotoGrid({ photos }: { photos: WorkOrderPhoto[] }) {
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
   if (photos.length === 0) return null;
 
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-      {photos.map((photo) => (
-        <a
-          key={`${photo.url}-${photo.created_at}`}
-          href={photo.url}
-          target="_blank"
-          rel="noreferrer"
-          className="group overflow-hidden rounded-lg border border-gray-200 bg-white"
-        >
-          <Image
-            src={photo.url}
-            alt={photo.caption || "Work order photo"}
-            width={448}
-            height={224}
-            sizes="(max-width: 640px) 50vw, 33vw"
-            className="h-28 w-full object-cover transition-transform group-hover:scale-[1.02]"
-          />
-          {photo.caption && <p className="px-2 py-1.5 text-[11px] text-mist line-clamp-1">{photo.caption}</p>}
-        </a>
-      ))}
-    </div>
+    <>
+      {lightboxIndex !== null && (
+        <PhotoLightbox
+          photos={photos.map((p) => ({ url: p.url, caption: p.caption }))}
+          index={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+          onChange={setLightboxIndex}
+        />
+      )}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {photos.map((photo, i) => (
+          <button
+            key={`${photo.url}-${photo.created_at}`}
+            type="button"
+            onClick={() => setLightboxIndex(i)}
+            className="group overflow-hidden rounded-lg border border-gray-200 bg-white text-left focus:outline-none focus:ring-2 focus:ring-amber"
+          >
+            <Image
+              src={photo.url}
+              alt={photo.caption || "Work order photo"}
+              width={448}
+              height={224}
+              sizes="(max-width: 640px) 50vw, 33vw"
+              className="h-28 w-full object-cover transition-transform group-hover:scale-[1.02]"
+            />
+            {photo.caption && <p className="px-2 py-1.5 text-[11px] text-mist line-clamp-1">{photo.caption}</p>}
+          </button>
+        ))}
+      </div>
+    </>
   );
 }
 

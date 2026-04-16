@@ -8,6 +8,7 @@ import { formatDate, formatDateTime, JOB_STATUS_CONFIG, PRIORITY_CONFIG } from "
 import Link from "next/link";
 import JobChecklist from "@/components/jobs/JobChecklist";
 import { useToast } from "@/components/ui/ToastContainer";
+import PhotoLightbox from "@/components/ui/PhotoLightbox";
 
 interface Props {
   job: any;
@@ -38,6 +39,7 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
   const [clockedInEntry, setClockedInEntry] = useState<{ id: string; clocked_in_at: string } | null>(null);
   const [syncingQueue, setSyncingQueue] = useState(false);
   const [queuedPhotos, setQueuedPhotos] = useState<any[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const statusCfg = JOB_STATUS_CONFIG[job.status as keyof typeof JOB_STATUS_CONFIG];
@@ -473,12 +475,27 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
           Photos ({photos.length})
         </h2>
 
+        {/* Lightbox */}
+        {lightboxIndex !== null && (
+          <PhotoLightbox
+            photos={photos.map((p: any) => ({ url: p.url, caption: p.caption, type: p.type }))}
+            index={lightboxIndex}
+            onClose={() => setLightboxIndex(null)}
+            onChange={setLightboxIndex}
+          />
+        )}
+
         {/* Existing photos */}
         {photos.length > 0 && (
           <div className="grid grid-cols-3 gap-2 mb-4">
-            {photos.map((photo) => (
+            {photos.map((photo, i) => (
               <div key={photo.id} className="relative">
-                <a href={photo.url} target="_blank" rel="noopener noreferrer" aria-label={`View ${photo.type} photo`}>
+                <button
+                  type="button"
+                  onClick={() => setLightboxIndex(i)}
+                  className="w-full focus:outline-none focus:ring-2 focus:ring-amber rounded-lg"
+                  aria-label={`View ${photo.type} photo`}
+                >
                   <Image
                     src={photo.thumbUrl || photo.url}
                     alt={photo.caption || `${photo.type} photo`}
@@ -486,7 +503,7 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
                     height={180}
                     className="w-full h-24 object-cover rounded-lg border border-gray-200"
                   />
-                </a>
+                </button>
                 <button
                   type="button"
                   onClick={() => handleDeletePhoto(photo.id, photo.url)}

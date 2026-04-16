@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { Resend } from "resend";
+import { randomBytes } from "crypto";
 import { badRequest, errorResponse, jsonResponse } from "@/lib/api";
 import { requireOwner } from "@/lib/auth";
 import { getOwnerInvoice } from "@/lib/services/owner";
@@ -69,16 +70,21 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   ]);
 
   const tenantName = escHtml(tenant?.name || "Foreman customer");
-  const portalToken   = (pmRecord as any)?.portal_token;
+  let portalToken = (pmRecord as any)?.portal_token as string | null;
 
-  // Link directly to the dedicated invoice page so the client can sign and pay
+  // If the PM has no portal_token (created before migration added the default),
+  // generate one now so the invoice link works without requiring a portal invite.
+  if (!portalToken && invoice.property_manager_id) {
+    portalToken = randomBytes(32).toString("hex");
+    await serviceClient
+      .from("property_managers")
+      .update({ portal_token: portalToken })
+      .eq("id", invoice.property_manager_id);
+  }
+
   const invoicePageUrl = portalToken
     ? `${siteUrl}/portal/invoice?token=${encodeURIComponent(portalToken)}&invoice=${encodeURIComponent(params.id)}`
-    : null;
-
-  if (!invoicePageUrl) {
-    return errorResponse("This property manager does not have a portal link yet. Send them a portal invite first.", 400);
-  }
+    : `${siteUrl}/portal/invoice?invoice=${encodeURIComponent(params.id)}`;
 
   const managerName   = escHtml(invoice.property_managers?.full_name ?? "Customer");
   const invoiceNumber = escHtml(invoice.invoice_number);

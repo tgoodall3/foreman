@@ -22,10 +22,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const { data: job, error: jobError } = await supabase
     .from("jobs")
     .insert({
-      tenant_id:           profile.tenant_id,
-      property_id:         estimate.property_id ?? null,
-      property_manager_id: (estimate as any).property_manager_id ?? null,
-      title:               estimate.title,
+      tenant_id:   profile.tenant_id,
+      property_id: estimate.property_id ?? null,
+      title:       estimate.title,
       description:         estimate.description ?? null,
       status:              "pending",
       priority:            "normal",
@@ -45,7 +44,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     .from("estimates")
     .update({ status: "converted", job_id: job.id })
     .eq("id", params.id)
-    .eq("status", "draft")   // only succeeds if still in draft
+    .in("status", ["draft", "approved"])  // allow converting approved estimates too
     .neq("status", "converted")
     .select("id")
     .maybeSingle();

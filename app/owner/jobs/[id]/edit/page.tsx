@@ -25,6 +25,7 @@ export default function EditJobPage() {
   const [priority, setPriority]         = useState("normal");
   const [scheduledDate, setScheduledDate] = useState("");
   const [scheduledTime, setScheduledTime] = useState("");
+  const [originalScheduledDate, setOriginalScheduledDate] = useState("");
   const [estimatedHours, setEstimatedHours] = useState("");
   const [propertyId, setPropertyId]     = useState("");
   const [recurrence, setRecurrence]     = useState("none");
@@ -63,6 +64,7 @@ export default function EditJobPage() {
       setPriority(job.priority ?? "normal");
       setScheduledDate(job.scheduled_date ?? "");
       setScheduledTime(job.scheduled_time ?? "");
+      setOriginalScheduledDate(job.scheduled_date ?? "");
       setEstimatedHours(job.estimated_hours != null ? String(job.estimated_hours) : "");
       setPropertyId(job.property_id ?? "");
       setRecurrence(job.recurrence ?? "none");
@@ -117,6 +119,15 @@ export default function EditJobPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jobId: params.id, workerIds: added }),
+      }).catch(() => {});
+    }
+
+    // Notify PM when a scheduled date is newly set or changed (best-effort)
+    if (scheduledDate && scheduledDate !== originalScheduledDate) {
+      fetch("/api/jobs/notify-scheduled", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobId: params.id }),
       }).catch(() => {});
     }
 

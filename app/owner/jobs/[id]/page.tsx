@@ -3,10 +3,10 @@ import { createServerSideClient } from "@/lib/supabase-server";
 import { formatDate, formatDateTime, JOB_STATUS_CONFIG, PRIORITY_CONFIG, formatCurrency } from "@/lib/utils";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import Image from "next/image";
 import JobChecklist from "@/components/jobs/JobChecklist";
 import JobStatusActions from "@/components/owner/JobStatusActions";
 import QuickAssign from "@/components/owner/QuickAssign";
+import JobPhotoGrid from "@/components/owner/JobPhotoGrid";
 
 export default async function JobDetailPage({ params }: { params: { id: string } }) {
   const profile = await requireOwner();
@@ -120,30 +120,7 @@ export default async function JobDetailPage({ params }: { params: { id: string }
             <h2 id="photos-heading" className="font-display font-700 text-lg text-forge mb-4">
               Photos ({photos?.length || 0})
             </h2>
-            {!photos?.length ? (
-              <p className="text-sm text-mist">No photos yet</p>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {photos.map((photo: any) => (
-                  <div key={photo.id} className="group relative">
-                    <a href={photo.url} target="_blank" rel="noopener noreferrer" aria-label={`View photo: ${photo.caption || photo.type}`}>
-                      <Image
-                        src={photo.url}
-                        alt={photo.caption || `${photo.type} photo`}
-                        width={480}
-                        height={280}
-                        className="w-full h-28 object-cover rounded-lg border border-gray-200 group-hover:opacity-90 transition-opacity"
-                      />
-                    </a>
-                    <div className="mt-1 flex items-center justify-between">
-                      <span className="text-xs text-mist capitalize">{photo.type}</span>
-                      <span className="text-xs text-mist">{photo.profiles?.full_name}</span>
-                    </div>
-                    {photo.caption && <p className="text-xs text-steel mt-0.5">{photo.caption}</p>}
-                  </div>
-                ))}
-              </div>
-            )}
+            <JobPhotoGrid photos={(photos ?? []) as any} />
           </section>
 
           {/* Notes */}

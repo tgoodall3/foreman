@@ -27,16 +27,16 @@ function buildWorkOrderEmail({
 }) {
   const isAccepted = action === "accepted";
   const subject = isAccepted
-    ? `Your work order was accepted — ${woTitle}`
+    ? `Work order accepted — ${woTitle}`
     : `Work order update — ${woTitle}`;
 
   const html = renderEmailLayout({
     tenantName,
     category: "Work Order Update",
-    title: isAccepted ? "Work order accepted" : "Work order update",
+    title: isAccepted ? "Your work order has been accepted" : "Work order update",
     greeting: `Hi ${pmName},`,
     intro: isAccepted
-      ? "Your work order has been reviewed and accepted. We'll be in touch shortly with scheduling details."
+      ? `Your work order has been reviewed and accepted by ${tenantName}. You will receive another notification once a date has been scheduled.`
       : "Your work order was reviewed and unfortunately cannot be accommodated at this time. Please reply if you have questions or would like to discuss alternatives.",
     sections: [
       renderNoticeCard({
