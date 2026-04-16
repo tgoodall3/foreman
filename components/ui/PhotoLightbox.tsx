@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState } from "react";
 
 export interface LightboxPhoto {
   url: string;
@@ -19,6 +19,30 @@ export default function PhotoLightbox({ photos, index, onClose, onChange }: Prop
   const photo = photos[index];
   const hasPrev = index > 0;
   const hasNext = index < photos.length - 1;
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    if (!photo || downloading) return;
+    setDownloading(true);
+    try {
+      const res = await fetch(photo.url);
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      const ext = blob.type.split("/")[1] || "jpg";
+      a.download = `photo.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      // fallback: open in new tab so user can long-press save on mobile
+      window.open(photo.url, "_blank");
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === "Escape") onClose();
@@ -58,20 +82,26 @@ export default function PhotoLightbox({ photos, index, onClose, onChange }: Prop
           </span>
           <div className="flex items-center gap-2">
             {/* Download button */}
-            <a
-              href={photo.url}
-              download
-              onClick={(e) => e.stopPropagation()}
-              className="text-white/70 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10"
+            <button
+              onClick={(e) => { e.stopPropagation(); handleDownload(); }}
+              disabled={downloading}
+              className="text-white/70 hover:text-white disabled:opacity-40 transition-colors p-1.5 rounded-lg hover:bg-white/10"
               aria-label="Download photo"
               title="Download"
             >
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-            </a>
+              {downloading ? (
+                <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                  <path d="M12 2a10 10 0 0 1 10 10" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+              )}
+            </button>
             {/* Close button */}
             <button
               onClick={onClose}

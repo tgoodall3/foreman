@@ -1,10 +1,10 @@
 import Link from "next/link";
-import Image from "next/image";
 import { requireOwner } from "@/lib/auth";
 import { createServerSideClient } from "@/lib/supabase-server";
 import { formatDate, PRIORITY_CONFIG } from "@/lib/utils";
 import WorkOrderActions from "./WorkOrderActions";
 import MessagePM from "@/components/owner/MessagePM";
+import PhotoGrid from "@/components/ui/PhotoGrid";
 
 export const dynamic = "force-dynamic";
 
@@ -112,27 +112,7 @@ export default async function WorkOrderDetailPage({ params }: { params: { id: st
               <p className="text-xs text-mist">{allPhotos.length} total</p>
             </div>
             {submissionPhotos.length > 0 ? (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {submissionPhotos.map((photo) => (
-                  <a
-                    key={`${photo.url}-${photo.created_at}`}
-                    href={photo.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="overflow-hidden rounded-xl border border-gray-200 bg-white"
-                  >
-                    <Image
-                      src={photo.url}
-                      alt={photo.caption || "Work order photo"}
-                      width={512}
-                      height={256}
-                      sizes="(max-width: 640px) 50vw, 33vw"
-                      className="h-32 w-full object-cover"
-                    />
-                    {photo.caption && <p className="px-3 py-2 text-xs text-mist line-clamp-1">{photo.caption}</p>}
-                  </a>
-                ))}
-              </div>
+              <PhotoGrid photos={submissionPhotos} imgClassName="h-32 w-full object-cover" />
             ) : (
               <p className="text-sm text-mist">No submission photos yet.</p>
             )}
@@ -163,26 +143,8 @@ export default async function WorkOrderDetailPage({ params }: { params: { id: st
                       </div>
                       <p className="mt-2 text-sm leading-relaxed text-steel">{comment.message}</p>
                       {commentPhotos.length > 0 && (
-                        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                          {commentPhotos.map((photo) => (
-                            <a
-                              key={`${photo.url}-${photo.created_at}`}
-                              href={photo.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="overflow-hidden rounded-xl border border-gray-200 bg-white"
-                            >
-                              <Image
-                                src={photo.url}
-                                alt={photo.caption || "Comment photo"}
-                                width={512}
-                                height={224}
-                                sizes="(max-width: 640px) 50vw, 33vw"
-                                className="h-28 w-full object-cover"
-                              />
-                              {photo.caption && <p className="px-3 py-2 text-xs text-mist line-clamp-1">{photo.caption}</p>}
-                            </a>
-                          ))}
+                        <div className="mt-3">
+                          <PhotoGrid photos={commentPhotos} imgClassName="h-28 w-full object-cover" />
                         </div>
                       )}
                     </div>

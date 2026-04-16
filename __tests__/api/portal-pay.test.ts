@@ -1,7 +1,12 @@
 /**
  * Tests for POST /api/portal/pay
  *
- * Auth is session-based via getPortalPm(). Token is no longer accepted.
+ * Auth is dual-mode:
+ *   1. Session-based via getPortalPm() — for logged-in PMs
+ *   2. portal_token fallback — for non-PM clients who receive an invoice link
+ *
+ * The portal_token fallback was added after a production bug where non-PM
+ * clients couldn't pay invoices sent to them.
  */
 import { NextRequest } from "next/server";
 
@@ -222,5 +227,53 @@ describe("POST /api/portal/pay", () => {
 
     const res = await POST(makeRequest({ invoice_id: UUID_INVOICE }));
     expect(res.status).toBe(500);
+  });
+
+  // ── portal_token fallback auth (non-PM client path) ──────────────────────
+
+  it("authenticates via portal_token when session is absent", async () => {
+    // No session PM
+    mockGetPortalPm.mockResolvedValue(null);
+
+    // The route falls back to looking up PM by portal_token in the DB
+    let call = 0;
+    mockFrom.mockImplementation(() => {
+      call++;
+      if (call === 1) return chain({ data: pm });           // portal_token lookup
+      if (call === 2) return chain({ data: [{ id: UUID_PM }] }); // alias lookup
+      if (call === 3) return chain({ data: invoice });
+      if (call === 4) return chain({ data: tenant });
+      return chain({ data: null });
+    });
+    mockSessionCreate.mockResolvedValue({ client_secret: "cs_test_tok", url: null });
+
+    const res  = await POST(makeRequest({ invoice_id: UUID_INVOICE, portal_token: "valid-token-123" }));
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.clientSecret).toBeDefined();
+  });
+
+  it("returns 401 when both session and portal_token are absent", async () => {
+    mockGetPortalPm.mockResolvedValue(null);
+    // No portal_token in request body either
+    const res = await POST(makeRequest({ invoice_id: UUID_INVOICE }));
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 401 when portal_token does not match any PM", async () => {
+    mockGetPortalPm.mockResolvedValue(null);
+    mockFrom.mockImplementation(() => chain({ data: null })); // no PM found for token
+    const res = await POST(makeRequest({ invoice_id: UUID_INVOICE, portal_token: "bad-token" }));
+    expect(res.status).toBe(401);
+  });
+
+  it("includes portal_token in the Stripe return_url for seamless redirect", async () => {
+    setupHappyPath();
+
+    await POST(makeRequest({ invoice_id: UUID_INVOICE, portal_token: "my-portal-tok" }));
+
+    const call = mockSessionCreate.mock.calls[0][0];
+    expect(call.return_url).toContain("my-portal-tok");
   });
 });

@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "test": "jest",
+    "test:e2e": "playwright test",
     "migrate": "node scripts/migrate.mjs"
   },
   "dependencies": {
@@ -28,6 +29,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@types/jest": "^30.0.0",
     "@types/node": "^20",
     "@types/react": "^18",
@@ -51,6 +53,10 @@
     "testMatch": [
       "**/__tests__/**/*.test.ts",
       "**/?(*.)+(spec|test).ts"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/e2e/"
     ],
     "transform": {
       "^.+\\.ts$": "ts-jest"
