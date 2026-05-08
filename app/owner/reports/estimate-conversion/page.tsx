@@ -1,12 +1,14 @@
 import { requireOwner } from "@/lib/auth";
 import { createServerSideClient } from "@/lib/supabase-server";
 import { formatCurrency, ESTIMATE_STATUS_CONFIG } from "@/lib/utils";
+import { getServerT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function EstimateConversionPage() {
   const profile = await requireOwner();
   const supabase = await createServerSideClient();
+  const t = await getServerT();
 
   const { data: estimates } = await supabase
     .from("estimates")
@@ -27,23 +29,23 @@ export default async function EstimateConversionPage() {
   return (
     <div className="page-shell page-shell-standard">
       <div className="page-header-copy">
-        <p className="page-eyebrow">Reports</p>
-        <h1 className="page-title">Estimate Conversion</h1>
-        <p className="page-subtitle">Track how many estimates turn into work.</p>
+        <p className="page-eyebrow">{t("reports.eyebrow")}</p>
+        <h1 className="page-title">{t("reports.estimateConversionTitle")}</h1>
+        <p className="page-subtitle">{t("reports.estimateConversionSub")}</p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Win rate" value={`${winRate}%`} />
-        <StatCard label="Total estimates" value={stats.total} />
-        <StatCard label="Approved" value={stats.approved} />
-        <StatCard label="Converted" value={stats.converted} />
-        <StatCard label="Declined" value={stats.declined} />
-        <StatCard label="Sent" value={stats.sent} />
+        <StatCard label={t("reports.winRate")} value={`${winRate}%`} />
+        <StatCard label={t("reports.totalEstimates")} value={stats.total} />
+        <StatCard label={t("reports.approved")} value={stats.approved} />
+        <StatCard label={t("reports.converted")} value={stats.converted} />
+        <StatCard label={t("reports.declinedLabel")} value={stats.declined} />
+        <StatCard label={t("reports.sentLabel")} value={stats.sent} />
       </div>
 
       {!estimates?.length ? (
         <div className="surface-empty">
-          No estimates yet.
+          {t("reports.noEstimatesYet")}
         </div>
       ) : (
         <div className="surface-card overflow-hidden">
@@ -51,11 +53,11 @@ export default async function EstimateConversionPage() {
           <table className="hidden sm:table w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">Title</th>
-                <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">Amount</th>
-                <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">PM</th>
-                <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">Created</th>
+                <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">{t("reports.titleHeader")}</th>
+                <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">{t("reports.statusHeader")}</th>
+                <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">{t("reports.amountHeader")}</th>
+                <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">{t("reports.pmHeader")}</th>
+                <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">{t("reports.createdHeader")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">

@@ -3,10 +3,12 @@ import { createServerSideClient } from "@/lib/supabase-server";
 import { formatDate, JOB_STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/utils";
 import Link from "next/link";
 import ClockWidget from "@/components/worker/ClockWidget";
+import { getServerT } from "@/lib/i18n/server";
 
 export default async function WorkerDashboard() {
   const profile = await requireWorker();
   const supabase = await createServerSideClient();
+  const t = await getServerT();
 
   const { data: jobs } = await supabase
     .from("jobs")
@@ -25,9 +27,9 @@ export default async function WorkerDashboard() {
     .sort((a, b) => (a.scheduled_date || "").localeCompare(b.scheduled_date || ""))[0];
 
   const summary = [
-    { label: "Today",       value: todayJobs.length },
-    { label: "Upcoming",    value: upcomingJobs.length },
-    { label: "Unscheduled", value: unscheduled.length },
+    { label: t("dashboard.todayLabel"), value: todayJobs.length },
+    { label: t("dashboard.upcoming"),   value: upcomingJobs.length },
+    { label: t("dashboard.unscheduled"), value: unscheduled.length },
   ];
 
   return (
@@ -37,7 +39,7 @@ export default async function WorkerDashboard() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-wider text-amber/80 font-700">Worker</p>
-            <h1 className="font-display font-800 text-2xl">My Jobs</h1>
+            <h1 className="font-display font-800 text-2xl">{t("nav.myJobs")}</h1>
             <p className="text-sm text-white/70">{formatDate(new Date())}</p>
           </div>
           <Link
@@ -47,7 +49,7 @@ export default async function WorkerDashboard() {
             <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            Timesheet
+            {t("nav.timesheet")}
           </Link>
         </div>
         <div className="grid grid-cols-3 gap-3 mt-4">
@@ -65,14 +67,14 @@ export default async function WorkerDashboard() {
       {/* Next up card */}
       <div className="surface-card p-4">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-700 text-forge">Next up</p>
+          <p className="text-sm font-700 text-forge">{t("dashboard.nextUp")}</p>
           {nextJob ? (
             <span className="text-xs text-mist">
-              {nextJob.scheduled_date ? formatDate(nextJob.scheduled_date) : "Not scheduled"}
+              {nextJob.scheduled_date ? formatDate(nextJob.scheduled_date) : t("dashboard.noDateSet")}
               {nextJob.scheduled_time ? ` at ${nextJob.scheduled_time}` : ""}
             </span>
           ) : (
-            <span className="text-xs text-mist">No upcoming jobs</span>
+            <span className="text-xs text-mist">{t("dashboard.noUpcomingJobs")}</span>
           )}
         </div>
         {nextJob ? (
@@ -91,7 +93,7 @@ export default async function WorkerDashboard() {
             )}
           </Link>
         ) : (
-          <p className="text-xs text-mist mt-1">Enjoy the downtime or check the schedule.</p>
+          <p className="text-xs text-mist mt-1">{t("dashboard.enjoyDowntime")}</p>
         )}
       </div>
 
@@ -99,13 +101,13 @@ export default async function WorkerDashboard() {
       {todayJobs.length > 0 && (
         <section aria-labelledby="today-heading">
           <h2 id="today-heading" className="font-display font-700 text-lg text-forge mb-3 flex items-center gap-2">
-            Today
+            {t("dashboard.todayLabel")}
             <span className="w-5 h-5 bg-amber text-forge text-xs font-700 rounded-full flex items-center justify-center">
               {todayJobs.length}
             </span>
           </h2>
           <div className="space-y-3">
-            {todayJobs.map((job: any) => <WorkerJobCard key={job.id} job={job} highlight />)}
+            {todayJobs.map((job: any) => <WorkerJobCard key={job.id} job={job} highlight t={t} />)}
           </div>
         </section>
       )}
@@ -113,9 +115,9 @@ export default async function WorkerDashboard() {
       {/* Upcoming */}
       {upcomingJobs.length > 0 && (
         <section aria-labelledby="upcoming-heading">
-          <h2 id="upcoming-heading" className="font-display font-700 text-lg text-forge mb-3">Upcoming</h2>
+          <h2 id="upcoming-heading" className="font-display font-700 text-lg text-forge mb-3">{t("dashboard.upcoming")}</h2>
           <div className="space-y-3">
-            {upcomingJobs.map((job: any) => <WorkerJobCard key={job.id} job={job} />)}
+            {upcomingJobs.map((job: any) => <WorkerJobCard key={job.id} job={job} t={t} />)}
           </div>
         </section>
       )}
@@ -123,9 +125,9 @@ export default async function WorkerDashboard() {
       {/* Unscheduled */}
       {unscheduled.length > 0 && (
         <section aria-labelledby="unscheduled-heading">
-          <h2 id="unscheduled-heading" className="font-display font-700 text-lg text-forge mb-3">Unscheduled</h2>
+          <h2 id="unscheduled-heading" className="font-display font-700 text-lg text-forge mb-3">{t("dashboard.unscheduled")}</h2>
           <div className="space-y-3">
-            {unscheduled.map((job: any) => <WorkerJobCard key={job.id} job={job} />)}
+            {unscheduled.map((job: any) => <WorkerJobCard key={job.id} job={job} t={t} />)}
           </div>
         </section>
       )}
@@ -137,15 +139,16 @@ export default async function WorkerDashboard() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <p className="font-display font-700 text-xl text-forge">All caught up!</p>
-          <p className="text-mist text-sm mt-1">No jobs assigned right now.</p>
+          <p className="font-display font-700 text-xl text-forge">{t("dashboard.allCaughtUp")}</p>
+          <p className="text-mist text-sm mt-1">{t("dashboard.noJobsAssigned")}</p>
         </div>
       )}
     </div>
   );
 }
 
-function WorkerJobCard({ job, highlight }: { job: any; highlight?: boolean }) {
+type TFn = (key: string, vars?: Record<string, string | number>) => string;
+function WorkerJobCard({ job, highlight, t }: { job: any; highlight?: boolean; t: TFn }) {
   const statusCfg   = JOB_STATUS_CONFIG[job.status as keyof typeof JOB_STATUS_CONFIG];
   const priorityCfg = PRIORITY_CONFIG[job.priority as keyof typeof PRIORITY_CONFIG];
 
@@ -170,7 +173,7 @@ function WorkerJobCard({ job, highlight }: { job: any; highlight?: boolean }) {
           <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
-          {job.scheduled_date ? formatDate(job.scheduled_date) : "No date set"}
+          {job.scheduled_date ? formatDate(job.scheduled_date) : t("dashboard.noDateSet")}
           {job.scheduled_time && ` at ${job.scheduled_time}`}
         </span>
         <span className={`badge ${statusCfg.bg} ${statusCfg.color}`}>{statusCfg.label}</span>

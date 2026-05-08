@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useToast } from "@/components/ui/ToastContainer";
+import { useLanguage } from "@/lib/i18n";
 
 type Request = {
   id: string;
@@ -38,6 +39,7 @@ function fmtTime(iso: string | null) {
 
 export default function TimeChangeRequests({ requests }: Props) {
   const { addToast } = useToast();
+  const { t } = useLanguage();
   const [items, setItems] = useState<Request[]>(requests);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -58,11 +60,11 @@ export default function TimeChangeRequests({ requests }: Props) {
     const data = await res.json().catch(() => ({}));
     setLoadingId(null);
     if (!res.ok) {
-      addToast(data.error || "Failed to update request", "error");
-      setError(data.error || "Failed to update request.");
+      addToast(data.error || t("timesheets.failedUpdateRequest"), "error");
+      setError(data.error || t("timesheets.failedUpdateRequest"));
       return;
     }
-    addToast(action === "approve" ? "Request approved" : "Request declined", "success");
+    addToast(action === "approve" ? t("timesheets.requestApproved") : t("timesheets.requestDeclined"), "success");
     setItems((prev) => prev.map((r) => (r.id === id ? { ...r, status: data.request.status } : r)));
   };
 
@@ -72,10 +74,10 @@ export default function TimeChangeRequests({ requests }: Props) {
     <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <p className="font-600 text-forge text-sm">Change Requests</p>
+          <p className="font-600 text-forge text-sm">{t("timesheets.changeRequests")}</p>
           {pendingCount > 0 && (
             <span className="bg-amber/20 text-amber-dark text-xs font-700 px-2 py-0.5 rounded-full">
-              {pendingCount} pending
+              {t("timesheets.pendingCount", { count: String(pendingCount) })}
             </span>
           )}
         </div>
@@ -84,7 +86,7 @@ export default function TimeChangeRequests({ requests }: Props) {
             onClick={() => setShowPast((v) => !v)}
             className="text-xs text-mist hover:text-forge transition-colors font-500"
           >
-            {showPast ? "Hide past" : `Show past (${archived.length})`}
+            {showPast ? t("timesheets.hidePast") : t("timesheets.showPast", { count: String(archived.length) })}
           </button>
         )}
       </div>
@@ -93,7 +95,7 @@ export default function TimeChangeRequests({ requests }: Props) {
 
       {visible.length === 0 ? (
         <p className="text-xs text-mist">
-          {showPast ? "No past requests." : "Nothing to review."}
+          {showPast ? t("timesheets.noPastRequests") : t("timesheets.nothingToReview")}
         </p>
       ) : (
         <div className="space-y-3 max-h-[520px] overflow-auto pr-1">
@@ -115,7 +117,7 @@ export default function TimeChangeRequests({ requests }: Props) {
 
               <p className="text-xs text-forge mt-2">
                 {fmtTime(r.requested_clocked_in_at)} – {fmtTime(r.requested_clocked_out_at)}
-                {r.time_entry_id ? " (existing entry)" : " (new entry)"}
+                {r.time_entry_id ? ` ${t("timesheets.existingEntry")}` : ` ${t("timesheets.newEntry")}`}
               </p>
               <p className="text-xs text-mist mt-1 leading-snug">{r.reason}</p>
 
@@ -126,14 +128,14 @@ export default function TimeChangeRequests({ requests }: Props) {
                     disabled={loadingId === r.id}
                     className="flex-1 border border-gray-200 text-forge text-sm font-600 rounded-lg py-2 hover:bg-gray-50 disabled:opacity-50"
                   >
-                    Decline
+                    {t("timesheets.declineRequest")}
                   </button>
                   <button
                     onClick={() => handle(r.id, "approve")}
                     disabled={loadingId === r.id}
                     className="flex-1 bg-forge text-white text-sm font-700 rounded-lg py-2 hover:bg-forge-dark disabled:opacity-50"
                   >
-                    {loadingId === r.id ? "Saving…" : "Approve"}
+                    {loadingId === r.id ? t("common.saving") : t("timesheets.approveRequest")}
                   </button>
                 </div>
               )}

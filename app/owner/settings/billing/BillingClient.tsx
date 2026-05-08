@@ -3,8 +3,10 @@
 import { useState, useEffect } from "react";
 import { formatDate } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
+import { useLanguage } from "@/lib/i18n";
 
 export default function BillingClient({ tenant, profile }: { tenant: any; profile: any }) {
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [connectLoading, setConnectLoading] = useState(false);
   const [connectError, setConnectError] = useState("");
@@ -29,7 +31,7 @@ export default function BillingClient({ tenant, profile }: { tenant: any; profil
     if (data.url) {
       window.location.href = data.url;
     } else {
-      setManageError(data.error || "Unable to open billing portal. Contact support.");
+      setManageError(data.error || t("billing.portalError"));
       setLoading(false);
     }
   };
@@ -42,7 +44,7 @@ export default function BillingClient({ tenant, profile }: { tenant: any; profil
     if (data.url) {
       window.location.href = data.url;
     } else {
-      setConnectError(data.error || "Could not start Stripe Connect. Try again.");
+      setConnectError(data.error || t("billing.connectError"));
       setConnectLoading(false);
     }
   };
@@ -54,22 +56,22 @@ export default function BillingClient({ tenant, profile }: { tenant: any; profil
 
   return (
     <div className="page-shell max-w-2xl px-2 sm:px-0">
-      <h1 className="page-title">Billing</h1>
+      <h1 className="page-title">{t("billing.title")}</h1>
 
       <div className="surface-card p-6 mb-4">
         <div className="flex items-center justify-between mb-4">
           <div>
             <p className="font-display font-700 text-xl text-forge">
-              {isPro ? "Pro Plan" : "Free Trial"}
+              {isPro ? t("billing.proPlan") : t("billing.freeTrial")}
             </p>
             <p className="text-sm text-mist mt-1">
-              {isPro ? "Unlimited jobs, workers, and property managers" :
-                trialExpired ? "Your trial has expired" :
-                trialEnds ? `Trial ends ${formatDate(trialEnds)}` : "14-day free trial"}
+              {isPro ? t("billing.proDescription") :
+                trialExpired ? t("billing.trialExpired") :
+                trialEnds ? t("billing.trialEnds", { date: formatDate(trialEnds) }) : t("billing.trialDays")}
             </p>
           </div>
           <span className={`badge text-sm px-3 py-1 ${isPro ? "bg-green-100 text-green-700" : trialExpired ? "bg-red-100 text-red-600" : "bg-amber/20 text-amber-dark"}`}>
-            {isPro ? "Active" : trialExpired ? "Expired" : "Trial"}
+            {isPro ? t("billing.active") : trialExpired ? t("billing.expired") : t("billing.trial")}
           </span>
         </div>
 
@@ -77,16 +79,16 @@ export default function BillingClient({ tenant, profile }: { tenant: any; profil
           <div className="border-t border-gray-100 pt-4">
             <div className="flex items-baseline gap-1 mb-3">
               <span className="font-display font-800 text-3xl text-forge">$50</span>
-              <span className="text-mist text-sm">/month</span>
+              <span className="text-mist text-sm">{t("billing.perMonth")}</span>
             </div>
             <ul className="text-sm text-steel space-y-1 mb-4">
-              {["Unlimited jobs & work orders", "Unlimited workers", "Unlimited property managers", "Photo & note tracking", "Invoice generation", "Email notifications", "Priority support"].map((f) => (
+              {[t("billing.featureJobs"), t("billing.featureWorkers"), t("billing.featurePMs"), t("billing.featurePhotos"), t("billing.featureInvoices"), t("billing.featureEmails"), t("billing.featureSupport")].map((f) => (
                 <li key={f} className="flex items-center gap-2"><span className="text-green-500">✓</span>{f}</li>
               ))}
             </ul>
             <button onClick={handleUpgrade} disabled={loading}
               className="w-full bg-amber hover:bg-amber-dark disabled:opacity-50 text-forge font-display font-700 py-3 rounded-lg text-base transition-colors min-h-[44px]">
-              {loading ? "Redirecting…" : "Upgrade to Pro →"}
+              {loading ? t("billing.redirecting") : t("billing.upgradePro")}
             </button>
           </div>
         )}
@@ -95,7 +97,7 @@ export default function BillingClient({ tenant, profile }: { tenant: any; profil
           <div className="border-t border-gray-100 pt-4">
             <button onClick={handleManage} disabled={loading}
               className="text-sm text-amber hover:underline font-600 transition-colors">
-              {loading ? "Loading…" : "Manage subscription →"}
+              {loading ? t("billing.loadingPortal") : t("billing.manageSubscription")}
             </button>
             {manageError && (
               <p className="text-xs text-red-600 mt-2">{manageError}</p>
@@ -107,10 +109,9 @@ export default function BillingClient({ tenant, profile }: { tenant: any; profil
       <div className="surface-card p-6">
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
-            <p className="font-display font-700 text-xl text-forge">Accept Payments</p>
+            <p className="font-display font-700 text-xl text-forge">{t("billing.acceptPayments")}</p>
             <p className="text-sm text-mist mt-1">
-              Connect your Stripe account so clients can pay invoices online.
-              Money goes directly to you — Foreman never touches your funds.
+              {t("billing.stripeDescription")}
             </p>
           </div>
           <span className={`shrink-0 text-sm px-3 py-1 rounded-full font-600 ${
@@ -120,43 +121,38 @@ export default function BillingClient({ tenant, profile }: { tenant: any; profil
               ? "bg-amber/20 text-amber-dark"
               : "bg-gray-100 text-gray-500"
           }`}>
-            {isConnected ? "Connected" : tenant?.stripe_connect_id ? "Pending" : "Not connected"}
+            {isConnected ? t("billing.connected") : tenant?.stripe_connect_id ? t("billing.pending") : t("billing.notConnected")}
           </span>
         </div>
 
         {connectStatus === "success" && (
           <div className="mb-4 bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-sm text-green-700 font-600">
-            ✓ Stripe account connected successfully. You can now accept payments.
+            ✓ {t("billing.connectSuccess")}
           </div>
         )}
         {connectStatus === "expired" && (
           <div className="mb-4 bg-amber/10 border border-amber/30 rounded-lg px-4 py-3 text-sm text-amber-dark font-600">
-            The onboarding link expired. Click below to start again.
+            {t("billing.linkExpired")}
           </div>
         )}
 
         {isConnected ? (
           <div className="space-y-3">
             <p className="text-sm text-steel">
-              Your Stripe account is connected and ready to accept card and ACH payments.
+              {t("billing.stripeReady")}
             </p>
             <button
               onClick={handleConnect}
               disabled={connectLoading}
               className="text-sm text-amber hover:underline font-600"
             >
-              {connectLoading ? "Loading…" : "Open Stripe dashboard →"}
+              {connectLoading ? t("billing.loadingPortal") : t("billing.openDashboard")}
             </button>
           </div>
         ) : (
           <div className="space-y-3">
             <ul className="text-sm text-steel space-y-1">
-              {[
-                "Clients pay directly on the invoice page",
-                "Money deposits to your bank account",
-                "Card and ACH (bank transfer) supported",
-                "Stripe handles all PCI compliance",
-              ].map((f) => (
+              {[t("billing.stripeFeature1"), t("billing.stripeFeature2"), t("billing.stripeFeature3"), t("billing.stripeFeature4")].map((f) => (
                 <li key={f} className="flex items-center gap-2">
                   <span className="text-green-500">✓</span>{f}
                 </li>
@@ -171,13 +167,13 @@ export default function BillingClient({ tenant, profile }: { tenant: any; profil
               className="bg-[#635bff] hover:bg-[#5046e5] disabled:opacity-50 text-white font-display font-700 px-5 py-2.5 rounded-lg text-sm transition-colors"
             >
               {connectLoading
-                ? "Redirecting…"
+                ? t("billing.redirecting")
                 : tenant?.stripe_connect_id
-                ? "Continue Stripe setup →"
-                : "Connect with Stripe →"}
+                ? t("billing.continueSetup")
+                : t("billing.connectStripe")}
             </button>
             <p className="text-xs text-mist">
-              You&apos;ll be taken to Stripe to create or connect your account. Takes ~2 minutes.
+              {t("billing.stripeNote")}
             </p>
           </div>
         )}

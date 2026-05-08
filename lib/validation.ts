@@ -90,9 +90,9 @@ export const createInvoiceSchema = z.object({
 });
 
 export const updateAccountSchema = z.object({
-  name: nameSchema.optional(),
-  phone: phoneSchema,
-  address: addressSchema.optional(),
+  name: z.string().max(100).trim().optional().or(z.literal("")),
+  phone: phoneSchema.or(z.literal("")),
+  address: z.string().max(200).trim().optional().or(z.literal("")),
   invoice_footer: z.string().max(500).trim().optional(),
   tax_id: z.string().max(50).trim().optional(),
   website: z.string().url().max(200).optional().or(z.literal("")),

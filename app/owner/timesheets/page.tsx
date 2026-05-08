@@ -1,6 +1,7 @@
 import { requireOwner } from "@/lib/auth";
 import { createServerSideClient } from "@/lib/supabase-server";
 import TimeChangeRequests from "@/components/owner/TimeChangeRequests";
+import { getServerT } from "@/lib/i18n/server";
 
 function getMondayOf(date: Date): string {
   const d = new Date(date);
@@ -51,6 +52,7 @@ export default async function TimesheetsPage({
 }) {
   const profile  = await requireOwner();
   const supabase = await createServerSideClient();
+  const t = await getServerT();
 
   const today     = new Date().toISOString().split("T")[0];
   const weekStart = (() => {
@@ -130,14 +132,14 @@ export default async function TimesheetsPage({
     <div className="page-shell page-shell-wide">
       {/* Header */}
       <div className="page-header gap-4 flex-wrap">
-        <h1 className="page-title">Timesheets</h1>
+        <h1 className="page-title">{t("timesheets.title")}</h1>
 
         {/* Week nav */}
         <div className="flex items-center gap-2">
           <a
             href={`/owner/timesheets?week=${prevWeek}`}
             className="p-2 rounded-lg border border-gray-200 hover:border-forge transition-colors"
-            aria-label="Previous week"
+            aria-label={t("timesheets.previousWeek")}
           >
             <svg className="w-4 h-4 text-forge" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -149,7 +151,7 @@ export default async function TimesheetsPage({
           <a
             href={`/owner/timesheets?week=${nextWeek}`}
             className="p-2 rounded-lg border border-gray-200 hover:border-forge transition-colors"
-            aria-label="Next week"
+            aria-label={t("timesheets.nextWeek")}
           >
             <svg className="w-4 h-4 text-forge" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -160,7 +162,7 @@ export default async function TimesheetsPage({
               href="/owner/timesheets"
               className="px-3 py-2 rounded-lg border border-gray-200 text-sm font-600 text-mist hover:text-forge hover:border-forge transition-colors"
             >
-              This week
+              {t("timesheets.thisWeek")}
             </a>
           )}
         </div>
@@ -190,7 +192,7 @@ export default async function TimesheetsPage({
                     </div>
                     <div>
                       <p className="font-700 text-forge text-sm">{w.full_name}</p>
-                      <p className="text-xs text-mist">Jobs this week: {jobs}</p>
+                      <p className="text-xs text-mist">{t("timesheets.jobsThisWeek", { count: jobs })}</p>
                     </div>
                   </div>
                   <span className="text-xs font-700 text-forge bg-amber/30 px-2 py-1 rounded-lg">
@@ -198,7 +200,7 @@ export default async function TimesheetsPage({
                   </span>
                 </div>
                 <p className="text-xs text-mist">
-                  Hours logged vs. scheduled jobs helps catch under- or over-loading.
+                  {t("timesheets.hoursNote")}
                 </p>
               </div>
             );
@@ -208,7 +210,7 @@ export default async function TimesheetsPage({
 
       {!workers?.length ? (
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-          <p className="text-mist text-sm">No active workers yet.</p>
+          <p className="text-mist text-sm">{t("timesheets.noActiveWorkers")}</p>
         </div>
       ) : (
         <>
@@ -217,14 +219,14 @@ export default async function TimesheetsPage({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
-                  <th className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider w-40">Worker</th>
+                  <th className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider w-40">{t("timesheets.workerColumn")}</th>
                   {days.map((d, i) => (
                     <th key={d} className={`px-2 py-3 text-center font-600 text-xs uppercase tracking-wider ${d === today ? "text-amber" : "text-mist"}`}>
                       <div>{DAY_NAMES[i]}</div>
                       <div className="font-400 normal-case">{fmtDate(d)}</div>
                     </th>
                   ))}
-                  <th className="text-right px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Total</th>
+                  <th className="text-right px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">{t("timesheets.totalColumn")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -245,7 +247,7 @@ export default async function TimesheetsPage({
                             {hasOpen && (
                               <span className="inline-flex items-center gap-1 text-[10px] text-green-700 font-600">
                                 <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-                                In
+                                {t("timesheets.inColumn")}
                               </span>
                             )}
                           </div>
@@ -306,7 +308,7 @@ export default async function TimesheetsPage({
                         {hasOpen && (
                           <span className="inline-flex items-center gap-1 text-xs text-green-700 font-600">
                             <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-                            Clocked in
+                            {t("timesheets.clockedInLabel")}
                           </span>
                         )}
                       </div>
@@ -340,7 +342,7 @@ export default async function TimesheetsPage({
                       );
                     })}
                     {Object.keys(wEntries).length === 0 && (
-                      <p className="px-4 py-3 text-xs text-mist">No entries this week</p>
+                      <p className="px-4 py-3 text-xs text-mist">{t("timesheets.noEntriesThisWeek")}</p>
                     )}
                   </div>
                 </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/components/ui/ToastContainer";
+import { useLanguage } from "@/lib/i18n";
 
 type Entry = {
   id: string;
@@ -58,6 +59,7 @@ const STATUS_STYLES: Record<Request["status"], { bg: string; text: string }> = {
 
 export default function Timesheet({ weekStart, entries, requests }: Props) {
   const { addToast } = useToast();
+  const { t } = useLanguage();
   const [localRequests, setLocalRequests] = useState<Request[]>(requests);
   const [modalOpen, setModalOpen] = useState(false);
   const [requestsOpen, setRequestsOpen] = useState(false);
@@ -132,14 +134,14 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
     setSaving(false);
 
     if (!res.ok) {
-      addToast(data.error || "Failed to submit request", "error");
-      setError(data.error || "Failed to submit request.");
+      addToast(data.error || t("timesheets.failedToSubmit"), "error");
+      setError(data.error || t("timesheets.failedToSubmit"));
       return;
     }
 
-    addToast("Request submitted", "success");
+    addToast(t("timesheets.requestSubmitted"), "success");
     setLocalRequests((prev) => [data.request as Request, ...prev]);
-    setSuccess("Request sent to your owner.");
+    setSuccess(t("timesheets.requestSentSuccess"));
     setModalOpen(false);
   };
 
@@ -147,14 +149,14 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
     <div className="p-4 max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-4 gap-2">
         <div>
-          <h1 className="font-display font-800 text-2xl text-forge">My Timesheet</h1>
-          <p className="text-mist text-sm">Review your week and request fixes.</p>
+          <h1 className="font-display font-800 text-2xl text-forge">{t("timesheets.myTimesheet")}</h1>
+          <p className="text-mist text-sm">{t("timesheets.reviewWeek")}</p>
         </div>
         <div className="flex items-center gap-2">
           <a
             href={`/worker/timesheets?week=${prevWeek}`}
             className="p-2 rounded-lg border border-gray-200 hover:border-forge transition-colors"
-            aria-label="Previous week"
+            aria-label={t("timesheets.previousWeek")}
           >
             <svg className="w-4 h-4 text-forge" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -166,7 +168,7 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
           <a
             href={`/worker/timesheets?week=${nextWeek}`}
             className="p-2 rounded-lg border border-gray-200 hover:border-forge transition-colors"
-            aria-label="Next week"
+            aria-label={t("timesheets.nextWeek")}
           >
             <svg className="w-4 h-4 text-forge" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -177,7 +179,7 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
               href="/worker/timesheets"
               className="px-3 py-2 rounded-lg border border-gray-200 text-sm font-600 text-mist hover:text-forge hover:border-forge transition-colors"
             >
-              This week
+              {t("timesheets.thisWeek")}
             </a>
           )}
           {localRequests.length > 0 && (
@@ -189,7 +191,7 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
-              My Requests
+              {t("timesheets.myRequests")}
               {pendingCount > 0 && (
                 <span className="absolute -top-1.5 -right-1.5 inline-flex items-center justify-center w-4 h-4 bg-red-500 text-white text-[10px] font-800 rounded-full">
                   {pendingCount}
@@ -207,9 +209,10 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
             const count = localRequests.filter((r) => r.status === s).length;
             if (count === 0) return null;
             const style = STATUS_STYLES[s];
+            const label = s === "pending" ? t("timesheets.pendingReview") : s === "approved" ? t("timesheets.approved") : t("timesheets.declined");
             return (
               <div key={s} className={`border ${style.bg} ${style.text} rounded-lg px-3 py-2`}>
-                <p className="text-[11px] uppercase tracking-wide font-700">{s}</p>
+                <p className="text-[11px] uppercase tracking-wide font-700">{label}</p>
                 <p className="font-display font-800 text-lg">{count}</p>
               </div>
             );
@@ -228,7 +231,7 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
           const reqBadge = (req: Request | undefined) => {
             if (!req) return null;
             const s = STATUS_STYLES[req.status];
-            const label = req.status === "pending" ? "Pending review" : req.status === "approved" ? "Approved" : "Declined";
+            const label = req.status === "pending" ? t("timesheets.pendingReview") : req.status === "approved" ? t("timesheets.approved") : t("timesheets.declined");
             return (
               <span className={`inline-block text-[11px] font-700 px-2 py-0.5 rounded border ${s.bg} ${s.text}`}>
                 {label}
@@ -251,13 +254,13 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
                   onClick={() => openModal(date, null)}
                   className="text-sm font-600 text-amber hover:underline shrink-0"
                 >
-                  Request change
+                  {t("timesheets.requestChange")}
                 </button>
               </div>
 
               <div className="mt-3 space-y-2">
                 {dayEntries.length === 0 ? (
-                  <p className="text-xs text-mist">No punches.</p>
+                  <p className="text-xs text-mist">{t("timesheets.noPunches")}</p>
                 ) : (
                   dayEntries.map((e) => {
                     const req = dayRequests.find((r) => r.time_entry_id === e.id);
@@ -268,7 +271,7 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
                       >
                         <div className="min-w-0">
                           <p className="font-600 text-sm text-forge">
-                            {fmtTime(e.clocked_in_at)} – {e.clocked_out_at ? fmtTime(e.clocked_out_at) : "open"}
+                            {fmtTime(e.clocked_in_at)} – {e.clocked_out_at ? fmtTime(e.clocked_out_at) : t("timesheets.openEntry")}
                           </p>
                           {e.notes && <p className="text-xs text-mist mt-0.5">{e.notes}</p>}
                           {req && <div className="mt-1">{reqBadge(req)}</div>}
@@ -277,7 +280,7 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
                           onClick={() => openModal(date, e.id)}
                           className="text-xs font-600 text-amber hover:underline shrink-0"
                         >
-                          Request change
+                          {t("timesheets.requestChange")}
                         </button>
                       </div>
                     );
@@ -293,12 +296,12 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setModalOpen(false)} aria-hidden="true" />
           <div className="relative bg-white rounded-xl shadow-2xl max-w-md w-full p-5 border border-gray-200">
-            <h2 className="font-display font-700 text-lg text-forge mb-2">Request a change</h2>
-            <p className="text-xs text-mist mb-3">Sent to your owner to review.</p>
+            <h2 className="font-display font-700 text-lg text-forge mb-2">{t("timesheets.requestAChange")}</h2>
+            <p className="text-xs text-mist mb-3">{t("timesheets.requestSentNote")}</p>
 
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-700 text-mist uppercase tracking-wider mb-1">Date</label>
+                <label className="block text-xs font-700 text-mist uppercase tracking-wider mb-1">{t("jobs.date")}</label>
                 <input
                   type="date"
                   value={selectedDate}
@@ -308,7 +311,7 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-700 text-mist uppercase tracking-wider mb-1">Clock in</label>
+                  <label className="block text-xs font-700 text-mist uppercase tracking-wider mb-1">{t("timesheets.clockIn")}</label>
                   <input
                     type="time"
                     value={inTime}
@@ -317,7 +320,7 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-700 text-mist uppercase tracking-wider mb-1">Clock out</label>
+                  <label className="block text-xs font-700 text-mist uppercase tracking-wider mb-1">{t("timesheets.clockOut")}</label>
                   <input
                     type="time"
                     value={outTime}
@@ -327,12 +330,12 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-700 text-mist uppercase tracking-wider mb-1">What needs to change?</label>
+                <label className="block text-xs font-700 text-mist uppercase tracking-wider mb-1">{t("timesheets.whatNeedsToChange")}</label>
                 <textarea
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   rows={3}
-                  placeholder="Example: Forgot to clock out at 5:15 PM."
+                  placeholder={t("timesheets.changePlaceholder")}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none"
                 />
               </div>
@@ -346,14 +349,14 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
                 onClick={() => setModalOpen(false)}
                 className="px-3 py-2 text-sm font-600 text-mist hover:text-forge"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 onClick={submit}
                 disabled={saving || reason.trim().length < 5}
                 className="bg-amber text-forge font-display font-700 px-4 py-2 rounded-lg text-sm disabled:opacity-50 hover:bg-amber-dark transition-colors"
               >
-                {saving ? "Sending…" : "Send to owner"}
+                {saving ? t("timesheets.sending") : t("timesheets.sendToOwner")}
               </button>
             </div>
           </div>
@@ -365,11 +368,11 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
           <div className="absolute inset-0 bg-black/30" onClick={() => setRequestsOpen(false)} aria-hidden="true" />
           <div className="relative bg-white rounded-xl shadow-2xl max-w-md w-full p-5 border border-gray-200">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="font-display font-700 text-lg text-forge">Requests this week</h2>
-              <button onClick={() => setRequestsOpen(false)} className="text-sm text-mist hover:text-forge">Close</button>
+              <h2 className="font-display font-700 text-lg text-forge">{t("timesheets.requestsThisWeek")}</h2>
+              <button onClick={() => setRequestsOpen(false)} className="text-sm text-mist hover:text-forge">{t("common.close")}</button>
             </div>
             {localRequests.length === 0 ? (
-              <p className="text-sm text-mist">No requests this week.</p>
+              <p className="text-sm text-mist">{t("timesheets.noRequestsThisWeek")}</p>
             ) : (
               <div className="space-y-2 max-h-80 overflow-auto pr-1">
                 {localRequests.map((r) => (
@@ -377,7 +380,7 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-700 text-forge">{fmtDate(r.requested_date)}</p>
                       <span className={`text-[11px] font-700 px-2 py-0.5 rounded border ${STATUS_STYLES[r.status].bg} ${STATUS_STYLES[r.status].text}`}>
-                        {r.status}
+                        {r.status === "pending" ? t("timesheets.pendingReview") : r.status === "approved" ? t("timesheets.approved") : t("timesheets.declined")}
                       </span>
                     </div>
                     <p className="text-xs text-mist mt-1">

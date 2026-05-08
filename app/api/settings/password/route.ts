@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase";
+import { createServerSideClient } from "@/lib/supabase-server";
+import { createServiceClient } from "@/lib/supabase";
 import { requireOwner } from "@/lib/auth";
 import { validateInput } from "@/lib/validation";
 import { errorResponse } from "@/lib/api";
@@ -21,9 +22,8 @@ export async function POST(req: NextRequest) {
 
     const { currentPassword, newPassword } = validation.data;
 
-    const supabase = createClient();
-
-    // Verify current password by attempting sign in
+    // Verify current password using server-side client (has access to cookies/session)
+    const supabase = await createServerSideClient();
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email: profile.email,
       password: currentPassword,
@@ -31,10 +31,12 @@ export async function POST(req: NextRequest) {
 
     if (signInError) return errorResponse("Current password is incorrect", 400);
 
-    // Update password
-    const { error: updateError } = await supabase.auth.updateUser({
-      password: newPassword,
-    });
+    // Update password using service client (admin API, no session dependency)
+    const serviceClient = createServiceClient();
+    const { error: updateError } = await serviceClient.auth.admin.updateUserById(
+      profile.id,
+      { password: newPassword }
+    );
 
     if (updateError) return errorResponse("Failed to update password", 500);
 

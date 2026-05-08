@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useToast } from "@/components/ui/ToastContainer";
+import { useLanguage } from "@/lib/i18n";
 
 export default function SendInvoiceWithEmail({
   invoiceId,
@@ -13,13 +14,14 @@ export default function SendInvoiceWithEmail({
   disabled?: boolean;
 }) {
   const { addToast } = useToast();
+  const { t } = useLanguage();
   const [email, setEmail] = useState(defaultEmail || "");
   const [sending, setSending] = useState(false);
 
   const send = async () => {
     if (disabled || sending) return;
     if (!email) {
-      addToast("Enter an email to send", "error");
+      addToast(t("invoices.enterEmail"), "error");
       return;
     }
     setSending(true);
@@ -30,9 +32,9 @@ export default function SendInvoiceWithEmail({
         body: JSON.stringify({ email }),
       });
       if (!res.ok) throw new Error();
-      addToast("Invoice sent", "success");
+      addToast(t("invoices.invoiceSent"), "success");
     } catch (err) {
-      addToast("Could not send invoice", "error");
+      addToast(t("invoices.couldNotSend"), "error");
     } finally {
       setSending(false);
     }
@@ -40,7 +42,7 @@ export default function SendInvoiceWithEmail({
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-2">
-      <p className="text-xs uppercase tracking-wider text-mist font-600">Send to email</p>
+      <p className="text-xs uppercase tracking-wider text-mist font-600">{t("invoices.sendToEmail")}</p>
       <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
         <input
           type="email"
@@ -55,7 +57,7 @@ export default function SendInvoiceWithEmail({
           disabled={disabled || sending}
           className="px-4 py-2 rounded-lg text-sm font-700 bg-amber text-forge hover:bg-amber-dark disabled:opacity-50"
         >
-          {sending ? "Sending…" : "Send invoice"}
+          {sending ? t("invoices.sending") : t("invoices.sendInvoice")}
         </button>
       </div>
     </div>

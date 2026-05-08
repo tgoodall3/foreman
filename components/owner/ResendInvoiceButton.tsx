@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useToast } from "@/components/ui/ToastContainer";
+import { useLanguage } from "@/lib/i18n";
 
 interface Props {
   invoiceId: string;
@@ -10,6 +11,7 @@ interface Props {
 
 export default function ResendInvoiceButton({ invoiceId, disabled }: Props) {
   const { addToast } = useToast();
+  const { t } = useLanguage();
   const [sending, setSending] = useState(false);
 
   const resend = async () => {
@@ -18,9 +20,9 @@ export default function ResendInvoiceButton({ invoiceId, disabled }: Props) {
     try {
       const res = await fetch(`/api/invoices/${invoiceId}/send`, { method: "POST" });
       if (!res.ok) throw new Error("Failed to send");
-      addToast("Reminder sent", "success");
+      addToast(t("invoices.reminderSent"), "success");
     } catch (err) {
-      addToast("Could not send reminder", "error");
+      addToast(t("invoices.couldNotSendReminder"), "error");
     } finally {
       setSending(false);
     }
@@ -36,7 +38,7 @@ export default function ResendInvoiceButton({ invoiceId, disabled }: Props) {
       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
       </svg>
-      {sending ? "Sending…" : "Resend"}
+      {sending ? t("invoices.sending") : t("invoices.resend")}
     </button>
   );
 }

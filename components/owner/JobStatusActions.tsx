@@ -4,24 +4,26 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/ToastContainer";
+import { useLanguage } from "@/lib/i18n";
 import Link from "next/link";
-
-const transitions: Record<string, { label: string; next: string }[]> = {
-  pending: [
-    { label: "Start Job", next: "in_progress" },
-    { label: "Mark Complete", next: "completed" },
-  ],
-  scheduled: [
-    { label: "Start Job", next: "in_progress" },
-    { label: "Mark Complete", next: "completed" },
-  ],
-  in_progress: [{ label: "Mark Complete", next: "completed" }],
-};
 
 export default function JobStatusActions({ jobId, status, hasInvoice }: { jobId: string; status: string; hasInvoice?: boolean }) {
   const router = useRouter();
   const supabase = createClient();
   const { addToast } = useToast();
+  const { t } = useLanguage();
+
+  const transitions: Record<string, { label: string; next: string }[]> = {
+    pending: [
+      { label: t("jobs.startJob"), next: "in_progress" },
+      { label: t("jobs.markComplete"), next: "completed" },
+    ],
+    scheduled: [
+      { label: t("jobs.startJob"), next: "in_progress" },
+      { label: t("jobs.markComplete"), next: "completed" },
+    ],
+    in_progress: [{ label: t("jobs.markComplete"), next: "completed" }],
+  };
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState("");
   const [showInvoicePrompt, setShowInvoicePrompt] = useState(false);
@@ -37,8 +39,8 @@ export default function JobStatusActions({ jobId, status, hasInvoice }: { jobId:
       .update({ status: next, updated_at: new Date().toISOString() })
       .eq("id", jobId);
     if (err) {
-      addToast("Failed to update status", "error");
-      setError("Failed to update status");
+      addToast(t("common.failedTryAgain"), "error");
+      setError(t("common.failedTryAgain"));
       setUpdating(false);
       return;
     }
@@ -49,7 +51,7 @@ export default function JobStatusActions({ jobId, status, hasInvoice }: { jobId:
         body: JSON.stringify({ jobId }),
       }).catch(() => {});
     }
-    addToast(next === "completed" ? "Job marked complete" : "Status updated", "success");
+    addToast(next === "completed" ? t("jobs.markComplete") : t("jobs.statusUpdated"), "success");
     setUpdating(false);
     if (next === "completed" && !hasInvoice) {
       setShowInvoicePrompt(true);
@@ -61,7 +63,7 @@ export default function JobStatusActions({ jobId, status, hasInvoice }: { jobId:
   return (
     <>
       <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-2">
-        <p className="text-xs uppercase tracking-wider text-mist font-600">Status actions</p>
+        <p className="text-xs uppercase tracking-wider text-mist font-600">{t("jobs.statusActions")}</p>
         <div className="flex flex-wrap gap-2">
           {options.map((opt) => (
             <button
@@ -74,7 +76,7 @@ export default function JobStatusActions({ jobId, status, hasInvoice }: { jobId:
                   : "bg-amber text-forge hover:bg-amber-dark"
               }`}
             >
-              {updating ? "Updating…" : opt.label}
+              {updating ? t("jobs.updating") : opt.label}
             </button>
           ))}
         </div>
@@ -90,20 +92,20 @@ export default function JobStatusActions({ jobId, status, hasInvoice }: { jobId:
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h2 className="font-display font-800 text-xl text-forge text-center mb-1">Job Complete!</h2>
-            <p className="text-sm text-mist text-center mb-6">Would you like to create an invoice for this job now?</p>
+            <h2 className="font-display font-800 text-xl text-forge text-center mb-1">{t("jobs.jobComplete")}</h2>
+            <p className="text-sm text-mist text-center mb-6">{t("jobs.createInvoicePrompt")}</p>
             <div className="flex gap-3">
               <button
                 onClick={() => { setShowInvoicePrompt(false); router.refresh(); }}
                 className="flex-1 border border-gray-300 rounded-lg py-2.5 text-sm font-600 hover:bg-gray-50 transition-colors text-forge"
               >
-                Not now
+                {t("jobs.notNow")}
               </button>
               <Link
                 href={`/owner/invoices/new?jobId=${jobId}`}
                 className="flex-1 bg-amber hover:bg-amber-dark text-forge font-display font-700 py-2.5 rounded-lg text-sm transition-colors text-center"
               >
-                Create Invoice →
+                {t("jobs.createInvoice")}
               </Link>
             </div>
           </div>

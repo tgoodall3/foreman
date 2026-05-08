@@ -3,10 +3,12 @@
 import { useEffect } from "react";
 import { createClient } from "@/lib/supabase";
 import { useToast } from "@/components/ui/ToastContainer";
+import { useLanguage } from "@/lib/i18n";
 
 // Listens for assignment notifications on a per-tenant broadcast channel
 export function ToastClientListener({ tenantId, workerId }: { tenantId: string; workerId: string }) {
   const { addToast } = useToast();
+  const { t } = useLanguage();
 
   useEffect(() => {
     const supabase = createClient();
@@ -18,7 +20,7 @@ export function ToastClientListener({ tenantId, workerId }: { tenantId: string; 
         (payload) => {
           if (!payload?.workerIds || !Array.isArray(payload.workerIds)) return;
           if (!payload.workerIds.includes(workerId)) return;
-          addToast(`New job assigned: ${payload.title ?? "Job"}`, "info");
+          addToast(t("worker.newJobAssigned", { title: payload.title ?? "Job" }), "info");
         }
       )
       .subscribe();

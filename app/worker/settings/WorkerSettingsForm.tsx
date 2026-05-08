@@ -45,7 +45,7 @@ export default function WorkerSettingsForm({ profile }: WorkerSettingsFormProps)
       .eq("id", profile.id);
 
     if (error) {
-      setError("Failed to update profile.");
+      setError(t("settings.profileUpdateFailed"));
     } else {
       router.refresh();
     }
@@ -55,7 +55,7 @@ export default function WorkerSettingsForm({ profile }: WorkerSettingsFormProps)
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
-      setPasswordError("New passwords don't match");
+      setPasswordError(t("settings.passwordMismatch"));
       return;
     }
     setChangingPassword(true);
@@ -74,7 +74,7 @@ export default function WorkerSettingsForm({ profile }: WorkerSettingsFormProps)
       setNewPassword("");
       setConfirmPassword("");
     } else {
-      setPasswordError(data.error || "Failed to change password");
+      setPasswordError(data.error || t("settings.passwordChangeFailed"));
     }
     setChangingPassword(false);
   };
@@ -97,7 +97,7 @@ export default function WorkerSettingsForm({ profile }: WorkerSettingsFormProps)
             <input id="fullName" type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} required className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:border-amber" />
           </div>
           <div>
-            <label htmlFor="phone" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Phone</label>
+            <label htmlFor="phone" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">{t("settings.phone")}</label>
             <input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:border-amber" />
           </div>
         </div>
@@ -105,32 +105,32 @@ export default function WorkerSettingsForm({ profile }: WorkerSettingsFormProps)
         {error && <div role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</div>}
 
         <button type="submit" disabled={loading} className="bg-amber hover:bg-amber-dark disabled:opacity-50 text-forge font-display font-700 px-5 py-2.5 rounded-lg text-sm transition-colors">
-          {loading ? "Saving…" : "Save Changes"}
+          {loading ? t("common.saving") : t("common.save")}
         </button>
       </form>
 
       <form onSubmit={handleChangePassword} className="space-y-6">
         <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-          <h2 className="font-display font-700 text-lg text-forge">Change Password</h2>
+          <h2 className="font-display font-700 text-lg text-forge">{t("settings.changePassword")}</h2>
           <div>
-            <label htmlFor="currentPassword" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Current Password</label>
+            <label htmlFor="currentPassword" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">{t("settings.currentPassword")}</label>
             <input id="currentPassword" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:border-amber" />
           </div>
           <div>
-            <label htmlFor="newPassword" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">New Password</label>
+            <label htmlFor="newPassword" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">{t("settings.newPassword")}</label>
             <input id="newPassword" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={8} className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:border-amber" />
           </div>
           <div>
-            <label htmlFor="confirmPassword" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Confirm New Password</label>
+            <label htmlFor="confirmPassword" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">{t("settings.confirmPassword")}</label>
             <input id="confirmPassword" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={8} className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:border-amber" />
           </div>
         </div>
 
         {passwordError && <div role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{passwordError}</div>}
-        {passwordSuccess && <div role="alert" className="text-sm text-green-600 bg-green-50 border border-green-200 rounded-lg px-3 py-2">✓ Password changed successfully</div>}
+        {passwordSuccess && <div role="alert" className="text-sm text-green-600 bg-green-50 border border-green-200 rounded-lg px-3 py-2">✓ {t("settings.passwordChanged")}</div>}
 
         <button type="submit" disabled={changingPassword} className="bg-amber hover:bg-amber-dark disabled:opacity-50 text-forge font-display font-700 px-5 py-2.5 rounded-lg text-sm transition-colors">
-          {changingPassword ? "Changing…" : "Change Password"}
+          {changingPassword ? t("settings.changingPassword") : t("settings.changePasswordButton")}
         </button>
       </form>
     </>

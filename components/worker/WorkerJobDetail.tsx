@@ -8,7 +8,9 @@ import { formatDate, formatDateTime, JOB_STATUS_CONFIG, PRIORITY_CONFIG } from "
 import Link from "next/link";
 import JobChecklist from "@/components/jobs/JobChecklist";
 import { useToast } from "@/components/ui/ToastContainer";
+import { useLanguage } from "@/lib/i18n";
 import PhotoLightbox from "@/components/ui/PhotoLightbox";
+import { isNative, takePhoto } from "@/lib/camera";
 
 interface Props {
   job: any;
@@ -22,6 +24,7 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
   const router = useRouter();
   const supabase = createClient();
   const { addToast } = useToast();
+  const { t } = useLanguage();
 
   const [photos, setPhotos] = useState(initialPhotos);
   const [notes, setNotes] = useState(initialNotes);
@@ -48,18 +51,18 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
   const afterPhotos  = photos.filter((p) => p.type === "after").length;
   const missingChecklist = checklist.some((item) => !item.done);
   const completionBlocks = [
-    { ok: !missingChecklist, label: "All checklist items done" },
-    { ok: beforePhotos > 0, label: "Before photo" },
-    { ok: afterPhotos > 0, label: "After photo" },
-    { ok: !clockedInEntry, label: "Clocked out" },
+    { ok: !missingChecklist, label: t("jobs.checklistAllDone") },
+    { ok: beforePhotos > 0, label: t("jobs.beforePhoto") },
+    { ok: afterPhotos > 0, label: t("jobs.afterPhoto") },
+    { ok: !clockedInEntry, label: t("timesheets.clockedOut") },
   ];
   const canComplete = completionBlocks.every((b) => b.ok);
 
   // Status transitions available to workers
   const statusTransitions: Record<string, { label: string; next: string }[]> = {
-    scheduled:   [{ label: "Start Job", next: "in_progress" }],
-    in_progress: [{ label: "Mark Complete", next: "completed" }],
-    pending:     [{ label: "Start Job", next: "in_progress" }],
+    scheduled:   [{ label: t("jobs.startJob"), next: "in_progress" }],
+    in_progress: [{ label: t("jobs.markComplete"), next: "completed" }],
+    pending:     [{ label: t("jobs.startJob"), next: "in_progress" }],
   };
 
   const transitions = statusTransitions[job.status] || [];
@@ -124,18 +127,18 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
           const queue: { dir: "in" | "out"; ts: number }[] = raw ? JSON.parse(raw) : [];
           queue.push({ dir, ts: Date.now() });
           localStorage.setItem("clockQueue", JSON.stringify(queue));
-          addToast("Offline – clock action queued", "error");
-          setError("Offline – queued to sync when back online.");
+          addToast(t("timesheets.offlineClockQueued"), "error");
+          setError(t("timesheets.offlineClockNote"));
           setClocking(null);
           return false;
         }
       }
-      addToast(data.error || `Failed to clock ${dir}`, "error");
-      setError(data.error || `Failed to clock ${dir}.`);
+      addToast(data.error || (dir === "in" ? t("timesheets.failedClockIn") : t("timesheets.failedClockOut")), "error");
+      setError(data.error || (dir === "in" ? t("timesheets.failedClockIn") : t("timesheets.failedClockOut")));
       setClocking(null);
       return false;
     }
-    addToast(dir === "in" ? "Clocked in" : "Clocked out", "success");
+    addToast(dir === "in" ? t("timesheets.clockedIn") : t("timesheets.clockedOut"), "success");
     if (dir === "in") setClockedInEntry(data.entry || null);
     if (dir === "out") setClockedInEntry(null);
     setClocking(null);
@@ -167,8 +170,8 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
       .eq("id", job.id);
 
     if (err) {
-      addToast("Failed to update status", "error");
-      setError("Failed to update status. Try again.");
+      addToast(t("jobs.failedUpdateStatus"), "error");
+      setError(t("jobs.failedUpdateStatusMsg"));
       setUpdatingStatus(false);
       return;
     }
@@ -191,7 +194,7 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
       });
     }
 
-    addToast(nextStatus === "completed" ? "Job marked complete" : "Job status updated", "success");
+    addToast(nextStatus === "completed" ? t("jobs.markedCompleteToast") : t("jobs.statusUpdated"), "success");
     setShowHoursPrompt(false);
     router.refresh();
     setUpdatingStatus(false);
@@ -227,7 +230,7 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
 
       if (photoErr) throw photoErr;
       if (photo) {
-        addToast("Photo uploaded", "success");
+        addToast(t("photos.uploadSuccess"), "success");
         setPhotos((prev) => [...prev, photo]);
         setPhotoCaption("");
         if (fileRef.current) fileRef.current.value = "";
@@ -245,10 +248,10 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
         queue.push({ jobId: job.id, tenantId: job.tenant_id, type: photoType, caption: photoCaption, ts: Date.now() });
         localStorage.setItem("photoQueue", JSON.stringify(queue));
         setUploadQueue(queue);
-        setError("Offline – photo queued. Re-select when back online.");
+        setError(t("photos.offlineQueued"));
       } else {
-        addToast("Photo upload failed", "error");
-        setError("Photo upload failed. Check connection/storage.");
+        addToast(t("photos.uploadFailed"), "error");
+        setError(t("photos.uploadFailedNote"));
       }
     } finally {
       setUploading(false);
@@ -260,16 +263,21 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
     if (file) uploadFile(file);
   };
 
+  const handleCameraCapture = async () => {
+    const file = await takePhoto();
+    if (file) uploadFile(file);
+  };
+
   const handleDeletePhoto = async (photoId: string, url: string) => {
     setError("");
     const res = await fetch(`/api/jobs/${job.id}/photos?url=${encodeURIComponent(url)}`, { method: "DELETE" });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      addToast(data.error || "Failed to delete photo", "error");
+      addToast(data.error || t("photos.failedDeletePhoto"), "error");
       return;
     }
     setPhotos((prev) => prev.filter((p) => p.id !== photoId));
-    addToast("Photo deleted", "success");
+    addToast(t("photos.photoDeleted"), "success");
   };
 
   const handleAddNote = async () => {
@@ -289,12 +297,12 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
       .single();
 
     if (!noteErr && note) {
-      addToast("Note added", "success");
+      addToast(t("jobs.noteAdded"), "success");
       setNotes((prev) => [...prev, note]);
       setNoteText("");
     } else {
-      addToast("Failed to add note", "error");
-      setError("Failed to add note.");
+      addToast(t("jobs.failedNote"), "error");
+      setError(t("jobs.failedNote"));
     }
     setAddingNote(false);
   };
@@ -303,7 +311,7 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
     <div className="p-4 max-w-lg mx-auto pb-8">
       {/* Back */}
       <Link href="/worker" className="text-mist text-sm hover:text-forge transition-colors inline-flex items-center gap-1 mb-4">
-        ← Back to jobs
+        {t("jobs.backToJobs")}
       </Link>
 
       {/* Header */}
@@ -327,19 +335,19 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
               disabled={!!clockedInEntry || clocking === "in"}
               className="px-3 py-2 rounded-lg text-sm font-700 bg-green-600 text-white disabled:opacity-60"
             >
-              {clocking === "in" ? "Clocking in…" : clockedInEntry ? "Clocked in" : "Clock in"}
+              {clocking === "in" ? t("timesheets.clockingIn") : clockedInEntry ? t("timesheets.clockedIn") : t("timesheets.clockIn")}
             </button>
             <button
               onClick={() => handleClock("out")}
               disabled={!clockedInEntry || clocking === "out"}
               className="px-3 py-2 rounded-lg text-sm font-700 border border-gray-300 text-steel hover:border-red-300 hover:text-red-600 disabled:opacity-60"
             >
-              {clocking === "out" ? "Clocking out…" : "Clock out"}
+              {clocking === "out" ? t("timesheets.clockingOut") : t("timesheets.clockOut")}
             </button>
           </div>
           {clockedInEntry && (
             <p className="text-xs text-mist">
-              Clocked in at {formatDateTime(clockedInEntry.clocked_in_at)}
+              {t("jobs.clockedInAt", { time: formatDateTime(clockedInEntry.clocked_in_at) })}
             </p>
           )}
           {error && <p className="text-xs text-red-600">{error}</p>}
@@ -348,7 +356,7 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
 
       {/* Completion readiness */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-2">
-        <p className="text-xs text-mist uppercase tracking-wide font-700">Ready to complete</p>
+        <p className="text-xs text-mist uppercase tracking-wide font-700">{t("jobs.readyToComplete")}</p>
         <div className="space-y-1">
           {completionBlocks.map((b) => (
             <div key={b.label} className="flex items-center gap-2 text-sm">
@@ -360,21 +368,21 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
           ))}
         </div>
         {!canComplete && (
-          <p className="text-xs text-amber-700 mt-1">Complete the missing items above to finish this job.</p>
+          <p className="text-xs text-amber-700 mt-1">{t("jobs.completeMissingItems")}</p>
         )}
       </div>
 
       {/* Queued uploads notice */}
       {queuedPhotos.length > 0 && (
         <div className="bg-yellow-50 border border-amber/40 rounded-xl p-3 mb-4">
-          <p className="text-xs text-amber-700 font-700">Queued photos ({queuedPhotos.length})</p>
-          <p className="text-xs text-amber-700 mt-1">Re-select and upload when you’re back online.</p>
+          <p className="text-xs text-amber-700 font-700">{t("jobs.queuedPhotos", { count: queuedPhotos.length })}</p>
+          <p className="text-xs text-amber-700 mt-1">{t("jobs.queuedPhotosNote")}</p>
         </div>
       )}
       {/* Property */}
       {job.properties && (
         <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
-          <p className="text-xs text-mist uppercase tracking-wider font-600 mb-1">Location</p>
+          <p className="text-xs text-mist uppercase tracking-wider font-600 mb-1">{t("jobs.location")}</p>
           <p className="font-600 text-forge">{job.properties.name}</p>
           <p className="text-sm text-mist">{job.properties.address}</p>
           <p className="text-sm text-mist">{job.properties.city}, {job.properties.state}</p>
@@ -384,7 +392,7 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
             rel="noopener noreferrer"
             className="text-xs text-amber hover:underline mt-2 inline-block"
           >
-            Open in Maps →
+            {t("jobs.openInMaps")}
           </a>
         </div>
       )}
@@ -392,7 +400,7 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
       {/* Description */}
       {job.description && (
         <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
-          <p className="text-xs text-mist uppercase tracking-wider font-600 mb-2">Job Details</p>
+          <p className="text-xs text-mist uppercase tracking-wider font-600 mb-2">{t("jobs.jobDetails")}</p>
           <p className="text-sm text-steel leading-relaxed">{job.description}</p>
         </div>
       )}
@@ -401,15 +409,15 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
       {showHoursPrompt && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" role="dialog" aria-modal="true" aria-labelledby="hours-dialog-title">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
-            <h2 id="hours-dialog-title" className="font-display font-800 text-xl text-forge mb-1">Mark Complete</h2>
-            <p className="text-sm text-mist mb-4">How many hours did this job take?</p>
+            <h2 id="hours-dialog-title" className="font-display font-800 text-xl text-forge mb-1">{t("jobs.markComplete")}</h2>
+            <p className="text-sm text-mist mb-4">{t("jobs.hoursQuestion")}</p>
             <input
               type="number"
               value={hoursWorked}
               onChange={(e) => setHoursWorked(e.target.value)}
               min="0"
               step="0.25"
-              placeholder="e.g. 2.5"
+              placeholder={t("jobs.hoursPlaceholder")}
               className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-amber mb-4"
               autoFocus
             />
@@ -418,14 +426,14 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
                 onClick={() => setShowHoursPrompt(false)}
                 className="flex-1 border border-gray-300 rounded-lg py-2.5 text-sm font-600 hover:bg-gray-50 transition-colors"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 onClick={() => commitStatusUpdate("completed", hoursWorked ? parseFloat(hoursWorked) : null)}
                 disabled={updatingStatus}
                 className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-display font-700 py-2.5 rounded-lg text-sm transition-colors"
               >
-                {updatingStatus ? "Saving…" : "Complete Job"}
+                {updatingStatus ? t("common.saving") : t("jobs.completeJob")}
               </button>
             </div>
           </div>
@@ -436,7 +444,7 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
       {checklist.length > 0 && (
         <section aria-labelledby="checklist-heading" className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
           <h2 id="checklist-heading" className="font-display font-700 text-lg text-forge mb-3">
-            Checklist
+            {t("jobs.checklistSection")}
             <span className="ml-2 text-sm font-500 text-mist">
               ({checklist.filter((i: any) => i.done).length}/{checklist.length})
             </span>
@@ -448,18 +456,18 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
       {/* Status Actions */}
       {transitions.length > 0 && (
         <div className="mb-4 space-y-2">
-          {transitions.map((t) => (
+          {transitions.map((tr) => (
             <button
-              key={t.next}
-              onClick={() => handleStatusUpdate(t.next)}
+              key={tr.next}
+              onClick={() => handleStatusUpdate(tr.next)}
               disabled={updatingStatus}
               className={`w-full font-display font-700 py-3.5 rounded-xl text-base transition-colors min-h-[44px] ${
-                t.next === "completed"
+                tr.next === "completed"
                   ? "bg-green-600 hover:bg-green-700 text-white"
                   : "bg-amber hover:bg-amber-dark text-forge"
               } disabled:opacity-50`}
             >
-              {updatingStatus ? "Updating…" : t.label}
+              {updatingStatus ? t("jobs.updating") : tr.label}
             </button>
           ))}
         </div>
@@ -474,7 +482,7 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
       {/* Photo Upload */}
       <section aria-labelledby="photos-heading" className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
         <h2 id="photos-heading" className="font-display font-700 text-lg text-forge mb-3">
-          Photos ({photos.length})
+          {t("photos.sectionTitle", { count: photos.length })}
         </h2>
 
         {/* Lightbox */}
@@ -496,7 +504,7 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
                   type="button"
                   onClick={() => setLightboxIndex(i)}
                   className="w-full focus:outline-none focus:ring-2 focus:ring-amber rounded-lg"
-                  aria-label={`View ${photo.type} photo`}
+                  aria-label={t("jobs.viewPhotoAriaLabel", { type: photo.type })}
                 >
                   <Image
                     src={photo.thumbUrl || photo.url}
@@ -511,7 +519,7 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
                   onClick={() => handleDeletePhoto(photo.id, photo.url)}
                   className="flex absolute top-1 right-1 bg-black text-white rounded-full w-10 h-10 items-center justify-center text-2xl shadow"
                   style={{ lineHeight: 1 }}
-                  aria-label="Delete photo"
+                  aria-label={t("photos.deletePhoto")}
                 >
                   ×
                 </button>
@@ -525,7 +533,7 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
         <div className="space-y-3">
           <div>
             <label htmlFor="photo-type" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">
-              Photo Type
+              {t("photos.photoType")}
             </label>
             <select
               id="photo-type"
@@ -533,42 +541,57 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
               onChange={(e) => setPhotoType(e.target.value as any)}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-forge focus:border-amber"
             >
-              <option value="before">Before</option>
-              <option value="during">During</option>
-              <option value="after">After</option>
-              <option value="general">General</option>
+              <option value="before">{t("photos.typeBefore")}</option>
+              <option value="during">{t("photos.typeDuring")}</option>
+              <option value="after">{t("photos.typeAfter")}</option>
+              <option value="general">{t("photos.typeGeneral")}</option>
             </select>
           </div>
           <div>
             <label htmlFor="photo-caption" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">
-              Caption (optional)
+              {t("photos.caption")}
             </label>
             <input
               id="photo-caption"
               type="text"
               value={photoCaption}
               onChange={(e) => setPhotoCaption(e.target.value)}
-              placeholder="Describe the photo…"
+              placeholder={t("photos.captionPlaceholder")}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-amber"
             />
           </div>
           <div>
             <label htmlFor="photo-file" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">
-              Photo
+              {t("photos.photoLabel")}
             </label>
-            <input
-              id="photo-file"
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={handlePhotoUpload}
-              disabled={uploading}
-              className="w-full text-sm text-mist file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-amber file:text-forge file:font-600 file:text-sm hover:file:bg-amber-dark"
-              aria-describedby="photo-help"
-            />
+            {isNative() ? (
+              <button
+                type="button"
+                onClick={handleCameraCapture}
+                disabled={uploading}
+                className="w-full flex items-center justify-center gap-2 bg-amber hover:bg-amber-dark disabled:opacity-50 text-forge font-600 py-2.5 rounded-lg text-sm transition-colors min-h-[44px]"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                  <circle cx="12" cy="13" r="4"/>
+                </svg>
+                {uploading ? t("photos.uploading") : t("photos.takeOrChoose")}
+              </button>
+            ) : (
+              <input
+                id="photo-file"
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handlePhotoUpload}
+                disabled={uploading}
+                className="w-full text-sm text-mist file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-amber file:text-forge file:font-600 file:text-sm hover:file:bg-amber-dark"
+                aria-describedby="photo-help"
+              />
+            )}
             <p id="photo-help" className="text-xs text-mist mt-1">
-              {uploading ? "Uploading…" : "Tap to take a photo or choose from gallery"}
+              {uploading ? t("photos.uploading") : t("photos.tapToPhoto")}
             </p>
           </div>
         </div>
@@ -577,7 +600,7 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
       {/* Notes */}
       <section aria-labelledby="notes-heading" className="bg-white rounded-xl border border-gray-200 p-4">
         <h2 id="notes-heading" className="font-display font-700 text-lg text-forge mb-3">
-          Notes ({notes.length})
+          {t("jobs.notesCount", { count: notes.length })}
         </h2>
 
         {notes.length > 0 && (
@@ -596,14 +619,14 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
 
         <div className="space-y-2">
           <label htmlFor="note-text" className="block text-xs font-600 text-mist uppercase tracking-wider">
-            Add a note
+            {t("jobs.addANote")}
           </label>
           <textarea
             id="note-text"
             value={noteText}
             onChange={(e) => setNoteText(e.target.value)}
             rows={3}
-            placeholder="Issue found, materials used, anything important…"
+            placeholder={t("jobs.notePlaceholder")}
             className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:border-amber"
           />
           <button
@@ -611,7 +634,7 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
             disabled={addingNote || !noteText.trim()}
             className="w-full bg-forge hover:bg-forge-light disabled:opacity-50 text-white font-display font-700 py-2.5 rounded-lg text-sm transition-colors min-h-[44px]"
           >
-            {addingNote ? "Adding…" : "Add Note"}
+            {addingNote ? t("jobs.adding") : t("jobs.addNote")}
           </button>
         </div>
       </section>

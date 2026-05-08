@@ -7,6 +7,7 @@ import { formatCurrency, formatDate, JOB_STATUS_CONFIG, PRIORITY_CONFIG } from "
 import WorkOrderInlineActions from "@/components/owner/WorkOrderInlineActions";
 import MessagePM from "@/components/owner/MessagePM";
 import QuickAssign from "@/components/owner/QuickAssign";
+import { getServerT } from "@/lib/i18n/server";
 
 const ROW_CARD_CLASS = "block rounded-xl border border-gray-200/80 px-3 py-3 transition-colors hover:bg-gray-50";
 const ROW_TITLE_CLASS = "line-clamp-1 text-sm font-700 text-forge";
@@ -15,6 +16,7 @@ const ROW_META_CLASS = "mt-1 line-clamp-1 text-xs text-mist";
 export default async function OwnerToday() {
   const profile  = await requireOwner();
   const supabase = await createServerSideClient();
+  const t = await getServerT();
 
   // Redirect brand-new tenants to onboarding
   const [{ count: workerCount }, { count: pmCount }] = await Promise.all([
@@ -40,10 +42,10 @@ export default async function OwnerToday() {
     .is("clocked_out_at", null);
 
   const quickActions = [
-    { href: "/owner/jobs/new", label: "New Job" },
-    { href: "/owner/estimates/new", label: "New Estimate" },
-    { href: "/owner/invoices/new", label: "New Invoice" },
-    { href: "/owner/schedule", label: "Schedule" },
+    { href: "/owner/jobs/new", label: t("dashboard.newJob") },
+    { href: "/owner/estimates/new", label: t("dashboard.newEstimate") },
+    { href: "/owner/invoices/new", label: t("dashboard.newInvoice") },
+    { href: "/owner/schedule", label: t("nav.schedule") },
   ];
 
   return (
@@ -51,20 +53,20 @@ export default async function OwnerToday() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-mist font-700">Today</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-mist font-700">{t("dashboard.todayLabel")}</p>
           <h1 className="font-display font-800 text-3xl text-forge leading-tight">{formatDate(today)}</h1>
         </div>
         <div className="grid grid-cols-2 sm:flex sm:items-center gap-2">
-          <Kpi label="Jobs today" value={todayJobs.length} tone="forge" />
-          <Kpi label="Unassigned" value={unassignedToday} tone={unassignedToday ? "amber" : "steel"} />
-          <Kpi label="Clocked in" value={clockedInCount ?? 0} tone={(clockedInCount ?? 0) ? "green" : "steel"} />
-          <Kpi label="Overdue inv." value={overdueCount} tone={overdueCount ? "red" : "steel"} />
+          <Kpi label={t("dashboard.jobsToday")} value={todayJobs.length} tone="forge" />
+          <Kpi label={t("dashboard.unassigned")} value={unassignedToday} tone={unassignedToday ? "amber" : "steel"} />
+          <Kpi label={t("dashboard.clockedIn")} value={clockedInCount ?? 0} tone={(clockedInCount ?? 0) ? "green" : "steel"} />
+          <Kpi label={t("dashboard.overdueInv")} value={overdueCount} tone={overdueCount ? "red" : "steel"} />
         </div>
       </div>
 
       <section className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
         <header className="px-3 py-3 sm:px-4 border-b border-gray-100">
-          <p className="text-xs text-mist uppercase tracking-wide font-700">Quick Actions</p>
+          <p className="text-xs text-mist uppercase tracking-wide font-700">{t("dashboard.quickActions")}</p>
         </header>
         <div className="space-y-3 p-3 sm:p-4">
           <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
@@ -82,27 +84,27 @@ export default async function OwnerToday() {
 
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             <ActionCard
-              title="Work Orders"
+              title={t("nav.workOrders")}
               count={actions.pendingOrders.length}
-              body={actions.pendingOrders.length ? "Pending review" : "All caught up"}
+              body={actions.pendingOrders.length ? t("dashboard.pendingReview") : t("dashboard.allCaughtUp")}
               href="/owner/work-orders"
-              cta="Review queue"
+              cta={t("dashboard.reviewQueue")}
             />
             {actions.staleOrders.length > 0 && (
               <ActionCard
-                title="Idle Work Orders"
+                title={t("dashboard.idleWorkOrders")}
                 count={actions.staleOrders.length}
-                body="Pending more than 24h"
+                body={t("dashboard.pendingMoreThan24h")}
                 href="/owner/work-orders"
-                cta="Follow up"
+                cta={t("dashboard.followUp")}
               />
             )}
             <ActionCard
-              title="Time Requests"
+              title={t("dashboard.timeRequests")}
               count={actions.pendingTimeRequests}
-              body={actions.pendingTimeRequests ? "Awaiting approval" : "None pending"}
+              body={actions.pendingTimeRequests ? t("dashboard.awaitingApproval") : t("dashboard.nonePending")}
               href="/owner/timesheets"
-              cta="Open approvals"
+              cta={t("dashboard.openApprovals")}
             />
           </div>
         </div>
@@ -111,12 +113,12 @@ export default async function OwnerToday() {
       <section className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
         <header className="flex items-center justify-between px-3 py-3 sm:px-4 border-b border-gray-100">
           <div>
-            <p className="text-xs text-mist uppercase tracking-wide font-700">Jobs</p>
+            <p className="text-xs text-mist uppercase tracking-wide font-700">{t("nav.jobs")}</p>
             <p className="text-sm text-steel">
-              {todayJobs.length + upcomingJobs.length > 0 ? `${todayJobs.length} today, ${upcomingJobs.length} next` : "Nothing scheduled"}
+              {todayJobs.length + upcomingJobs.length > 0 ? `${todayJobs.length} today, ${upcomingJobs.length} next` : t("dashboard.nothingScheduled")}
             </p>
           </div>
-          <Link href="/owner/schedule" className="text-xs font-700 text-amber hover:underline">Open schedule →</Link>
+          <Link href="/owner/schedule" className="text-xs font-700 text-amber hover:underline">{t("dashboard.openSchedule")} →</Link>
         </header>
 
         <div className="divide-y divide-gray-100">
@@ -125,7 +127,7 @@ export default async function OwnerToday() {
               <p className="text-[11px] text-mist uppercase tracking-[0.18em] font-700">Today</p>
             </div>
             {todayJobs.length === 0 ? (
-              <div className="p-5 text-center text-mist text-sm">Schedule a job for today to fill the board.</div>
+              <div className="p-5 text-center text-mist text-sm">{t("dashboard.scheduleTodayNote")}</div>
             ) : (
               <div className="divide-y divide-gray-100">
                 {todayJobs.map((job: any) => {
@@ -197,7 +199,7 @@ export default async function OwnerToday() {
               <p className="text-[11px] text-mist uppercase tracking-[0.18em] font-700">Next</p>
             </div>
             {upcomingJobs.length === 0 ? (
-              <div className="p-5 text-center text-mist text-sm">No upcoming jobs.</div>
+              <div className="p-5 text-center text-mist text-sm">{t("dashboard.noUpcomingJobs")}</div>
             ) : (
               <div className="divide-y divide-gray-100">
                 {upcomingJobs.map((job: any) => {
@@ -235,14 +237,14 @@ export default async function OwnerToday() {
       <section className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
         <header className="flex items-center justify-between px-3 py-3 sm:px-4 border-b border-gray-100">
           <div>
-            <p className="text-xs text-mist uppercase tracking-wide font-700">Work Orders</p>
-            <p className="text-sm text-steel">Pending</p>
+            <p className="text-xs text-mist uppercase tracking-wide font-700">{t("nav.workOrders")}</p>
+            <p className="text-sm text-steel">{t("workOrders.pendingTab")}</p>
           </div>
-          <Link href="/owner/work-orders" className="text-xs font-700 text-amber hover:underline">View all →</Link>
+          <Link href="/owner/work-orders" className="text-xs font-700 text-amber hover:underline">{t("common.open")} →</Link>
         </header>
         <div className="divide-y divide-gray-100">
           {!workOrders?.length ? (
-            <div className="p-5 text-center text-mist text-sm">No pending work orders.</div>
+            <div className="p-5 text-center text-mist text-sm">{t("workOrders.noWorkOrders")}</div>
           ) : (
             workOrders.map((wo: any) => {
               const priorityCfg = PRIORITY_CONFIG[wo.priority as keyof typeof PRIORITY_CONFIG];
@@ -285,31 +287,31 @@ export default async function OwnerToday() {
 
       <section className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
         <header className="px-3 py-3 sm:px-4 border-b border-gray-100">
-          <p className="text-xs text-mist uppercase tracking-wide font-700">Billing</p>
+          <p className="text-xs text-mist uppercase tracking-wide font-700">{t("dashboard.billing")}</p>
         </header>
         <div className="grid gap-2 p-3 sm:grid-cols-2 sm:p-4 xl:grid-cols-3">
           <ActionCard
-            title="Overdue Invoices"
+            title={t("dashboard.overdueInvoices")}
             count={overdueCount}
-            body={overdueCount ? `${formatCurrency(overdueTotal)} outstanding` : "None overdue"}
+            body={overdueCount ? `${formatCurrency(overdueTotal)} ${t("dashboard.outstanding").toLowerCase()}` : t("common.none")}
             href="/owner/invoices?status=overdue"
-            cta="Review billing"
+            cta={t("dashboard.reviewBilling")}
             tone="red"
           />
           <ActionCard
-            title="Ready to Bill"
+            title={t("dashboard.readyToBill")}
             count={actions.uninvoicedJobs.length}
-            body={actions.uninvoicedJobs.length ? "Completed jobs not invoiced" : "Nothing waiting"}
+            body={actions.uninvoicedJobs.length ? t("dashboard.completedNotInvoiced") : t("common.none")}
             href="/owner/reports/jobs-to-invoice"
-            cta="Create invoices"
+            cta={t("dashboard.createInvoices")}
             tone="amber"
           />
           <ActionCard
-            title="Ready to Send"
+            title={t("dashboard.readyToSend")}
             count={actions.draftInvoices.length}
-            body={actions.draftInvoices.length ? "Draft invoices" : "No drafts"}
+            body={actions.draftInvoices.length ? t("dashboard.draftInvoices") : t("common.none")}
             href="/owner/invoices?status=draft"
-            cta="Send drafts"
+            cta={t("dashboard.sendDrafts")}
           />
         </div>
       </section>
@@ -318,9 +320,9 @@ export default async function OwnerToday() {
         <summary className="list-none cursor-pointer px-3 py-3">
           <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 transition-colors group-open:bg-white group-open:border-gray-300">
             <div className="min-w-0">
-              <p className="text-xs text-mist uppercase tracking-wide font-700">Metrics & Health</p>
+              <p className="text-xs text-mist uppercase tracking-wide font-700">{t("dashboard.metricsHealth")}</p>
               <p className="mt-1 text-sm text-steel">
-                Tap to expand performance and recurring health
+                {t("dashboard.tapToExpand")}
               </p>
               <p className="mt-1 text-xs text-mist">
                 {formatCurrency(metrics.revenueThisMonth)} revenue · {formatCurrency(metrics.outstanding)} outstanding
@@ -337,24 +339,26 @@ export default async function OwnerToday() {
         </summary>
         <div className="border-t border-gray-100 p-3">
           <div className="mb-3 flex items-center justify-between rounded-lg bg-chalk px-3 py-2">
-            <p className="text-[11px] font-700 uppercase tracking-[0.16em] text-steel">Expanded Metrics</p>
-            <span className="text-[11px] font-700 text-mist">Tap header to collapse</span>
+            <p className="text-[11px] font-700 uppercase tracking-[0.16em] text-steel">{t("dashboard.expandedMetrics")}</p>
+            <span className="text-[11px] font-700 text-mist">{t("dashboard.tapToCollapse")}</span>
           </div>
           <MetricsHealthContent
             metrics={metrics}
             overdueCount={overdueCount}
+            t={t}
           />
         </div>
       </details>
 
       <section className="hidden rounded-2xl border border-gray-200 bg-white shadow-sm md:block">
         <header className="px-4 py-3 border-b border-gray-100">
-          <p className="text-xs text-mist uppercase tracking-wide font-700">Metrics & Health</p>
+          <p className="text-xs text-mist uppercase tracking-wide font-700">{t("dashboard.metricsHealth")}</p>
         </header>
         <div className="p-4">
           <MetricsHealthContent
             metrics={metrics}
             overdueCount={overdueCount}
+            t={t}
           />
         </div>
       </section>
@@ -416,7 +420,9 @@ function Metric({ label, value, sub, accent, urgent }: { label: string; value: s
   );
 }
 
-function MetricsHealthContent({ metrics, overdueCount }: {
+type TFn = (key: string, vars?: Record<string, string | number>) => string;
+
+function MetricsHealthContent({ metrics, overdueCount, t }: {
   metrics: {
     revenueThisMonth: number;
     outstanding: number;
@@ -428,22 +434,23 @@ function MetricsHealthContent({ metrics, overdueCount }: {
     estimateTotals: number;
   };
   overdueCount: number;
+  t: TFn;
 }) {
   return (
     <div className="space-y-3">
       <ActionCard
-        title="Recurring Health"
-        count="Report"
-        body="Review recurring job gaps and overdue cycles"
+        title={t("dashboard.recurringHealth")}
+        count={t("common.open")}
+        body={t("dashboard.reviewRecurring")}
         href="/owner/reports/recurring-health"
-        cta="Open report"
+        cta={t("dashboard.openReport")}
       />
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <Metric label="Revenue" value={formatCurrency(metrics.revenueThisMonth)} accent />
-        <Metric label="Outstanding" value={formatCurrency(metrics.outstanding)} urgent={overdueCount > 0} />
-        <Metric label="Jobs done" value={metrics.completedThisMonth} sub={metrics.avgJobHours != null ? `avg ${metrics.avgJobHours.toFixed(1)}h` : undefined} />
-        <Metric label="Workers" value={metrics.activeWorkers} sub="active" />
-        <Metric label="Estimate win rate" value={`${metrics.estimateWinRate}%`} sub={`${metrics.estimateTotals} sent`} />
+        <Metric label={t("dashboard.revenueLabel")} value={formatCurrency(metrics.revenueThisMonth)} accent />
+        <Metric label={t("dashboard.outstanding")} value={formatCurrency(metrics.outstanding)} urgent={overdueCount > 0} />
+        <Metric label={t("dashboard.jobsDone")} value={metrics.completedThisMonth} sub={metrics.avgJobHours != null ? `avg ${metrics.avgJobHours.toFixed(1)}h` : undefined} />
+        <Metric label={t("dashboard.workersActive")} value={metrics.activeWorkers} sub={t("dashboard.active")} />
+        <Metric label={t("dashboard.estimateWinRate")} value={`${metrics.estimateWinRate}%`} sub={`${metrics.estimateTotals} sent`} />
       </div>
     </div>
   );
