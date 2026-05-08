@@ -4,7 +4,6 @@ import "./globals.css";
 import { ToastProvider } from "@/components/ui/ToastContainer";
 import NavigationProgress from "@/components/ui/NavigationProgress";
 import RegisterSW from "@/components/pwa/RegisterSW";
-import PushNotificationInit from "@/components/pwa/PushNotificationInit";
 import { LanguageProvider } from "@/lib/i18n";
 
 export function generateMetadata(): Metadata {
@@ -71,7 +70,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <ToastProvider>
             {children}
             <RegisterSW />
-            <PushNotificationInit />
           </ToastProvider>
         </LanguageProvider>
       </body>

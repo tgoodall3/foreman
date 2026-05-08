@@ -9,7 +9,6 @@ import Link from "next/link";
 import JobChecklist from "@/components/jobs/JobChecklist";
 import { useToast } from "@/components/ui/ToastContainer";
 import PhotoLightbox from "@/components/ui/PhotoLightbox";
-import { isNative, takePhoto } from "@/lib/camera";
 
 interface Props {
   job: any;
@@ -258,11 +257,6 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) uploadFile(file);
-  };
-
-  const handleCameraCapture = async () => {
-    const file = await takePhoto();
     if (file) uploadFile(file);
   };
 
@@ -562,32 +556,17 @@ export default function WorkerJobDetail({ job, photos: initialPhotos, notes: ini
             <label htmlFor="photo-file" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">
               Photo
             </label>
-            {isNative() ? (
-              <button
-                type="button"
-                onClick={handleCameraCapture}
-                disabled={uploading}
-                className="w-full flex items-center justify-center gap-2 bg-amber hover:bg-amber-dark disabled:opacity-50 text-forge font-600 py-2.5 rounded-lg text-sm transition-colors min-h-[44px]"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                  <circle cx="12" cy="13" r="4"/>
-                </svg>
-                {uploading ? "Uploading…" : "Take or Choose Photo"}
-              </button>
-            ) : (
-              <input
-                id="photo-file"
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={handlePhotoUpload}
-                disabled={uploading}
-                className="w-full text-sm text-mist file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-amber file:text-forge file:font-600 file:text-sm hover:file:bg-amber-dark"
-                aria-describedby="photo-help"
-              />
-            )}
+            <input
+              id="photo-file"
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handlePhotoUpload}
+              disabled={uploading}
+              className="w-full text-sm text-mist file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-amber file:text-forge file:font-600 file:text-sm hover:file:bg-amber-dark"
+              aria-describedby="photo-help"
+            />
             <p id="photo-help" className="text-xs text-mist mt-1">
               {uploading ? "Uploading…" : "Tap to take a photo or choose from gallery"}
             </p>
