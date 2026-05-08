@@ -67,7 +67,7 @@ export async function middleware(request: NextRequest) {
     if (profile) {
       const tenantRaw = profile.tenants as unknown;
       const tenant = (Array.isArray(tenantRaw) ? tenantRaw[0] : tenantRaw) as { plan: string; trial_ends_at: string | null } | null;
-      const isPro = tenant?.plan === "pro";
+      const isPro = tenant?.plan === "pro" || tenant?.plan === "comped";
       const trialActive = tenant?.trial_ends_at && new Date(tenant.trial_ends_at) > new Date();
 
       if (!isPro && !trialActive) {

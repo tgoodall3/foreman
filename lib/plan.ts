@@ -12,11 +12,13 @@ export type PlanStatus = "active" | "trial_expired" | "no_plan";
 export interface PlanProfile {
   id: string;
   tenant_id: string;
-  plan: "trial" | "pro";
+  plan: "trial" | "pro" | "comped";
 }
 
+const ACTIVE_PLANS = ["pro", "comped"];
+
 export async function getPlanStatus(profile: PlanProfile): Promise<PlanStatus> {
-  if (profile.plan === "pro") return "active";
+  if (ACTIVE_PLANS.includes(profile.plan)) return "active";
 
   const supabase = createServiceClient();
   const { data: tenant } = await supabase
@@ -26,7 +28,7 @@ export async function getPlanStatus(profile: PlanProfile): Promise<PlanStatus> {
     .single();
 
   if (!tenant) return "no_plan";
-  if (tenant.plan === "pro") return "active";
+  if (ACTIVE_PLANS.includes(tenant.plan)) return "active";
   if (tenant.trial_ends_at && new Date(tenant.trial_ends_at) > new Date()) return "active";
   return "trial_expired";
 }
