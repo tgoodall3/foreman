@@ -47,7 +47,7 @@ export default function BillingClient({ tenant, profile }: { tenant: any; profil
     }
   };
 
-  const isPro = profile?.plan === "pro" || tenant?.plan === "pro";
+  const isPro = ["pro", "comped"].includes(profile?.plan) || ["pro", "comped"].includes(tenant?.plan);
   const isConnected = !!tenant?.stripe_connect_id && !!tenant?.stripe_connect_enabled;
   const trialEnds = tenant?.trial_ends_at ? new Date(tenant.trial_ends_at) : null;
   const trialExpired = trialEnds ? trialEnds < new Date() : false;
