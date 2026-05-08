@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireOwner } from "@/lib/auth";
 import { createServerSideClient } from "@/lib/supabase-server";
 import { formatDate } from "@/lib/utils";
+import { getServerT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,7 @@ const RECURRENCE_MAP: Record<string, number> = {
 export default async function RecurringHealthPage() {
   const profile = await requireOwner();
   const supabase = await createServerSideClient();
+  const t = await getServerT();
   const today = new Date().toISOString().split("T")[0];
 
   const { data: jobs } = await supabase
@@ -36,14 +38,14 @@ export default async function RecurringHealthPage() {
   return (
     <div className="page-shell page-shell-standard">
       <div className="page-header-copy">
-        <p className="page-eyebrow">Reports</p>
-        <h1 className="page-title">Recurring Job Health</h1>
-        <p className="page-subtitle">Recurring jobs that are overdue or likely missed.</p>
+        <p className="page-eyebrow">{t("reports.eyebrow")}</p>
+        <h1 className="page-title">{t("reports.recurringTitle")}</h1>
+        <p className="page-subtitle">{t("reports.recurringSub")}</p>
       </div>
 
       {!flagged.length ? (
         <div className="surface-empty">
-          No overdue recurring jobs — all caught up.
+          {t("reports.recurringEmpty")}
         </div>
       ) : (
         <div className="surface-card overflow-hidden">
@@ -51,11 +53,11 @@ export default async function RecurringHealthPage() {
           <table className="hidden sm:table w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">Job</th>
-                <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">Recurrence</th>
-                <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">Scheduled</th>
-                <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">Status</th>
-                <th className="px-4 py-3 text-right text-xs font-700 text-mist uppercase tracking-wide">Actions</th>
+                <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">{t("reports.jobHeader")}</th>
+                <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">{t("reports.recurrenceHeader")}</th>
+                <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">{t("reports.scheduledHeader")}</th>
+                <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">{t("reports.statusHeader")}</th>
+                <th className="px-4 py-3 text-right text-xs font-700 text-mist uppercase tracking-wide">{t("reports.actionsHeader")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -74,7 +76,7 @@ export default async function RecurringHealthPage() {
                     <td className="px-4 py-3 text-sm text-steel capitalize">{job.status}</td>
                     <td className="px-4 py-3 text-right">
                       <Link href={`/owner/jobs/${job.id}/edit`} className="text-xs font-700 text-amber hover:underline">
-                        Reschedule
+                        {t("reports.reschedule")}
                       </Link>
                     </td>
                   </tr>
@@ -102,7 +104,7 @@ export default async function RecurringHealthPage() {
                     href={`/owner/jobs/${job.id}/edit`}
                     className="inline-flex items-center bg-amber text-forge text-xs font-700 px-3 py-1.5 rounded-lg hover:bg-amber-dark transition-colors"
                   >
-                    Reschedule
+                    {t("reports.reschedule")}
                   </Link>
                 </div>
               );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useLanguage } from "@/lib/i18n";
 
 export default function WorkerError({
   error,
@@ -9,6 +10,8 @@ export default function WorkerError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const { t } = useLanguage();
+
   useEffect(() => {
     console.error("[worker]", error);
   }, [error]);
@@ -20,22 +23,22 @@ export default function WorkerError({
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
         </svg>
       </div>
-      <h2 className="font-display font-800 text-xl text-forge mb-2">Something went wrong</h2>
+      <h2 className="font-display font-800 text-xl text-forge mb-2">{t("common.somethingWentWrong")}</h2>
       <p className="text-mist text-sm mb-6 max-w-sm">
-        An unexpected error occurred. Try refreshing the page.
+        {t("common.unexpectedError")}
       </p>
       <div className="flex gap-3">
         <button
           onClick={reset}
           className="bg-amber hover:bg-amber-dark text-forge font-display font-700 px-5 py-2.5 rounded-lg text-sm transition-colors"
         >
-          Try again
+          {t("common.tryAgain")}
         </button>
         <a
           href="/worker"
           className="border border-gray-300 text-forge font-600 px-5 py-2.5 rounded-lg text-sm hover:bg-gray-50 transition-colors"
         >
-          Go to my jobs
+          {t("jobs.goToMyJobs")}
         </a>
       </div>
       {process.env.NODE_ENV !== "production" && error.message && (

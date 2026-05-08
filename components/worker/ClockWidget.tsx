@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useToast } from "@/components/ui/ToastContainer";
+import { useLanguage } from "@/lib/i18n";
 
 interface TimeEntry {
   id: string;
@@ -19,6 +20,7 @@ function elapsed(since: string): string {
 
 export default function ClockWidget() {
   const { addToast } = useToast();
+  const { t } = useLanguage();
   const [entry, setEntry]       = useState<TimeEntry | null | undefined>(undefined); // undefined = loading
   const [saving, setSaving]     = useState(false);
   const [error, setError]       = useState("");
@@ -50,8 +52,8 @@ export default function ClockWidget() {
     const res = await fetch("/api/timesheets/clock-in", { method: "POST" });
     const data = await res.json();
     setSaving(false);
-    if (!res.ok) { addToast(data.error || "Failed to clock in", "error"); setError(data.error || "Failed to clock in."); return; }
-    addToast("Clocked in", "success");
+    if (!res.ok) { addToast(data.error || t("timesheets.failedClockIn"), "error"); setError(data.error || t("timesheets.failedClockIn")); return; }
+    addToast(t("timesheets.clockedIn"), "success");
     setEntry(data.entry);
   };
 
@@ -64,8 +66,8 @@ export default function ClockWidget() {
     });
     const data = await res.json();
     setSaving(false);
-    if (!res.ok) { addToast(data.error || "Failed to clock out", "error"); setError(data.error || "Failed to clock out."); return; }
-    addToast("Clocked out", "success");
+    if (!res.ok) { addToast(data.error || t("timesheets.failedClockOut"), "error"); setError(data.error || t("timesheets.failedClockOut")); return; }
+    addToast(t("timesheets.clockedOut"), "success");
     setEntry(null);
     setNotes("");
     setShowNotes(false);
@@ -84,13 +86,13 @@ export default function ClockWidget() {
           <div>
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-              <p className="text-sm font-700 text-green-800">Clocked In</p>
+              <p className="text-sm font-700 text-green-800">{t("timesheets.clockedIn")}</p>
             </div>
             <p className="font-display font-800 text-2xl text-green-900 mt-0.5 tabular-nums">
               {elapsed(entry.clocked_in_at)}
             </p>
             <p className="text-xs text-green-700 mt-0.5">
-              Since {new Date(entry.clocked_in_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+              {t("timesheets.since", { time: new Date(entry.clocked_in_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) })}
             </p>
           </div>
           <button
@@ -98,20 +100,20 @@ export default function ClockWidget() {
             disabled={saving}
             className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-display font-700 px-4 py-2.5 rounded-xl text-sm transition-colors"
           >
-            Clock Out
+            {t("timesheets.clockOut")}
           </button>
         </div>
 
         {showNotes && (
           <div className="mt-3 pt-3 border-t border-green-200">
             <label className="block text-xs font-700 text-green-800 uppercase tracking-wider mb-1.5">
-              Notes (optional)
+              {t("timesheets.notesLabel")}
             </label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
-              placeholder="What did you work on today?"
+              placeholder={t("timesheets.notesPlaceholder")}
               className="w-full border border-green-200 bg-white rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:border-green-400"
             />
             <div className="flex gap-2 mt-2">
@@ -119,14 +121,14 @@ export default function ClockWidget() {
                 onClick={() => setShowNotes(false)}
                 className="flex-1 border border-green-200 text-green-800 rounded-lg py-2 text-sm font-600 hover:bg-green-100 transition-colors"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 onClick={clockOut}
                 disabled={saving}
                 className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-display font-700 py-2 rounded-lg text-sm transition-colors"
               >
-                {saving ? "Clocking out…" : "Confirm Clock Out"}
+                {saving ? t("timesheets.clockingOut") : t("timesheets.confirmClockOut")}
               </button>
             </div>
           </div>
@@ -142,15 +144,15 @@ export default function ClockWidget() {
     <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-700 text-forge">Not clocked in</p>
-          <p className="text-xs text-mist mt-0.5">Tap to start your shift</p>
+          <p className="text-sm font-700 text-forge">{t("timesheets.notClockedIn")}</p>
+          <p className="text-xs text-mist mt-0.5">{t("timesheets.tapToStart")}</p>
         </div>
         <button
           onClick={clockIn}
           disabled={saving}
           className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-display font-700 px-4 py-2.5 rounded-xl text-sm transition-colors"
         >
-          {saving ? "Clocking in…" : "Clock In"}
+          {saving ? t("timesheets.clockingIn") : t("timesheets.clockIn")}
         </button>
       </div>
       {error && <p className="text-xs text-red-600 mt-2">{error}</p>}

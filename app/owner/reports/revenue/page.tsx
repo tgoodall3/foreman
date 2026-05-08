@@ -2,6 +2,7 @@ import { requireOwner } from "@/lib/auth";
 import { createServerSideClient } from "@/lib/supabase-server";
 import { formatCurrency } from "@/lib/utils";
 import Link from "next/link";
+import { getServerT } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,7 @@ function monthLabel(key: string) {
 export default async function RevenueReportPage() {
   const profile = await requireOwner();
   const supabase = await createServerSideClient();
+  const t = await getServerT();
 
   // Last 6 months
   const since = new Date();
@@ -91,30 +93,30 @@ export default async function RevenueReportPage() {
   return (
     <div className="page-shell page-shell-standard space-y-6">
       <div className="page-header-copy">
-        <p className="page-eyebrow">Reports</p>
-        <h1 className="page-title">Revenue Overview</h1>
-        <p className="text-mist text-sm mt-1">Last 6 months · {all.length} invoices</p>
+        <p className="page-eyebrow">{t("reports.eyebrow")}</p>
+        <h1 className="page-title">{t("reports.revenueTitle")}</h1>
+        <p className="text-mist text-sm mt-1">{t("reports.revenueSub", { count: String(all.length) })}</p>
       </div>
 
       {/* Summary KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <div className="surface-card p-4">
-          <p className="text-xs text-mist uppercase tracking-wide font-700">Collected</p>
+          <p className="text-xs text-mist uppercase tracking-wide font-700">{t("reports.collected")}</p>
           <p className="font-display font-800 text-2xl text-green-600 mt-1">{formatCurrency(totalPaid)}</p>
         </div>
         <div className="bg-white rounded-xl border border-amber/30 bg-amber/5 p-4">
-          <p className="text-xs text-mist uppercase tracking-wide font-700">Outstanding</p>
+          <p className="text-xs text-mist uppercase tracking-wide font-700">{t("reports.outstanding")}</p>
           <p className="font-display font-800 text-2xl text-amber-dark mt-1">{formatCurrency(totalOutstanding)}</p>
         </div>
         <div className="surface-card p-4">
-          <p className="text-xs text-mist uppercase tracking-wide font-700">In Draft</p>
+          <p className="text-xs text-mist uppercase tracking-wide font-700">{t("reports.inDraft")}</p>
           <p className="font-display font-800 text-2xl text-forge mt-1">{formatCurrency(totalDraft)}</p>
         </div>
       </div>
 
       {/* Monthly bar chart */}
       <div className="surface-card p-5">
-        <h2 className="font-display font-700 text-base text-forge mb-4">Monthly Collected Revenue</h2>
+        <h2 className="font-display font-700 text-base text-forge mb-4">{t("reports.monthlyRevenue")}</h2>
         <div className="flex items-end gap-2 h-40">
           {months.map((m) => {
             const heightPct = maxRevenue > 0 ? (m.revenue / maxRevenue) * 100 : 0;
@@ -139,13 +141,13 @@ export default async function RevenueReportPage() {
 
       {/* Invoice aging */}
       <div className="surface-card p-5">
-        <h2 className="font-display font-700 text-base text-forge mb-4">Outstanding Invoice Aging</h2>
+        <h2 className="font-display font-700 text-base text-forge mb-4">{t("reports.invoiceAging")}</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Current", value: aging.current, color: "text-green-600" },
-            { label: "1–30 days", value: aging.d30, color: "text-amber-dark" },
-            { label: "31–60 days", value: aging.d60, color: "text-orange-600" },
-            { label: "60+ days", value: aging.d90, color: "text-red-600" },
+            { label: t("reports.agingCurrent"), value: aging.current, color: "text-green-600" },
+            { label: t("reports.aging1to30"), value: aging.d30, color: "text-amber-dark" },
+            { label: t("reports.aging31to60"), value: aging.d60, color: "text-orange-600" },
+            { label: t("reports.aging60plus"), value: aging.d90, color: "text-red-600" },
           ].map((b) => (
             <div key={b.label} className="border border-gray-100 rounded-xl p-3">
               <p className="text-xs text-mist font-700 uppercase tracking-wide">{b.label}</p>
@@ -156,7 +158,7 @@ export default async function RevenueReportPage() {
         {totalOutstanding > 0 && (
           <div className="mt-3">
             <Link href="/owner/invoices?status=overdue" className="text-xs text-amber hover:underline font-600">
-              View overdue invoices →
+              {t("reports.viewOverdue")}
             </Link>
           </div>
         )}
@@ -166,16 +168,16 @@ export default async function RevenueReportPage() {
       {pmRevRows.length > 0 && (
         <div className="surface-card overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100">
-            <h2 className="font-display font-700 text-base text-forge">Revenue by Client</h2>
+            <h2 className="font-display font-700 text-base text-forge">{t("reports.revenueByClient")}</h2>
           </div>
           {/* Desktop */}
           <table className="hidden sm:table w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th className="px-5 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">Client</th>
-                <th className="px-5 py-3 text-right text-xs font-700 text-mist uppercase tracking-wide">Collected</th>
-                <th className="px-5 py-3 text-right text-xs font-700 text-mist uppercase tracking-wide">Outstanding</th>
-                <th className="px-5 py-3 text-right text-xs font-700 text-mist uppercase tracking-wide">Total</th>
+                <th className="px-5 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">{t("reports.clientHeader")}</th>
+                <th className="px-5 py-3 text-right text-xs font-700 text-mist uppercase tracking-wide">{t("reports.collectedHeader")}</th>
+                <th className="px-5 py-3 text-right text-xs font-700 text-mist uppercase tracking-wide">{t("reports.outstandingHeader")}</th>
+                <th className="px-5 py-3 text-right text-xs font-700 text-mist uppercase tracking-wide">{t("reports.totalHeader")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -196,7 +198,7 @@ export default async function RevenueReportPage() {
                 <p className="font-600 text-forge text-sm">{row.name}</p>
                 <div className="text-right shrink-0">
                   <p className="text-sm font-700 text-forge">{formatCurrency(row.paid + row.outstanding)}</p>
-                  <p className="text-xs text-green-600">{formatCurrency(row.paid)} collected</p>
+                  <p className="text-xs text-green-600">{formatCurrency(row.paid)} {t("reports.collectedLabel")}</p>
                 </div>
               </div>
             ))}

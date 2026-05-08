@@ -2,6 +2,7 @@ import { requireOwner } from "@/lib/auth";
 import { createServerSideClient } from "@/lib/supabase-server";
 import { formatCurrency, formatDate, ESTIMATE_STATUS_CONFIG } from "@/lib/utils";
 import Link from "next/link";
+import { getServerT } from "@/lib/i18n/server";
 
 function daysUntilExpiry(validUntil: string | null): number | null {
   if (!validUntil) return null;
@@ -25,6 +26,7 @@ export default async function EstimatesPage({
   searchParams: { status?: string; past?: string };
 }) {
   const profile  = await requireOwner();
+  const t = await getServerT();
   const supabase = await createServerSideClient();
   const showPast = searchParams.past === "1";
 
@@ -53,17 +55,17 @@ export default async function EstimatesPage({
     <div className="page-shell page-shell-wide">
       <div className="page-header">
         <div className="page-header-copy">
-          <h1 className="page-title">Estimates</h1>
+          <h1 className="page-title">{t("estimates.title")}</h1>
           <p className="page-subtitle">
-            {active.length} active
-            {archived.length > 0 ? ` · ${archived.length} past` : ""}
+            {active.length} {t("estimates.activeTab").toLowerCase()}
+            {archived.length > 0 ? ` · ${archived.length} ${t("estimates.pastTab").toLowerCase()}` : ""}
           </p>
         </div>
         <Link
           href="/owner/estimates/new"
           className="action-button-primary"
         >
-          + New Estimate
+          {t("estimates.newEstimate")}
         </Link>
       </div>
 
@@ -75,7 +77,7 @@ export default async function EstimatesPage({
             !showPast ? "bg-forge text-white" : "text-mist hover:text-forge"
           }`}
         >
-          Active
+          {t("estimates.activeTab")}
           {active.length > 0 && (
             <span className={`ml-1.5 text-xs ${!showPast ? "opacity-70" : "opacity-50"}`}>
               {active.length}
@@ -88,7 +90,7 @@ export default async function EstimatesPage({
             showPast ? "bg-forge text-white" : "text-mist hover:text-forge"
           }`}
         >
-          Past
+          {t("estimates.pastTab")}
           {archived.length > 0 && (
             <span className={`ml-1.5 text-xs ${showPast ? "opacity-70" : "opacity-50"}`}>
               {archived.length}
@@ -108,7 +110,7 @@ export default async function EstimatesPage({
                 : "border-gray-300 text-mist hover:border-forge"
             }`}
           >
-            All
+            {t("common.all")}
           </Link>
           {statuses.map((s) => {
             const cfg = ESTIMATE_STATUS_CONFIG[s];
@@ -135,11 +137,11 @@ export default async function EstimatesPage({
         {!estimates.length ? (
           <div className="p-12 text-center">
             <p className="text-mist text-sm mb-3">
-              {showPast ? "No past estimates." : "No estimates found"}
+              {showPast ? t("estimates.noPastEstimates") : t("estimates.noEstimates")}
             </p>
             {!showPast && (
               <Link href="/owner/estimates/new" className="text-amber hover:underline text-sm">
-                Create an estimate →
+                {t("estimates.createEstimate")} →
               </Link>
             )}
           </div>
@@ -151,13 +153,13 @@ export default async function EstimatesPage({
                 <table className="w-full text-sm" role="grid" aria-label="Estimates list">
                   <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
-                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Number</th>
-                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Title</th>
-                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Client</th>
-                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Created</th>
-                  <th scope="col" className="text-right px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Total</th>
-                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Status</th>
-                  <th scope="col" className="px-4 py-3"><span className="sr-only">Actions</span></th>
+                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">{t("estimates.numberColumn")}</th>
+                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">{t("estimates.titleColumn")}</th>
+                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">{t("estimates.clientColumn")}</th>
+                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">{t("estimates.createdColumn")}</th>
+                  <th scope="col" className="text-right px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">{t("estimates.totalColumn")}</th>
+                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">{t("jobs.statusColumn")}</th>
+                  <th scope="col" className="px-4 py-3"><span className="sr-only">{t("estimates.actionsColumn")}</span></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -194,7 +196,7 @@ export default async function EstimatesPage({
                           <span className={`badge ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
                           {expDays !== null && expDays <= 7 && (
                             <span className={`text-[10px] font-700 px-1.5 py-0.5 rounded ${expDays <= 0 ? "bg-red-100 text-red-700" : "bg-amber/20 text-amber-dark"}`}>
-                              {expDays <= 0 ? "Expired" : `Expires in ${expDays}d`}
+                              {expDays <= 0 ? t("estimates.expired") : t("estimates.expiresIn", { days: expDays })}
                             </span>
                           )}
                         </div>
@@ -204,7 +206,7 @@ export default async function EstimatesPage({
                           href={`/owner/estimates/${est.id}`}
                           className="inline-flex items-center gap-1 bg-forge hover:bg-forge-light text-white text-xs font-700 px-3 py-1.5 rounded-lg transition-colors"
                         >
-                          Open
+                          {t("common.open")}
                         </Link>
                       </td>
                     </tr>
@@ -228,7 +230,7 @@ export default async function EstimatesPage({
                         <span className={`badge ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
                         {expDays !== null && expDays <= 7 && (
                           <span className={`text-[10px] font-700 px-1.5 py-0.5 rounded ${expDays <= 0 ? "bg-red-100 text-red-700" : "bg-amber/20 text-amber-dark"}`}>
-                            {expDays <= 0 ? "Expired" : `Exp. ${expDays}d`}
+                            {expDays <= 0 ? t("estimates.expired") : t("estimates.expiresIn", { days: expDays })}
                           </span>
                         )}
                       </div>
@@ -243,7 +245,7 @@ export default async function EstimatesPage({
                         href={`/owner/estimates/${est.id}`}
                         className="inline-flex items-center bg-forge hover:bg-forge-light text-white text-xs font-700 px-3 py-1.5 rounded-lg transition-colors"
                       >
-                        Open
+                        {t("common.open")}
                       </Link>
                     </div>
                   </div>

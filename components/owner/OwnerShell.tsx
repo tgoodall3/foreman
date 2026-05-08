@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import NotificationBell from "@/components/owner/NotificationBell";
+import { useLanguage } from "@/lib/i18n";
 
 const ICONS: Record<string, JSX.Element> = {
   today: (
@@ -82,34 +83,34 @@ const ICONS: Record<string, JSX.Element> = {
   ),
 };
 
-const NAV_SECTIONS = [
+const NAV_CONFIG = [
   {
-    label: "Today",
+    labelKey: "nav.today",
     items: [
-      { href: "/owner", label: "Overview", icon: ICONS.today },
-      { href: "/owner/work-orders", label: "Work Orders", icon: ICONS.tasks },
-      { href: "/owner/jobs", label: "Jobs", icon: ICONS.briefcase },
-      { href: "/owner/schedule", label: "Schedule", icon: ICONS.schedule },
-      { href: "/owner/timesheets", label: "Timesheets", icon: ICONS.clock },
+      { href: "/owner", labelKey: "nav.overview", icon: ICONS.today },
+      { href: "/owner/work-orders", labelKey: "nav.workOrders", icon: ICONS.tasks },
+      { href: "/owner/jobs", labelKey: "nav.jobs", icon: ICONS.briefcase },
+      { href: "/owner/schedule", labelKey: "nav.schedule", icon: ICONS.schedule },
+      { href: "/owner/timesheets", labelKey: "nav.timesheets", icon: ICONS.clock },
     ],
   },
   {
-    label: "Revenue",
+    labelKey: "nav.revenue",
     items: [
-      { href: "/owner/invoices", label: "Invoices", icon: ICONS.invoice },
-      { href: "/owner/estimates", label: "Estimates", icon: ICONS.doc },
-      { href: "/owner/reports/revenue", label: "Revenue", icon: ICONS.report },
-      { href: "/owner/reports/jobs-to-invoice", label: "Billing Gap", icon: ICONS.report },
-      { href: "/owner/reports/estimate-conversion", label: "Conversions", icon: ICONS.report },
+      { href: "/owner/invoices", labelKey: "nav.invoices", icon: ICONS.invoice },
+      { href: "/owner/estimates", labelKey: "nav.estimates", icon: ICONS.doc },
+      { href: "/owner/reports/revenue", labelKey: "nav.revenue", icon: ICONS.report },
+      { href: "/owner/reports/jobs-to-invoice", labelKey: "nav.billingGap", icon: ICONS.report },
+      { href: "/owner/reports/estimate-conversion", labelKey: "nav.conversions", icon: ICONS.report },
     ],
   },
   {
-    label: "Admin",
+    labelKey: "nav.admin",
     items: [
-      { href: "/owner/reports/recurring-health", label: "Recurring", icon: ICONS.report },
-      { href: "/owner/properties", label: "Properties", icon: ICONS.home },
-      { href: "/owner/workers", label: "Workers", icon: ICONS.users },
-      { href: "/owner/settings/account", label: "Settings", icon: ICONS.settings },
+      { href: "/owner/reports/recurring-health", labelKey: "nav.recurring", icon: ICONS.report },
+      { href: "/owner/properties", labelKey: "nav.properties", icon: ICONS.home },
+      { href: "/owner/workers", labelKey: "nav.workers", icon: ICONS.users },
+      { href: "/owner/settings/account", labelKey: "nav.settings", icon: ICONS.settings },
     ],
   },
 ];
@@ -123,6 +124,12 @@ interface OwnerShellProps {
 export default function OwnerShell({ profile, tenantName, children }: OwnerShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
+  const { t } = useLanguage();
+
+  const NAV_SECTIONS = NAV_CONFIG.map((section) => ({
+    label: t(section.labelKey),
+    items: section.items.map((item) => ({ href: item.href, label: t(item.labelKey), icon: item.icon })),
+  }));
 
   const isActive = (href: string) => {
     if (href === "/owner") return pathname === "/owner";
@@ -155,7 +162,7 @@ export default function OwnerShell({ profile, tenantName, children }: OwnerShell
           </div>
           <div className="min-w-0">
             <p className="font-display font-800 text-white text-lg leading-none tracking-wide">FOREMAN</p>
-            <p className="text-mist text-xs truncate">{tenantName || "Your Business"}</p>
+            <p className="text-mist text-xs truncate">{tenantName || t("nav.yourBusiness")}</p>
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -164,7 +171,7 @@ export default function OwnerShell({ profile, tenantName, children }: OwnerShell
           type="button"
           onClick={() => setMobileOpen((open) => !open)}
           className="text-white p-2 hover:bg-forge-light rounded-lg transition-colors"
-          aria-label={mobileOpen ? "Close menu" : "Open menu"}
+          aria-label={mobileOpen ? t("nav.closeMenu") : t("nav.openMenu")}
           aria-expanded={mobileOpen}
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -184,13 +191,13 @@ export default function OwnerShell({ profile, tenantName, children }: OwnerShell
           <div className="absolute left-0 top-0 h-full w-full max-w-[320px] bg-forge shadow-2xl p-4 overflow-y-auto z-10">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <p className="font-display font-800 text-white text-lg">Menu</p>
-                <p className="text-mist text-xs">{tenantName || "Your Business"}</p>
+                <p className="font-display font-800 text-white text-lg">{t("nav.menu")}</p>
+                <p className="text-mist text-xs">{tenantName || t("nav.yourBusiness")}</p>
               </div>
               <button
                 onClick={() => setMobileOpen(false)}
                 className="text-white p-2 hover:bg-forge-light rounded-lg transition-colors"
-                aria-label="Close menu"
+                aria-label={t("nav.closeMenu")}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -216,12 +223,12 @@ export default function OwnerShell({ profile, tenantName, children }: OwnerShell
                 </div>
                 <div>
                   <p className="text-white text-sm font-600 truncate">{profile.full_name}</p>
-                  <p className="text-mist text-xs">Owner</p>
+                  <p className="text-mist text-xs">{t("nav.owner")}</p>
                 </div>
               </div>
               <form action="/api/auth/signout" method="POST" className="mt-4">
                 <button type="submit" className="w-full text-left text-sm text-mist hover:text-white px-3 py-2 rounded-lg transition-colors">
-                  Sign out →
+                  {t("nav.signOut")} →
                 </button>
               </form>
             </div>
@@ -262,10 +269,10 @@ export default function OwnerShell({ profile, tenantName, children }: OwnerShell
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-white text-xs font-600 truncate">{profile.full_name}</p>
-                <p className="text-mist text-xs">Owner</p>
+                <p className="text-mist text-xs">{t("nav.owner")}</p>
               </div>
               <form action="/api/auth/signout" method="POST">
-                <button type="submit" className="text-mist hover:text-white text-xs transition-colors" aria-label="Sign out">
+                <button type="submit" className="text-mist hover:text-white text-xs transition-colors" aria-label={t("nav.signOut")}>
                   →
                 </button>
               </form>

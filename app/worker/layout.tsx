@@ -1,9 +1,11 @@
 import { requireWorker } from "@/lib/auth";
 import Link from "next/link";
 import InactivityTimer from "@/components/ui/InactivityTimer";
+import { getServerT } from "@/lib/i18n/server";
 
 export default async function WorkerLayout({ children }: { children: React.ReactNode }) {
   const profile = await requireWorker();
+  const t = await getServerT();
 
   return (
     <div className="min-h-screen bg-surface flex flex-col">
@@ -31,7 +33,7 @@ export default async function WorkerLayout({ children }: { children: React.React
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>
-              <span className="hidden sm:inline">Sign out</span>
+              <span className="hidden sm:inline">{t("nav.signOut")}</span>
             </button>
           </form>
         </div>
@@ -47,7 +49,7 @@ export default async function WorkerLayout({ children }: { children: React.React
         {[
           {
             href: "/worker",
-            label: "My Jobs",
+            label: t("nav.myJobs"),
             icon: (
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
@@ -56,7 +58,7 @@ export default async function WorkerLayout({ children }: { children: React.React
           },
           {
             href: "/worker/timesheets",
-            label: "Timesheets",
+            label: t("nav.timesheets"),
             icon: (
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -65,7 +67,7 @@ export default async function WorkerLayout({ children }: { children: React.React
           },
           {
             href: "/worker/settings",
-            label: "Settings",
+            label: t("nav.settings"),
             icon: (
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />

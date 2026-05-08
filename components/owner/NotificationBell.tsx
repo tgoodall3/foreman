@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { useLanguage } from "@/lib/i18n";
 
 interface Notification {
   id: string;
@@ -13,12 +14,12 @@ interface Notification {
   read: boolean;
 }
 
-function timeAgo(iso: string): string {
+function timeAgo(iso: string, t: (key: string, params?: Record<string, string>) => string): string {
   const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (secs < 60) return "just now";
-  if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
-  if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
-  return `${Math.floor(secs / 86400)}d ago`;
+  if (secs < 60) return t("nav.justNow");
+  if (secs < 3600) return t("nav.minutesAgo", { n: String(Math.floor(secs / 60)) });
+  if (secs < 86400) return t("nav.hoursAgo", { n: String(Math.floor(secs / 3600)) });
+  return t("nav.daysAgo", { n: String(Math.floor(secs / 86400)) });
 }
 
 const TYPE_STYLES: Record<string, { dot: string; icon: JSX.Element }> = {
@@ -103,6 +104,7 @@ function saveReadState(ids: Set<string>, readAllBefore: number | null) {
 }
 
 export default function NotificationBell() {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
@@ -177,7 +179,7 @@ export default function NotificationBell() {
         type="button"
         onClick={handleOpen}
         className="relative p-2 rounded-lg text-mist hover:text-white hover:bg-forge-light transition-colors"
-        aria-label="Notifications"
+        aria-label={t("nav.notifications")}
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -192,19 +194,19 @@ export default function NotificationBell() {
       {open && (
         <div className="absolute right-0 lg:right-auto lg:left-0 top-10 w-80 max-w-[calc(100vw-1rem)] bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-            <p className="font-600 text-forge text-sm">Notifications</p>
+            <p className="font-600 text-forge text-sm">{t("nav.notifications")}</p>
             {unread > 0 && (
               <button onClick={markAllRead} className="text-xs text-amber hover:underline font-600">
-                Mark all read
+                {t("nav.markAllRead")}
               </button>
             )}
           </div>
 
           <div className="max-h-96 overflow-y-auto">
             {loading ? (
-              <div className="p-6 text-center text-mist text-sm">Loading…</div>
+              <div className="p-6 text-center text-mist text-sm">{t("common.loading")}</div>
             ) : notifications.length === 0 ? (
-              <div className="p-6 text-center text-mist text-sm">No recent activity</div>
+              <div className="p-6 text-center text-mist text-sm">{t("nav.noActivity")}</div>
             ) : (
               notifications.map((n) => {
                 const style = TYPE_STYLES[n.type];
@@ -227,7 +229,7 @@ export default function NotificationBell() {
                     <div className="min-w-0 flex-1">
                       <p className={`text-sm leading-snug ${notificationIsRead ? "text-mist" : "text-forge font-600"}`}>{n.title}</p>
                       <p className="text-xs text-mist mt-0.5 truncate">{n.subtitle}</p>
-                      <p className="text-xs text-steel mt-0.5">{timeAgo(n.createdAt)}</p>
+                      <p className="text-xs text-steel mt-0.5">{timeAgo(n.createdAt, t)}</p>
                     </div>
                     {!notificationIsRead && <span className={`mt-2 w-2 h-2 rounded-full shrink-0 ${style.dot}`} />}
                   </Link>

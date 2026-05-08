@@ -36,12 +36,16 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY) as Locale | null;
-    if (saved === "en" || saved === "es") setLocaleState(saved);
+    if (saved === "en" || saved === "es") {
+      setLocaleState(saved);
+      document.cookie = `foreman_locale=${saved};path=/;max-age=31536000`;
+    }
   }, []);
 
   const setLocale = (next: Locale) => {
     setLocaleState(next);
     localStorage.setItem(STORAGE_KEY, next);
+    document.cookie = `foreman_locale=${next};path=/;max-age=31536000`;
   };
 
   const t = (path: string, vars?: Record<string, string | number>) => {

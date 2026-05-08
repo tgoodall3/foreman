@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useToast } from "@/components/ui/ToastContainer";
+import { useLanguage } from "@/lib/i18n";
 
 interface Props {
   jobId: string;
@@ -13,6 +14,7 @@ interface Props {
 
 export default function QuickAssign({ jobId, scheduledDate, scheduledTime, assignedWorkers, workers }: Props) {
   const { addToast } = useToast();
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const nextSlot = () => {
     const d = new Date();
@@ -71,8 +73,8 @@ export default function QuickAssign({ jobId, scheduledDate, scheduledTime, assig
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      addToast(data.error || "Failed to update job", "error");
-      setError(data.error || "Failed to update job");
+      addToast(data.error || t("jobs.failedUpdateJob"), "error");
+      setError(data.error || t("jobs.failedUpdateJob"));
       setLoading(false);
       return;
     }
@@ -84,7 +86,7 @@ export default function QuickAssign({ jobId, scheduledDate, scheduledTime, assig
         body: JSON.stringify({ jobId, workerIds: selected }),
       }).catch(() => {});
     }
-    addToast("Job updated", "success");
+    addToast(t("jobs.jobUpdated"), "success");
     setLoading(false);
     setOpen(false);
     location.reload();
@@ -97,7 +99,7 @@ export default function QuickAssign({ jobId, scheduledDate, scheduledTime, assig
         onClick={() => setOpen(true)}
         className="inline-flex w-full items-center justify-center gap-1 rounded-lg bg-amber/80 px-3 py-2 text-xs font-700 text-forge shadow-sm transition-colors hover:bg-amber sm:w-auto"
       >
-        Assign / Reschedule
+        {t("jobs.assignReschedule")}
       </button>
 
       {open && (
@@ -105,8 +107,8 @@ export default function QuickAssign({ jobId, scheduledDate, scheduledTime, assig
           <div className="bg-white w-full sm:max-w-md rounded-2xl shadow-xl overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
               <div>
-                <p className="text-xs uppercase tracking-wider text-mist font-700">Assign / Reschedule</p>
-                <p className="text-sm text-forge font-700">{date || "No date set"} {time && `· ${time}`}</p>
+                <p className="text-xs uppercase tracking-wider text-mist font-700">{t("jobs.assignReschedule")}</p>
+                <p className="text-sm text-forge font-700">{date || t("jobs.noDateSet")} {time && `· ${time}`}</p>
               </div>
               <button onClick={() => setOpen(false)} className="p-2 rounded-lg hover:bg-gray-100" aria-label="Close">
                 <svg className="w-4 h-4 text-mist" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -138,7 +140,7 @@ export default function QuickAssign({ jobId, scheduledDate, scheduledTime, assig
               </div>
 
               <div>
-                <p className="text-xs text-mist mb-1">Assign workers</p>
+                <p className="text-xs text-mist mb-1">{t("jobs.assignWorkers")}</p>
                 <div className="max-h-40 overflow-y-auto space-y-1">
                   {workers.map((w) => {
                     const active = selected.includes(w.id);
@@ -150,17 +152,17 @@ export default function QuickAssign({ jobId, scheduledDate, scheduledTime, assig
                         className={`w-full text-left text-sm px-2 py-1.5 rounded-lg border flex items-center justify-between ${active ? "border-amber bg-amber/10 text-forge" : "border-gray-200 text-steel hover:border-amber"}`}
                       >
                         {w.full_name}
-                        {active && <span className="text-[10px] text-amber-800 font-700">Selected</span>}
+                        {active && <span className="text-[10px] text-amber-800 font-700">{t("jobs.selectedBadge")}</span>}
                       </button>
                     );
                   })}
                 </div>
               </div>
 
-              {checking && <p className="text-xs text-mist">Checking conflicts…</p>}
+              {checking && <p className="text-xs text-mist">{t("jobs.checkingConflicts")}</p>}
               {conflicts.length > 0 && (
                 <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">
-                  <p className="font-700 mb-1">Conflict</p>
+                  <p className="font-700 mb-1">{t("jobs.conflict")}</p>
                   {conflicts.map((c: any) => (
                     <p key={c.id} className="line-clamp-1">• {c.title} at {c.scheduled_time}</p>
                   ))}

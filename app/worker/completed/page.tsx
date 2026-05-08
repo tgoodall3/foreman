@@ -2,6 +2,7 @@ import { requireWorker } from "@/lib/auth";
 import { createServerSideClient } from "@/lib/supabase-server";
 import { formatDate } from "@/lib/utils";
 import Link from "next/link";
+import { getServerT } from "@/lib/i18n/server";
 
 function biweeklyLabel(iso: string): string {
   const d = new Date(iso);
@@ -11,6 +12,7 @@ function biweeklyLabel(iso: string): string {
 
 export default async function CompletedJobsPage() {
   const profile  = await requireWorker();
+  const t = await getServerT();
   const supabase = await createServerSideClient();
 
   const { data: jobs } = await supabase
@@ -35,8 +37,8 @@ export default async function CompletedJobsPage() {
     <div className="p-4 max-w-lg mx-auto">
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="font-display font-800 text-2xl text-forge">Past Jobs</h1>
-          {totalCount > 0 && <p className="text-mist text-xs mt-0.5">{totalCount} total</p>}
+          <h1 className="font-display font-800 text-2xl text-forge">{t("jobs.pastTab")}</h1>
+          {totalCount > 0 && <p className="text-mist text-xs mt-0.5">{t("common.total", { count: totalCount })}</p>}
         </div>
       </div>
 
@@ -47,7 +49,7 @@ export default async function CompletedJobsPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
           </div>
-          <p className="text-mist text-sm">No past jobs yet</p>
+          <p className="text-mist text-sm">{t("jobs.noPastJobs")}</p>
         </div>
       ) : (
         <div className="space-y-6">
@@ -71,7 +73,7 @@ export default async function CompletedJobsPage() {
                         )}
                       </div>
                       <span className={`badge shrink-0 ${job.status === "cancelled" ? "bg-gray-100 text-gray-500" : "bg-green-100 text-green-700"}`}>
-                        {job.status === "cancelled" ? "Cancelled" : "Done"}
+                        {job.status === "cancelled" ? t("jobs.statusCancelled") : t("jobs.statusDone")}
                       </span>
                     </div>
                     <p className="text-xs text-mist mt-2">{formatDate(job.updated_at ?? job.created_at)}</p>

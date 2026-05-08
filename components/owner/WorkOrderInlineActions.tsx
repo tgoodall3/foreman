@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/ToastContainer";
+import { useLanguage } from "@/lib/i18n";
 
 interface Props {
   workOrderId: string;
@@ -15,6 +16,7 @@ interface Props {
 export default function WorkOrderInlineActions({ workOrderId, tenantId, title, description, propertyId }: Props) {
   const router = useRouter();
   const { addToast } = useToast();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState<"accept" | "decline" | null>(null);
   const [error, setError] = useState<string>("");
 
@@ -27,17 +29,17 @@ export default function WorkOrderInlineActions({ workOrderId, tenantId, title, d
     });
     const data = await res.json();
     if (!res.ok) {
-      addToast(data.error || "Action failed", "error");
-      setError(data.error || "Action failed");
+      addToast(data.error || t("workOrders.actionFailed"), "error");
+      setError(data.error || t("workOrders.actionFailed"));
       setLoading(null);
       return;
     }
     if (action === "accept" && data.jobId) {
-      addToast("Work order accepted — job created", "success");
+      addToast(t("workOrders.accepted"), "success");
       router.push(`/owner/jobs/${data.jobId}/edit`);
       return;
     }
-    addToast("Work order declined", "success");
+    addToast(t("workOrders.declined"), "success");
     router.refresh();
   };
 
@@ -49,14 +51,14 @@ export default function WorkOrderInlineActions({ workOrderId, tenantId, title, d
           disabled={!!loading}
           className="flex-1 rounded-lg bg-amber px-3 py-2.5 text-sm font-700 text-forge shadow-sm transition-colors hover:bg-amber-dark disabled:opacity-60"
         >
-          {loading === "accept" ? "Accepting…" : "Accept"}
+          {loading === "accept" ? t("workOrders.accepting") : t("workOrders.accept")}
         </button>
         <button
           onClick={() => handle("decline")}
           disabled={!!loading}
           className="flex-1 rounded-lg border border-gray-300 px-3 py-2.5 text-sm font-700 text-steel transition-colors hover:border-red-300 hover:text-red-600 disabled:opacity-60"
         >
-          {loading === "decline" ? "Declining…" : "Decline"}
+          {loading === "decline" ? t("workOrders.declining") : t("workOrders.decline")}
         </button>
       </div>
       {error && <p className="text-xs text-red-600">{error}</p>}

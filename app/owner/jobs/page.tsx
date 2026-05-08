@@ -3,6 +3,7 @@ import { getOwnerJobs } from "@/lib/services/owner";
 import { createServerSideClient } from "@/lib/supabase-server";
 import { formatDate, JOB_STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/utils";
 import Link from "next/link";
+import { getServerT } from "@/lib/i18n/server";
 
 const ARCHIVE_DAYS = 14;
 
@@ -25,6 +26,7 @@ function groupByBiweekly<T extends { updated_at?: string; created_at: string }>(
 
 export default async function JobsPage({ searchParams }: { searchParams: { status?: string; page?: string; past?: string } }) {
   const profile  = await requireOwner();
+  const t = await getServerT();
   const showPast = searchParams.past === "1";
   const page     = Math.max(1, Number(searchParams.page || "1"));
   const status   = searchParams.status;
@@ -69,24 +71,24 @@ export default async function JobsPage({ searchParams }: { searchParams: { statu
     <div className="page-shell page-shell-wide">
       <div className="page-header">
         <div className="page-header-copy">
-          <h1 className="page-title">Jobs</h1>
-          <p className="page-subtitle">{count} total</p>
+          <h1 className="page-title">{t("jobs.title")}</h1>
+          <p className="page-subtitle">{t("common.total", { count })}</p>
         </div>
         <Link
           href="/owner/jobs/new"
           className="action-button-primary"
         >
-          + New Job
+          {t("jobs.newJob")}
         </Link>
       </div>
 
       {/* Active / Past toggle */}
       <div className="flex items-center gap-3 mb-5">
         <Link href="/owner/jobs" className={`px-4 py-1.5 rounded-full text-sm font-600 transition-colors ${!showPast ? "bg-forge text-white" : "text-mist hover:text-forge"}`}>
-          Active
+          {t("jobs.activeTab")}
         </Link>
         <Link href="/owner/jobs?past=1" className={`px-4 py-1.5 rounded-full text-sm font-600 transition-colors ${showPast ? "bg-forge text-white" : "text-mist hover:text-forge"}`}>
-          Past {archivedJobs.length > 0 && <span className="ml-1 text-xs opacity-60">{archivedJobs.length}</span>}
+          {t("jobs.pastTab")} {archivedJobs.length > 0 && <span className="ml-1 text-xs opacity-60">{archivedJobs.length}</span>}
         </Link>
       </div>
 
@@ -95,7 +97,7 @@ export default async function JobsPage({ searchParams }: { searchParams: { statu
         <div className="space-y-6">
           {Object.keys(archivedGroups).length === 0 ? (
             <div className="surface-empty">
-              <p>No past jobs yet</p>
+              <p>{t("jobs.noPastJobs")}</p>
             </div>
           ) : (
             Object.entries(archivedGroups).map(([label, items]) => (
@@ -134,7 +136,7 @@ export default async function JobsPage({ searchParams }: { searchParams: { statu
             !status ? "bg-forge text-white border-forge" : "border-gray-300 text-mist hover:border-forge"
           }`}
         >
-          All
+          {t("common.all")}
         </Link>
         {statuses.map((s) => {
           const cfg = JOB_STATUS_CONFIG[s];
@@ -170,9 +172,9 @@ export default async function JobsPage({ searchParams }: { searchParams: { statu
       <div className="surface-card overflow-hidden">
         {!activeJobs?.length ? (
           <div className="p-12 text-center">
-            <p className="text-mist text-sm mb-3">No jobs found</p>
+            <p className="text-mist text-sm mb-3">{t("jobs.noJobsFound")}</p>
             <Link href="/owner/jobs/new" className="text-amber hover:underline text-sm">
-              Create a job →
+              {t("jobs.createJob")} →
             </Link>
           </div>
         ) : (
@@ -222,10 +224,10 @@ export default async function JobsPage({ searchParams }: { searchParams: { statu
                 <table className="w-full text-sm" role="grid" aria-label="Jobs list">
                   <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
-                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Job</th>
-                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Property</th>
-                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Scheduled</th>
-                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Status</th>
+                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">{t("jobs.jobColumn")}</th>
+                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">{t("jobs.propertyColumn")}</th>
+                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">{t("jobs.scheduledColumn")}</th>
+                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">{t("jobs.statusColumn")}</th>
                   {showInvoiceCta && (
                     <th scope="col" className="px-4 py-3" aria-label="Invoice action" />
                   )}
@@ -295,14 +297,14 @@ export default async function JobsPage({ searchParams }: { searchParams: { statu
                   href={`/owner/jobs?${status ? `status=${status}&` : ""}page=${Math.max(1, page - 1)}`}
                   className={`text-sm font-600 ${page === 1 ? "text-gray-400 pointer-events-none" : "text-forge hover:text-amber"}`}
                 >
-                  ← Previous
+                  ← {t("common.previous")}
                 </Link>
-                <p className="text-xs text-mist">Page {page} of {pageCount}</p>
+                <p className="text-xs text-mist">{t("common.pageOf", { page, pageCount })}</p>
                 <Link
                   href={`/owner/jobs?${status ? `status=${status}&` : ""}page=${Math.min(pageCount, page + 1)}`}
                   className={`text-sm font-600 ${page === pageCount ? "text-gray-400 pointer-events-none" : "text-forge hover:text-amber"}`}
                 >
-                  Next →
+                  {t("common.next")} →
                 </Link>
               </div>
             )}

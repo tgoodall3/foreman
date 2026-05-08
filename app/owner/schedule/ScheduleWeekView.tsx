@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { JOB_STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/utils";
+import { useLanguage } from "@/lib/i18n";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -77,13 +78,6 @@ function fmtTime(t: string): string {
   return `${h12}:${m} ${suffix}`;
 }
 
-// Status transitions available to the owner from the schedule
-const STATUS_TRANSITIONS: Record<string, { label: string; next: string; color: string }> = {
-  pending:     { label: "Start Job",      next: "in_progress", color: "bg-amber hover:bg-amber-dark text-forge" },
-  scheduled:   { label: "Start Job",      next: "in_progress", color: "bg-amber hover:bg-amber-dark text-forge" },
-  in_progress: { label: "Mark Complete",  next: "completed",   color: "bg-green-600 hover:bg-green-700 text-white" },
-};
-
 // ─── Action Sheet ─────────────────────────────────────────────────────────────
 
 function JobActionSheet({
@@ -98,6 +92,13 @@ function JobActionSheet({
   onSaved: () => void;
 }) {
   const supabase = createClient();
+  const { t } = useLanguage();
+
+  const STATUS_TRANSITIONS: Record<string, { label: string; next: string; color: string }> = {
+    pending:     { label: t("jobs.startJob"),     next: "in_progress", color: "bg-amber hover:bg-amber-dark text-forge" },
+    scheduled:   { label: t("jobs.startJob"),     next: "in_progress", color: "bg-amber hover:bg-amber-dark text-forge" },
+    in_progress: { label: t("jobs.markComplete"), next: "completed",   color: "bg-green-600 hover:bg-green-700 text-white" },
+  };
 
   const statusCfg   = JOB_STATUS_CONFIG[job.status as keyof typeof JOB_STATUS_CONFIG]
     ?? { label: job.status, bg: "bg-gray-100", color: "text-gray-600" };
@@ -138,7 +139,7 @@ function JobActionSheet({
       .update({ assigned_workers: selectedWorkers, updated_at: new Date().toISOString() })
       .eq("id", job.id);
     setSavingWorkers(false);
-    if (err) { setError("Failed to update workers."); return; }
+    if (err) { setError(t("common.failedTryAgain")); return; }
 
     // Notify newly added workers (best-effort)
     const added = selectedWorkers.filter((id) => !(job.assigned_workers ?? []).includes(id));
@@ -150,12 +151,12 @@ function JobActionSheet({
       }).catch(() => {});
     }
 
-    setSaved("Workers updated");
+    setSaved(t("schedule.workersUpdated"));
     setTimeout(() => { setSaved(""); onSaved(); }, 800);
   };
 
   const saveReschedule = async () => {
-    if (!rescheduleDate) { setError("Date is required."); return; }
+    if (!rescheduleDate) { setError(t("jobs.date") + " " + t("common.required")); return; }
     setSavingReschedule(true);
     setError("");
     const { error: err } = await supabase
@@ -167,8 +168,8 @@ function JobActionSheet({
       })
       .eq("id", job.id);
     setSavingReschedule(false);
-    if (err) { setError("Failed to reschedule."); return; }
-    setSaved("Rescheduled");
+    if (err) { setError(t("common.failedTryAgain")); return; }
+    setSaved(t("schedule.rescheduled"));
     setTimeout(() => { setSaved(""); onSaved(); }, 800);
   };
 
@@ -181,7 +182,7 @@ function JobActionSheet({
       .update({ status: transition.next, updated_at: new Date().toISOString() })
       .eq("id", job.id);
     setSavingStatus(false);
-    if (err) { setError("Failed to update status."); return; }
+    if (err) { setError(t("common.failedTryAgain")); return; }
 
     // Fire notifications on completion (best-effort)
     if (transition.next === "completed") {
@@ -192,7 +193,7 @@ function JobActionSheet({
       });
     }
 
-    setSaved(transition.next === "completed" ? "Marked complete!" : "Job started");
+    setSaved(transition.next === "completed" ? t("schedule.markedComplete") : t("schedule.jobStarted"));
     setTimeout(() => { setSaved(""); onSaved(); }, 800);
   };
 
@@ -247,7 +248,7 @@ function JobActionSheet({
                 disabled={savingStatus || !!saved}
                 className={`w-full font-display font-700 py-3 rounded-xl text-sm transition-colors disabled:opacity-50 ${transition.color}`}
               >
-                {savingStatus ? "Updating…" : transition.label}
+                {savingStatus ? t("jobs.updating") : transition.label}
               </button>
             </div>
           )}
@@ -255,7 +256,7 @@ function JobActionSheet({
           {/* Worker assignment */}
           {workerList.length > 0 && (
             <div className="px-5 py-4 border-b border-gray-100">
-              <p className="text-xs font-700 text-mist uppercase tracking-wider mb-3">Assigned Workers</p>
+              <p className="text-xs font-700 text-mist uppercase tracking-wider mb-3">{t("schedule.assignedWorkers")}</p>
               <div className="flex flex-wrap gap-2 mb-3">
                 {workerList.map(({ id, name }) => {
                   const active = selectedWorkers.includes(id);
@@ -291,17 +292,17 @@ function JobActionSheet({
                 disabled={savingWorkers || !!saved}
                 className="w-full border border-gray-200 hover:border-forge rounded-lg py-2 text-sm font-600 text-forge transition-colors disabled:opacity-50"
               >
-                {savingWorkers ? "Saving…" : "Save Assignment"}
+                {savingWorkers ? t("common.saving") : t("schedule.saveAssignment")}
               </button>
             </div>
           )}
 
           {/* Reschedule */}
           <div className="px-5 py-4 border-b border-gray-100">
-            <p className="text-xs font-700 text-mist uppercase tracking-wider mb-3">Reschedule</p>
+            <p className="text-xs font-700 text-mist uppercase tracking-wider mb-3">{t("schedule.reschedule")}</p>
             <div className="flex gap-2 mb-3">
               <div className="flex-1">
-                <label className="block text-xs text-mist mb-1">Date</label>
+                <label className="block text-xs text-mist mb-1">{t("jobs.date")}</label>
                 <input
                   type="date"
                   value={rescheduleDate}
@@ -310,7 +311,7 @@ function JobActionSheet({
                 />
               </div>
               <div className="flex-1">
-                <label className="block text-xs text-mist mb-1">Time (optional)</label>
+                <label className="block text-xs text-mist mb-1">{t("schedule.timeOptional")}</label>
                 <input
                   type="time"
                   value={rescheduleTime}
@@ -324,7 +325,7 @@ function JobActionSheet({
               disabled={savingReschedule || !!saved}
               className="w-full border border-gray-200 hover:border-forge rounded-lg py-2 text-sm font-600 text-forge transition-colors disabled:opacity-50"
             >
-              {savingReschedule ? "Saving…" : "Save Schedule"}
+              {savingReschedule ? t("common.saving") : t("schedule.saveSchedule")}
             </button>
           </div>
 
@@ -346,7 +347,7 @@ function JobActionSheet({
               href={`/owner/jobs/${job.id}`}
               className="block text-center text-sm text-amber hover:underline font-600"
             >
-              View full details →
+              {t("schedule.viewFullDetails")}
             </Link>
           </div>
         </div>
@@ -423,6 +424,7 @@ function JobCard({
 
 export default function ScheduleWeekView({ days, unscheduled, workerMap, weekStart, today, hasError }: Props) {
   const router = useRouter();
+  const { t } = useLanguage();
   const [activeJob, setActiveJob] = useState<Job | null>(null);
 
   const prevWeek = addDays(weekStart, -7);
@@ -441,8 +443,8 @@ export default function ScheduleWeekView({ days, unscheduled, workerMap, weekSta
     return (
       <div className="page-shell page-shell-standard">
         <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-          <p className="text-sm text-red-700 font-700">Unable to load schedule right now.</p>
-          <p className="text-xs text-red-700">Refresh to retry; we hit a temporary data error.</p>
+          <p className="text-sm text-red-700 font-700">{t("schedule.loadError")}</p>
+          <p className="text-xs text-red-700">{t("schedule.loadRetry")}</p>
         </div>
       </div>
     );
@@ -453,17 +455,17 @@ export default function ScheduleWeekView({ days, unscheduled, workerMap, weekSta
       {/* ── Page header ── */}
       <div className="page-header gap-3 flex-wrap">
         <div className="page-header-copy">
-          <h1 className="page-title">Schedule</h1>
+          <h1 className="page-title">{t("schedule.title")}</h1>
           <p className="page-subtitle">
-            {totalScheduled} job{totalScheduled !== 1 ? "s" : ""} this week
-            {unscheduled.length > 0 && ` · ${unscheduled.length} unscheduled`}
+            {totalScheduled === 1 ? t("schedule.jobThisWeek", { count: 1 }) : t("schedule.jobsThisWeek", { count: totalScheduled })}
+            {unscheduled.length > 0 && ` · ${t("schedule.unscheduled", { count: unscheduled.length })}`}
           </p>
         </div>
         <Link
           href="/owner/jobs/new"
           className="action-button-primary"
         >
-          + New Job
+          {t("schedule.newJob")}
         </Link>
       </div>
 
@@ -472,7 +474,7 @@ export default function ScheduleWeekView({ days, unscheduled, workerMap, weekSta
         <button
           onClick={() => router.push(`/owner/schedule?week=${prevWeek}`)}
           className="p-2 rounded-lg border border-gray-200 hover:border-forge hover:bg-gray-50 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
-          aria-label="Previous week"
+          aria-label={t("schedule.previousWeek")}
         >
           <svg className="w-4 h-4 text-forge" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -486,7 +488,7 @@ export default function ScheduleWeekView({ days, unscheduled, workerMap, weekSta
         <button
           onClick={() => router.push(`/owner/schedule?week=${nextWeek}`)}
           className="p-2 rounded-lg border border-gray-200 hover:border-forge hover:bg-gray-50 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
-          aria-label="Next week"
+          aria-label={t("schedule.nextWeek")}
         >
           <svg className="w-4 h-4 text-forge" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -498,7 +500,7 @@ export default function ScheduleWeekView({ days, unscheduled, workerMap, weekSta
             onClick={() => router.push(`/owner/schedule?week=${thisWeek}`)}
             className="px-3 py-2 rounded-lg border border-gray-200 hover:border-forge text-sm font-600 text-mist hover:text-forge transition-colors min-h-[44px]"
           >
-            Today
+            {t("schedule.today")}
           </button>
         )}
       </div>
@@ -543,7 +545,7 @@ export default function ScheduleWeekView({ days, unscheduled, workerMap, weekSta
                     {dayNum}
                   </span>
                   {isToday && (
-                    <span className="text-xs font-600 text-amber hidden lg:inline">Today</span>
+                    <span className="text-xs font-600 text-amber hidden lg:inline">{t("schedule.today")}</span>
                   )}
                 </div>
                 <Link
@@ -583,11 +585,11 @@ export default function ScheduleWeekView({ days, unscheduled, workerMap, weekSta
         <section className="mt-8">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-display font-700 text-lg text-forge">
-              Unscheduled
+              {t("schedule.unscheduledSection")}
               <span className="ml-2 text-sm font-500 text-mist">({unscheduled.length})</span>
             </h2>
             <Link href="/owner/jobs?status=pending" className="text-xs text-amber hover:underline">
-              View all →
+              {t("schedule.viewAll")}
             </Link>
           </div>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -608,13 +610,13 @@ export default function ScheduleWeekView({ days, unscheduled, workerMap, weekSta
           <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
             <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2" strokeWidth={1.5}/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 3v4M15 3v4M4 10h16"/></svg>
           </div>
-          <p className="font-display font-700 text-xl text-forge">Nothing scheduled</p>
-          <p className="text-mist text-sm mt-1 mb-4">This week is wide open.</p>
+          <p className="font-display font-700 text-xl text-forge">{t("schedule.nothingScheduled")}</p>
+          <p className="text-mist text-sm mt-1 mb-4">{t("schedule.wideOpen")}</p>
           <Link
             href="/owner/jobs/new"
             className="bg-amber hover:bg-amber-dark text-forge font-display font-700 px-5 py-2.5 rounded-lg text-sm transition-colors"
           >
-            Create a Job
+            {t("schedule.createJob")}
           </Link>
         </div>
       )}

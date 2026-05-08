@@ -2,12 +2,14 @@
 import { getProfile } from "@/lib/auth";
 import { differenceInDays, parseISO } from "date-fns";
 import Link from "next/link";
+import { getServerT } from "@/lib/i18n/server";
 
 export default async function TrialBanner() {
   const profile = await getProfile();
   if (!profile) return null;
   // Profile already upgraded — skip the DB round-trip
   if ((profile as any).plan === "pro") return null;
+  const t = await getServerT();
 
   const supabase = await createServerSideClient();
   const { data: tenant } = await supabase
@@ -28,8 +30,8 @@ export default async function TrialBanner() {
     <div className={`px-6 py-2 text-sm flex items-center justify-between ${isExpired ? "bg-red-600" : "bg-amber"}`}>
       <p className={`font-600 ${isExpired ? "text-white" : "text-forge"}`}>
         {isExpired
-          ? "Your trial has expired. Upgrade to continue using Foreman."
-          : `${daysLeft} day${daysLeft === 1 ? "" : "s"} left in your free trial.`}
+          ? t("trial.expired")
+          : t("trial.daysLeft", { days: daysLeft, plural: daysLeft === 1 ? "" : "s" })}
       </p>
       <Link
         href="/owner/settings/billing"
@@ -37,7 +39,7 @@ export default async function TrialBanner() {
           isExpired ? "bg-white text-red-600 hover:bg-red-50" : "bg-forge text-white hover:bg-forge-light"
         }`}
       >
-        Upgrade Now {"\u2192"}
+        {t("trial.upgradeNow")}
       </Link>
     </div>
   );
