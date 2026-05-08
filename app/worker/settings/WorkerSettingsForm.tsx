@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
+import { useLanguage } from "@/lib/i18n";
+import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 
 interface Profile {
   id: string;
@@ -18,6 +20,7 @@ interface WorkerSettingsFormProps {
 export default function WorkerSettingsForm({ profile }: WorkerSettingsFormProps) {
   const router = useRouter();
   const supabase = createClient();
+  const { t } = useLanguage();
   const [fullName, setFullName] = useState(profile.full_name);
   const [phone, setPhone] = useState(profile.phone || "");
   const [loading, setLoading] = useState(false);
@@ -78,16 +81,19 @@ export default function WorkerSettingsForm({ profile }: WorkerSettingsFormProps)
 
   return (
     <>
+      <div className="flex justify-end mb-2">
+        <LanguageSwitcher variant="light" />
+      </div>
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-          <h2 className="font-display font-700 text-lg text-forge">Profile</h2>
+          <h2 className="font-display font-700 text-lg text-forge">{t("settings.profileSection")}</h2>
           <div>
-            <label htmlFor="email" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Email</label>
+            <label htmlFor="email" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">{t("settings.email")}</label>
             <input id="email" type="email" value={profile.email} disabled className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-gray-50" />
-            <p className="text-xs text-mist mt-1">Contact support to change email.</p>
+            <p className="text-xs text-mist mt-1">{t("settings.emailNote")}</p>
           </div>
           <div>
-            <label htmlFor="fullName" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Full Name</label>
+            <label htmlFor="fullName" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">{t("settings.fullName")}</label>
             <input id="fullName" type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} required className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:border-amber" />
           </div>
           <div>

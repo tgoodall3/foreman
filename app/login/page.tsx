@@ -2,10 +2,13 @@
 
 import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import { useLanguage } from "@/lib/i18n";
+import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 
 function LoginForm() {
   const searchParams  = useSearchParams();
   const signedOut     = searchParams.get("signed_out") === "1";
+  const { t } = useLanguage();
 
   const [email, setEmail]             = useState("");
   const [password, setPassword]       = useState("");
@@ -49,17 +52,17 @@ function LoginForm() {
     <>
       {signedOut && (
         <div className="mb-4 bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-sm text-chalk text-center">
-          You&apos;ve been signed out successfully.
+          {t("auth.signedOut")}
         </div>
       )}
 
       <div className="bg-forge-light border border-steel rounded-xl p-6">
-        <h1 className="font-display font-700 text-white text-xl mb-6">Sign in to your account</h1>
+        <h1 className="font-display font-700 text-white text-xl mb-6">{t("auth.signIn")}</h1>
 
         <form onSubmit={handleLogin} className="space-y-4" noValidate>
           <div>
             <label htmlFor="email" className="block text-sm font-500 text-chalk mb-1">
-              Email address
+              {t("auth.emailAddress")}
             </label>
             <input
               id="email"
@@ -76,7 +79,7 @@ function LoginForm() {
 
           <div>
             <label htmlFor="password" className="block text-sm font-500 text-chalk mb-1">
-              Password
+              {t("auth.password")}
             </label>
             <div className="relative">
               <input
@@ -94,7 +97,7 @@ function LoginForm() {
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-mist hover:text-white transition-colors"
-                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
               >
                 {showPassword ? (
                   <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -111,7 +114,7 @@ function LoginForm() {
               </button>
             </div>
             <a href="/forgot-password" className="text-xs text-amber hover:underline mt-1.5 inline-block">
-              Forgot password?
+              {t("auth.forgotPassword")}
             </a>
           </div>
 
@@ -126,7 +129,7 @@ function LoginForm() {
             disabled={loading}
             className="w-full bg-amber hover:bg-amber-dark disabled:opacity-50 text-forge font-display font-700 py-2.5 rounded-lg text-base transition-colors min-h-[44px]"
           >
-            {loading ? "Signing in…" : "Sign In"}
+            {loading ? t("auth.signingIn") : t("auth.signInButton")}
           </button>
         </form>
       </div>
@@ -135,6 +138,7 @@ function LoginForm() {
 }
 
 export default function LoginPage() {
+  const { t } = useLanguage();
   return (
     <main id="main-content" className="min-h-screen bg-forge flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
@@ -146,7 +150,11 @@ export default function LoginPage() {
             </div>
             <span className="font-display font-800 text-white text-3xl tracking-wide">FOREMAN</span>
           </div>
-          <p className="text-mist text-sm">Field service management for contractors</p>
+          <p className="text-mist text-sm">{t("auth.tagline")}</p>
+        </div>
+
+        <div className="flex justify-center mb-4">
+          <LanguageSwitcher />
         </div>
 
         <Suspense>
@@ -155,21 +163,21 @@ export default function LoginPage() {
 
         <div className="mt-6 space-y-2 text-center">
           <p className="text-mist text-xs">
-            Don&apos;t have an account?{" "}
+            {t("auth.noAccount")}{" "}
             <a href="/signup" className="text-amber hover:underline font-600">
-              Start free trial →
+              {t("auth.startTrial")}
             </a>
           </p>
           <p className="text-mist text-xs">
-            Property manager?{" "}
+            {t("auth.propertyManager")}{" "}
             <a href="/portal" className="text-amber hover:underline">
-              Submit a work order →
+              {t("auth.submitWorkOrder")}
             </a>
           </p>
           <p className="text-mist text-xs pt-2">
-            <a href="/legal/privacy" className="hover:text-chalk hover:underline">Privacy Policy</a>
+            <a href="/legal/privacy" className="hover:text-chalk hover:underline">{t("auth.privacyPolicy")}</a>
             {" · "}
-            <a href="/legal/terms" className="hover:text-chalk hover:underline">Terms of Service</a>
+            <a href="/legal/terms" className="hover:text-chalk hover:underline">{t("auth.termsOfService")}</a>
           </p>
         </div>
       </div>

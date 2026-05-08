@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { useToast } from "@/components/ui/ToastContainer";
+import { useLanguage } from "@/lib/i18n";
+import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 
 export default function AccountClient({ profile, tenant }: { profile: any; tenant: any }) {
   const supabase = createClient();
@@ -83,10 +85,14 @@ export default function AccountClient({ profile, tenant }: { profile: any; tenan
     setSavingPassword(false);
   };
 
+  const { t } = useLanguage();
   const inp = "w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:border-amber";
 
   return (
     <div className="space-y-5 w-full max-w-3xl mx-auto px-2 sm:px-0">
+      <div className="flex justify-end">
+        <LanguageSwitcher variant="light" />
+      </div>
       <form onSubmit={handleSaveBiz} noValidate className="bg-white rounded-xl border border-gray-200 p-5 space-y-4 sm:p-6">
         <h2 className="font-display font-700 text-lg text-forge">Business Info</h2>
         <div>
