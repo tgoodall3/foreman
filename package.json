@@ -10,7 +10,7 @@
     "test": "jest",
     "test:e2e": "playwright test",
     "migrate": "node scripts/migrate.mjs",
-    "mobile:sync": "npx cap sync",
+    "mobile:sync": "mkdir -p out && npx cap sync",
     "mobile:android": "npx cap open android",
     "mobile:ios": "npx cap open ios"
   },
