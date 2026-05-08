@@ -16,9 +16,11 @@
   },
   "dependencies": {
     "@capacitor/android": "^7.6.3",
+    "@capacitor/camera": "^8.2.0",
     "@capacitor/cli": "^7.6.3",
     "@capacitor/core": "^7.6.3",
     "@capacitor/ios": "^7.6.3",
+    "@capacitor/push-notifications": "^8.0.4",
     "@sentry/nextjs": "^10.48.0",
     "@sentry/react": "^10.47.0",
     "@stripe/react-stripe-js": "^6.1.0",

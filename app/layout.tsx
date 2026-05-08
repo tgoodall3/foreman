@@ -4,6 +4,8 @@ import "./globals.css";
 import { ToastProvider } from "@/components/ui/ToastContainer";
 import NavigationProgress from "@/components/ui/NavigationProgress";
 import RegisterSW from "@/components/pwa/RegisterSW";
+import PushNotificationInit from "@/components/pwa/PushNotificationInit";
+import { LanguageProvider } from "@/lib/i18n";
 
 export function generateMetadata(): Metadata {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://foremanapp.io";
@@ -65,10 +67,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <NavigationProgress />
         <a href="#main-content" className="skip-link">Skip to main content</a>
-        <ToastProvider>
-          {children}
-          <RegisterSW />
-        </ToastProvider>
+        <LanguageProvider>
+          <ToastProvider>
+            {children}
+            <RegisterSW />
+            <PushNotificationInit />
+          </ToastProvider>
+        </LanguageProvider>
       </body>
     </html>
   );

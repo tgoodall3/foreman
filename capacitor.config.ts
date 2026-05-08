@@ -10,7 +10,7 @@ const config: CapacitorConfig = {
     // Points the mobile app at the live hosted web app so all server-side
     // features (auth, Stripe, API routes) work without modification.
     // Replace this URL with your production Vercel domain before building.
-    url: process.env.NEXT_PUBLIC_APP_URL || 'https://YOUR_VERCEL_DOMAIN.vercel.app',
+    url: process.env.NEXT_PUBLIC_APP_URL || 'https://www.getforeman.app',
     cleartext: false,
     androidScheme: 'https',
   },

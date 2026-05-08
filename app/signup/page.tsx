@@ -3,9 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useLanguage } from "@/lib/i18n";
+import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 
 export default function SignupPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [step, setStep] = useState<"account" | "business">("account");
 
   // Account fields
@@ -88,7 +91,11 @@ export default function SignupPage() {
             </div>
             <span className="font-display font-800 text-white text-3xl tracking-wide">FOREMAN</span>
           </div>
-          <p className="text-mist text-sm mt-2">Field service management for contractors</p>
+          <p className="text-mist text-sm mt-2">{t("auth.tagline")}</p>
+        </div>
+
+        <div className="flex justify-center mb-4">
+          <LanguageSwitcher />
         </div>
 
         {awaitingEmail && (
@@ -128,28 +135,28 @@ export default function SignupPage() {
 
             {step === "account" ? (
               <form onSubmit={handleAccountNext} noValidate className="space-y-4">
-                <h1 className="font-display font-700 text-white text-xl mb-2">Create your account</h1>
+                <h1 className="font-display font-700 text-white text-xl mb-2">{t("auth.createAccount")}</h1>
                 <div>
-                  <label htmlFor="full-name" className="block text-sm font-500 text-chalk mb-1">Full Name</label>
+                  <label htmlFor="full-name" className="block text-sm font-500 text-chalk mb-1">{t("auth.fullName")}</label>
                   <input id="full-name" type="text" value={fullName} onChange={(e) => setFullName(e.target.value)}
                     required aria-required="true" autoComplete="name"
                     className="w-full bg-forge border border-steel rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-mist focus:border-amber"
                     placeholder="Tyler Reynolds" />
                 </div>
                 <div>
-                  <label htmlFor="email" className="block text-sm font-500 text-chalk mb-1">Email</label>
+                  <label htmlFor="email" className="block text-sm font-500 text-chalk mb-1">{t("auth.email")}</label>
                   <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
                     required aria-required="true" autoComplete="email"
                     className="w-full bg-forge border border-steel rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-mist focus:border-amber"
                     placeholder="you@company.com" />
                 </div>
                 <div>
-                  <label htmlFor="password" className="block text-sm font-500 text-chalk mb-1">Password</label>
+                  <label htmlFor="password" className="block text-sm font-500 text-chalk mb-1">{t("auth.password")}</label>
                   <div className="relative">
                     <input id="password" type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)}
                       required aria-required="true" autoComplete="new-password" minLength={8}
                       className="w-full bg-forge border border-steel rounded-lg px-3 py-2.5 pr-10 text-sm text-white placeholder:text-mist focus:border-amber"
-                      placeholder="Min 8 characters" />
+                      placeholder={t("auth.passwordMinLength")} />
                     <button
                       type="button"
                       onClick={() => setShowPassword((v) => !v)}
@@ -173,31 +180,31 @@ export default function SignupPage() {
                 </div>
                 {error && <div role="alert" className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">{error}</div>}
                 <button type="submit" className="w-full bg-amber hover:bg-amber-dark text-forge font-display font-700 py-2.5 rounded-lg text-base transition-colors min-h-[44px]">
-                  Continue →
+                  {t("common.next")} →
                 </button>
               </form>
             ) : (
               <form onSubmit={handleSignup} noValidate className="space-y-4">
                 <div className="flex items-center gap-2 mb-2">
                   <button type="button" onClick={() => setStep("account")} className="text-mist hover:text-white text-sm transition-colors">←</button>
-                  <h2 className="font-display font-700 text-white text-xl">Your business</h2>
+                  <h2 className="font-display font-700 text-white text-xl">{t("auth.yourBusiness")}</h2>
                 </div>
                 <div>
-                  <label htmlFor="biz-name" className="block text-sm font-500 text-chalk mb-1">Business Name <span className="text-red-400">*</span></label>
+                  <label htmlFor="biz-name" className="block text-sm font-500 text-chalk mb-1">{t("auth.businessName")} <span className="text-red-400">*</span></label>
                   <input id="biz-name" type="text" value={bizName} onChange={(e) => setBizName(e.target.value)}
                     required aria-required="true"
                     className="w-full bg-forge border border-steel rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-mist focus:border-amber"
                     placeholder="Precision Contracting Group" />
                 </div>
                 <div>
-                  <label htmlFor="biz-phone" className="block text-sm font-500 text-chalk mb-1">Phone</label>
+                  <label htmlFor="biz-phone" className="block text-sm font-500 text-chalk mb-1">{t("auth.phone")}</label>
                   <input id="biz-phone" type="tel" value={bizPhone} onChange={(e) => setBizPhone(e.target.value)}
                     autoComplete="tel"
                     className="w-full bg-forge border border-steel rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-mist focus:border-amber"
                     placeholder="(555) 000-0000" />
                 </div>
                 <div>
-                  <label htmlFor="biz-address" className="block text-sm font-500 text-chalk mb-1">Address</label>
+                  <label htmlFor="biz-address" className="block text-sm font-500 text-chalk mb-1">{t("auth.address")}</label>
                   <input id="biz-address" type="text" value={bizAddress} onChange={(e) => setBizAddress(e.target.value)}
                     autoComplete="street-address"
                     className="w-full bg-forge border border-steel rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-mist focus:border-amber"
@@ -206,17 +213,17 @@ export default function SignupPage() {
                 {error && <div role="alert" className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">{error}</div>}
                 <button type="submit" disabled={loading}
                   className="w-full bg-amber hover:bg-amber-dark disabled:opacity-50 text-forge font-display font-700 py-2.5 rounded-lg text-base transition-colors min-h-[44px]">
-                  {loading ? "Setting up account…" : "Finish setup →"}
+                  {loading ? t("auth.settingUp") : t("auth.finishSetup")}
                 </button>
-                <p className="text-xs text-mist text-center">14-day free trial · No card required until it ends</p>
+                <p className="text-xs text-mist text-center">{t("auth.trialNote")}</p>
               </form>
             )}
           </div>
         )}
 
         <p className="text-center text-mist text-sm mt-4">
-          Already have an account?{" "}
-          <Link href="/login" className="text-amber hover:underline">Sign in</Link>
+          {t("auth.alreadyHaveAccount")}{" "}
+          <Link href="/login" className="text-amber hover:underline">{t("auth.signInLink")}</Link>
         </p>
       </div>
     </main>
