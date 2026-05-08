@@ -9,9 +9,16 @@
     "lint": "next lint",
     "test": "jest",
     "test:e2e": "playwright test",
-    "migrate": "node scripts/migrate.mjs"
+    "migrate": "node scripts/migrate.mjs",
+    "mobile:sync": "npx cap sync",
+    "mobile:android": "npx cap open android",
+    "mobile:ios": "npx cap open ios"
   },
   "dependencies": {
+    "@capacitor/android": "^7.6.3",
+    "@capacitor/cli": "^7.6.3",
+    "@capacitor/core": "^7.6.3",
+    "@capacitor/ios": "^7.6.3",
     "@sentry/nextjs": "^10.48.0",
     "@sentry/react": "^10.47.0",
     "@stripe/react-stripe-js": "^6.1.0",
