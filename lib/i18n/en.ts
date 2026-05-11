@@ -335,10 +335,11 @@ const en = {
   workOrders: {
     title: "Work Orders",
     pendingReview: "{count} pending review",
+    activeTab: "Active",
     pendingTab: "Pending Review",
     acceptedTab: "Accepted",
     declinedTab: "Declined",
-    pastTab: "Past (14+ days)",
+    pastTab: "Past",
     noWorkOrders: "No work orders yet",
     workOrdersNote: "Work orders submitted by property managers will appear here.",
     viewJob: "View job",

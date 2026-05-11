@@ -91,7 +91,7 @@ export default async function PortalPage({ searchParams }: { searchParams: { tab
       invoices={(invoices ?? []) as any[]}
       comments={(comments ?? []) as any[]}
       estimates={(estimates ?? []) as any[]}
-      initialTab={(searchParams.tab as any) ?? "overview"}
+      initialTab={(searchParams.tab as any) ?? "home"}
       paidSuccess={searchParams.paid === "true"}
     />
   );

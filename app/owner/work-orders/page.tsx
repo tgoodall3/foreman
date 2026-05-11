@@ -4,84 +4,136 @@ import { formatDate, PRIORITY_CONFIG } from "@/lib/utils";
 import Link from "next/link";
 import { getServerT } from "@/lib/i18n/server";
 
-export default async function WorkOrdersPage() {
+const ARCHIVE_DAYS = 14;
+
+function biweeklyLabel(iso: string): string {
+  const d = new Date(iso);
+  const month = d.toLocaleString("en-US", { month: "long", year: "numeric" });
+  const day = d.getDate();
+  return day <= 14 ? `${month} (1–14)` : `${month} (15–31)`;
+}
+
+export default async function WorkOrdersPage({ searchParams }: { searchParams: { past?: string } }) {
   const profile = await requireOwner();
   const t = await getServerT();
+  const showPast = searchParams.past === "1";
   const workOrders = await getOwnerWorkOrders(profile);
 
   const now = Date.now();
   const ageDays = (iso: string) => (now - new Date(iso).getTime()) / (1000 * 60 * 60 * 24);
-  const isPast = (w: any) => ["accepted", "declined"].includes(w.status) && ageDays(w.created_at) > 14;
+  const isPast = (w: any) => ["accepted", "declined"].includes(w.status) && ageDays(w.created_at) > ARCHIVE_DAYS;
 
-  const active    = workOrders?.filter((w) => !isPast(w)) || [];
-  const archived  = workOrders?.filter((w) => isPast(w)) || [];
+  const active   = workOrders?.filter((w) => !isPast(w)) || [];
+  const archived = workOrders?.filter((w) => isPast(w)) || [];
 
-  const pending   = active.filter((w) => w.status === "pending");
-  const accepted  = active.filter((w) => w.status === "accepted");
-  const declined  = active.filter((w) => w.status === "declined");
+  const pending  = active.filter((w) => w.status === "pending");
+  const accepted = active.filter((w) => w.status === "accepted");
+  const declined = active.filter((w) => w.status === "declined");
+
+  const archivedGroups: Record<string, any[]> = {};
+  for (const wo of archived) {
+    const label = biweeklyLabel(wo.created_at);
+    if (!archivedGroups[label]) archivedGroups[label] = [];
+    archivedGroups[label].push(wo);
+  }
 
   return (
     <div className="page-shell page-shell-standard">
       <div className="page-header">
         <div className="page-header-copy">
           <h1 className="page-title">{t("workOrders.title")}</h1>
-          <p className="page-subtitle">{t("workOrders.pendingReview", { count: pending.length })}</p>
+          <p className="page-subtitle">
+            {showPast
+              ? t("common.total", { count: archived.length })
+              : t("workOrders.pendingReview", { count: pending.length })}
+          </p>
         </div>
       </div>
 
-      {/* Pending - most important */}
-      {pending.length > 0 && (
-        <section aria-labelledby="pending-heading" className="mb-8">
-          <h2 id="pending-heading" className="font-display font-700 text-xl text-forge mb-3 flex items-center gap-2">
-            {t("workOrders.pendingTab")}
-            <span className="w-6 h-6 bg-amber text-forge text-xs font-700 rounded-full flex items-center justify-center">
-              {pending.length}
-            </span>
-          </h2>
-          <div className="space-y-3">
-            {pending.map((wo: any) => <WorkOrderCard key={wo.id} wo={wo} t={t} />)}
-          </div>
-        </section>
-      )}
+      {/* Active / Past toggle */}
+      <div className="flex items-center gap-3 mb-5">
+        <Link
+          href="/owner/work-orders"
+          className={`px-4 py-1.5 rounded-full text-sm font-600 transition-colors ${!showPast ? "bg-forge text-white" : "text-mist hover:text-forge"}`}
+        >
+          {t("workOrders.activeTab")}
+        </Link>
+        <Link
+          href="/owner/work-orders?past=1"
+          className={`px-4 py-1.5 rounded-full text-sm font-600 transition-colors ${showPast ? "bg-forge text-white" : "text-mist hover:text-forge"}`}
+        >
+          {t("workOrders.pastTab")}
+          {archived.length > 0 && <span className="ml-1 text-xs opacity-60">{archived.length}</span>}
+        </Link>
+      </div>
 
-      {/* Accepted */}
-      {accepted.length > 0 && (
-        <section aria-labelledby="accepted-heading" className="mb-8">
-          <h2 id="accepted-heading" className="font-display font-700 text-xl text-forge mb-3">{t("workOrders.acceptedTab")}</h2>
-          <div className="space-y-3">
-            {accepted.map((wo: any) => <WorkOrderCard key={wo.id} wo={wo} t={t} />)}
-          </div>
-        </section>
-      )}
-
-      {/* Declined */}
-      {declined.length > 0 && (
-        <section aria-labelledby="declined-heading" className="mb-8">
-          <h2 id="declined-heading" className="font-display font-700 text-xl text-forge mb-3 text-mist">{t("workOrders.declinedTab")}</h2>
-          <div className="space-y-3">
-            {declined.map((wo: any) => <WorkOrderCard key={wo.id} wo={wo} t={t} />)}
-          </div>
-        </section>
-      )}
-
-      {/* Archived */}
-      {archived.length > 0 && (
-        <section aria-labelledby="archived-heading" className="mb-6">
-          <h2 id="archived-heading" className="font-display font-700 text-xl text-mist mb-3">{t("workOrders.pastTab")}</h2>
-          <div className="space-y-3">
-            {archived.map((wo: any) => <WorkOrderCard key={wo.id} wo={wo} muted t={t} />)}
-          </div>
-        </section>
-      )}
-
-      {!workOrders?.length && (
-        <div className="surface-empty py-16">
-          <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-            <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
-          </div>
-          <p className="font-display font-700 text-xl text-forge mb-1">{t("workOrders.noWorkOrders")}</p>
-          <p className="text-mist text-sm">{t("workOrders.workOrdersNote")}</p>
+      {/* Past view */}
+      {showPast && (
+        <div className="space-y-6">
+          {Object.keys(archivedGroups).length === 0 ? (
+            <div className="surface-empty">
+              <p>{t("workOrders.noWorkOrders")}</p>
+            </div>
+          ) : (
+            Object.entries(archivedGroups).map(([label, items]) => (
+              <div key={label}>
+                <p className="text-xs font-700 uppercase tracking-widest text-mist mb-2 px-1">{label}</p>
+                <div className="space-y-3">
+                  {items.map((wo: any) => <WorkOrderCard key={wo.id} wo={wo} muted t={t} />)}
+                </div>
+              </div>
+            ))
+          )}
         </div>
+      )}
+
+      {/* Active view */}
+      {!showPast && (
+        <>
+          {pending.length > 0 && (
+            <section aria-labelledby="pending-heading" className="mb-8">
+              <h2 id="pending-heading" className="font-display font-700 text-xl text-forge mb-3 flex items-center gap-2">
+                {t("workOrders.pendingTab")}
+                <span className="w-6 h-6 bg-amber text-forge text-xs font-700 rounded-full flex items-center justify-center">
+                  {pending.length}
+                </span>
+              </h2>
+              <div className="space-y-3">
+                {pending.map((wo: any) => <WorkOrderCard key={wo.id} wo={wo} t={t} />)}
+              </div>
+            </section>
+          )}
+
+          {accepted.length > 0 && (
+            <section aria-labelledby="accepted-heading" className="mb-8">
+              <h2 id="accepted-heading" className="font-display font-700 text-xl text-forge mb-3">{t("workOrders.acceptedTab")}</h2>
+              <div className="space-y-3">
+                {accepted.map((wo: any) => <WorkOrderCard key={wo.id} wo={wo} t={t} />)}
+              </div>
+            </section>
+          )}
+
+          {declined.length > 0 && (
+            <section aria-labelledby="declined-heading" className="mb-8">
+              <h2 id="declined-heading" className="font-display font-700 text-xl text-mist mb-3">{t("workOrders.declinedTab")}</h2>
+              <div className="space-y-3">
+                {declined.map((wo: any) => <WorkOrderCard key={wo.id} wo={wo} t={t} />)}
+              </div>
+            </section>
+          )}
+
+          {active.length === 0 && (
+            <div className="surface-empty py-16">
+              <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+              </div>
+              <p className="font-display font-700 text-xl text-forge mb-1">{t("workOrders.noWorkOrders")}</p>
+              <p className="text-mist text-sm">{t("workOrders.workOrdersNote")}</p>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -133,6 +185,5 @@ function WorkOrderCard({ wo, muted = false, t }: { wo: any; muted?: boolean; t: 
     </Link>
   );
 }
-// Force dynamic rendering to avoid static 404s when data/env missing at build time
-// Force dynamic rendering (and use service client in detail pages) to avoid stale static pages and RLS edge cases
+
 export const dynamic = "force-dynamic";

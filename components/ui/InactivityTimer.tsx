@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes until sign-out
-const WARNING_MS = 25 * 60 * 1000; // show warning at 25 minutes
+const TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes until sign-out
+const WARNING_MS = 13 * 60 * 1000; // show warning at 13 minutes
 const WARN_SECS  = (TIMEOUT_MS - WARNING_MS) / 1000; // 300 seconds on the clock
 
 const EVENTS = ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "click"] as const;

@@ -329,10 +329,11 @@ const es: TranslationKeys = {
   workOrders: {
     title: "Órdenes de trabajo",
     pendingReview: "{count} pendiente{plural} de revisión",
+    activeTab: "Activas",
     pendingTab: "Pendiente de revisión",
     acceptedTab: "Aceptadas",
     declinedTab: "Rechazadas",
-    pastTab: "Pasadas (14+ días)",
+    pastTab: "Pasadas",
     noWorkOrders: "Aún no hay órdenes de trabajo",
     workOrdersNote: "Las órdenes de trabajo enviadas por los administradores de propiedades aparecerán aquí.",
     viewJob: "Ver trabajo",
