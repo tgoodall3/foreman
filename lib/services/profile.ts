@@ -1,5 +1,4 @@
 import { cache } from "react";
-import { headers } from "next/headers";
 import { createServerSideClient } from "@/lib/supabase-server";
 import { Profile } from "@/types";
 
@@ -17,22 +16,10 @@ async function fetchProfileById(userId: string): Promise<Profile | null> {
 
 /**
  * Returns the current user's profile.
- *
- * Fast path: middleware sets x-user-id on every owner/worker request,
- * so we skip the auth.getUser() round-trip and go straight to the DB.
- *
  * Wrapped in React.cache() so multiple callers within the same render
- * (e.g. layout + page) share a single result.
+ * (e.g. layout + page) share a single auth.getUser() call.
  */
 export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
-  // Fast path: trust the user ID injected by middleware
-  const headersList = headers();
-  const userId = headersList.get("x-user-id");
-  if (userId) {
-    return fetchProfileById(userId);
-  }
-
-  // Slow path: no middleware header (public/portal routes)
   const supabase = await createServerSideClient();
   try {
     const { data: { user }, error } = await supabase.auth.getUser();

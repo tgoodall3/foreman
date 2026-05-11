@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { Resend } from "resend";
 import { badRequest, errorResponse, jsonResponse } from "@/lib/api";
 import { requireOwner } from "@/lib/auth";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { createServerSideClient } from "@/lib/supabase-server";
 import { createServiceClient } from "@/lib/supabase";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -22,6 +23,9 @@ function escHtml(str: string): string {
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const profile = await requireOwner();
+  if (!(await checkRateLimit(`email-send:${profile.id}`, 20, 60 * 60 * 1000))) {
+    return errorResponse("Too many emails sent. Please wait before sending more.", 429);
+  }
   if (!resend) return errorResponse("Email service not configured.", 500);
   const fromAddress = process.env.EMAIL_FROM;
   if (!fromAddress) return errorResponse("EMAIL_FROM is not set.", 500);

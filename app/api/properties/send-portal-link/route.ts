@@ -4,6 +4,7 @@ import { Resend } from "resend";
 import { requireOwner } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase";
 import { errorResponse } from "@/lib/api";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { getFromAddress, renderDetailCard, renderEmailLayout, renderNoticeCard } from "@/lib/email";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
@@ -14,6 +15,9 @@ export async function POST(req: NextRequest) {
   try {
     const owner = await requireOwner();
     if (!owner) return errorResponse("Unauthorized", 401);
+    if (!(await checkRateLimit(`email-send:${owner.id}`, 20, 60 * 60 * 1000))) {
+      return errorResponse("Too many emails sent. Please wait before sending more.", 429);
+    }
 
     const { propertyManagerId } = await req.json();
     if (!propertyManagerId) return errorResponse("propertyManagerId is required", 400);

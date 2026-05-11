@@ -79,11 +79,8 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Pass current pathname and user ID to server components via request headers.
-  // x-user-id lets getCurrentProfile skip auth.getUser() on owner/worker routes.
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-pathname", pathname);
-  if (user?.id) requestHeaders.set("x-user-id", user.id);
 
   return NextResponse.next({ request: { headers: requestHeaders } });
 }
