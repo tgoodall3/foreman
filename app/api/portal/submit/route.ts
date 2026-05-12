@@ -49,7 +49,7 @@ async function uploadWorkOrderPhotos(
     }
 
     const fileExt = EXT_MAP[file.type] ?? "jpg";
-    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${fileExt}`;
+    const fileName = `${crypto.randomUUID()}.${fileExt}`;
     const filePath = `${tenantId}/work-orders/${workOrderId}/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
@@ -141,6 +141,10 @@ export async function POST(req: NextRequest) {
     const files = isMultipart
       ? body.getAll("photos").filter((entry: FormDataEntryValue): entry is File => entry instanceof File && entry.size > 0)
       : [];
+
+    if (files.length > 5) {
+      return errorResponse("Maximum 5 photos allowed per submission.", 400);
+    }
 
     if (files.length > 0) {
       const uploadedPhotos = await uploadWorkOrderPhotos(

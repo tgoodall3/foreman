@@ -4,6 +4,7 @@ import { createServiceClient } from "@/lib/supabase";
 import { errorResponse, jsonResponse } from "@/lib/api";
 import { getFromAddress, renderDetailCard, renderEmailLayout, renderNoticeCard } from "@/lib/email";
 import { getPortalPm } from "@/lib/portal";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -21,6 +22,10 @@ export async function POST(req: NextRequest) {
   try {
     const pm = await getPortalPm();
     if (!pm) return errorResponse("Unauthorized", 401);
+
+    if (!(await checkRateLimit(`portal-property:${pm.id}`, 10, 60 * 60 * 1000))) {
+      return errorResponse("Too many requests. Please wait before adding another property.", 429);
+    }
 
     const body = await req.json();
     const parsed = schema.safeParse(body);

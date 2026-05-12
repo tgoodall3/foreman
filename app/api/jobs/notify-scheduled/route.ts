@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
+import { getProfile } from "@/lib/auth";
+import { errorResponse } from "@/lib/api";
 import { Resend } from "resend";
 import { getFromAddress, renderDetailCard, renderEmailLayout, renderNoticeCard } from "@/lib/email";
 import { formatDate } from "@/lib/utils";
@@ -7,6 +9,11 @@ import { formatDate } from "@/lib/utils";
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 export async function POST(req: NextRequest) {
+  const profile = await getProfile();
+  if (!profile || profile.role !== "owner") {
+    return errorResponse("Unauthorized", 401);
+  }
+
   const { jobId } = await req.json();
   if (!jobId) return NextResponse.json({ ok: true });
 
@@ -27,6 +34,7 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (!job || !job.scheduled_date) return NextResponse.json({ ok: true });
+  if (job.tenant_id !== profile.tenant_id) return NextResponse.json({ ok: true });
 
   // Only notify if this job came from a work order
   const wo = Array.isArray(job.work_orders) ? job.work_orders[0] : (job as any).work_orders;

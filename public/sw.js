@@ -1,15 +1,12 @@
 // Minimal caching service worker for Foreman PWA.
-const CACHE_NAME = "foreman-static-v1";
+const CACHE_NAME = "foreman-static-v2";
 const ASSETS = [
-  "/",
-  "/manifest.json",
+  "/manifest.webmanifest",
   "/favicon.ico",
 ];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting())
-  );
+  event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener("activate", (event) => {
@@ -23,16 +20,37 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
+
+  const url = new URL(request.url);
+
+  // Never intercept API calls or authenticated app routes
+  if (
+    url.pathname.startsWith("/api/") ||
+    url.pathname.startsWith("/owner/") ||
+    url.pathname.startsWith("/worker/") ||
+    url.pathname.startsWith("/portal") ||
+    url.pathname.startsWith("/login") ||
+    url.pathname.startsWith("/signup")
+  ) {
+    return;
+  }
+
+  // Only cache known static assets and Next.js build output
+  const isCacheable =
+    ASSETS.includes(url.pathname) || url.pathname.startsWith("/_next/static/");
+
+  if (!isCacheable) return;
+
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached;
-      return fetch(request)
-        .then((resp) => {
+      return fetch(request).then((resp) => {
+        if (resp.ok) {
           const respClone = resp.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(request, respClone));
-          return resp;
-        })
-        .catch(() => cached);
+        }
+        return resp;
+      });
     })
   );
 });

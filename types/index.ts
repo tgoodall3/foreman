@@ -8,7 +8,7 @@ export type JobStatus =
   | "invoiced"
   | "cancelled";
 
-export type WorkOrderPriority = "low" | "normal" | "urgent" | "emergency";
+export type WorkOrderPriority = "low" | "normal" | "high" | "urgent" | "emergency";
 
 export type InvoiceStatus = "draft" | "sent" | "paid" | "overdue";
 
@@ -39,6 +39,7 @@ export interface Profile {
   avatar_url?: string;
   plan: "trial" | "pro";
   is_active: boolean;
+  hourly_rate?: number | null;
   created_at: string;
 }
 

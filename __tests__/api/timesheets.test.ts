@@ -118,6 +118,7 @@ describe("POST /api/timesheets/change-request/:id", () => {
             tenant_id: UUID_TENANT,
             worker_id: UUID_WORKER,
             time_entry_id: UUID_ENTRY,
+            status: "pending",
             requested_clocked_in_at: "2026-04-09T08:00:00Z",
             requested_clocked_out_at: "2026-04-09T16:00:00Z",
             requested_date: "2026-04-09",

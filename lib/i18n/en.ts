@@ -481,6 +481,8 @@ const en = {
     approved: "Approved",
     declined: "Declined",
     requestChange: "Request change",
+    timeEntry: "Time entry",
+    generalOrMissingPunch: "General / add missing punch",
     noPunches: "No punches.",
     requestAChange: "Request a change",
     requestSentNote: "Sent to your owner to review.",

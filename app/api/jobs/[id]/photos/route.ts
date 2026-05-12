@@ -48,7 +48,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     "image/heif": "heif",
   };
   const fileExt = EXT_MAP[file.type] ?? "jpg";
-  const fileName = `${Date.now()}.${fileExt}`;
+  const fileName = `${crypto.randomUUID()}.${fileExt}`;
   const filePath = `${profile.tenant_id}/${params.id}/${fileName}`;
 
   const { data: uploadData, error: uploadError } = await supabase.storage

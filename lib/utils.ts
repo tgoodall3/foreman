@@ -33,6 +33,17 @@ export function generateEstimateNumber(tenantSlug: string, count: number) {
   return `EST-${tenantSlug.toUpperCase()}-${String(count).padStart(4, "0")}`;
 }
 
+export function generateChangeOrderNumber(tenantSlug: string, count: number) {
+  return `CO-${tenantSlug.toUpperCase()}-${String(count).padStart(4, "0")}`;
+}
+
+export const CHANGE_ORDER_STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  draft:    { label: "Draft",    color: "text-gray-600",  bg: "bg-gray-100" },
+  sent:     { label: "Sent",     color: "text-blue-600",  bg: "bg-blue-100" },
+  approved: { label: "Approved", color: "text-green-600", bg: "bg-green-100" },
+  declined: { label: "Declined", color: "text-red-600",   bg: "bg-red-100" },
+};
+
 export const ESTIMATE_STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   draft:     { label: "Draft",     color: "text-gray-600",   bg: "bg-gray-100" },
   sent:      { label: "Sent",      color: "text-blue-600",   bg: "bg-blue-100" },
@@ -51,10 +62,11 @@ export const JOB_STATUS_CONFIG: Record<JobStatus, { label: string; color: string
 };
 
 export const PRIORITY_CONFIG: Record<WorkOrderPriority, { label: string; color: string; bg: string }> = {
-  low:       { label: "Low",       color: "text-gray-600",  bg: "bg-gray-100" },
-  normal:    { label: "Normal",    color: "text-blue-600",  bg: "bg-blue-100" },
-  urgent:    { label: "Urgent",    color: "text-orange-600",bg: "bg-orange-100" },
-  emergency: { label: "Emergency", color: "text-red-600",   bg: "bg-red-100" },
+  low:       { label: "Low",       color: "text-gray-600",   bg: "bg-gray-100" },
+  normal:    { label: "Normal",    color: "text-blue-600",   bg: "bg-blue-100" },
+  high:      { label: "High",      color: "text-yellow-700", bg: "bg-yellow-100" },
+  urgent:    { label: "Urgent",    color: "text-orange-600", bg: "bg-orange-100" },
+  emergency: { label: "Emergency", color: "text-red-600",    bg: "bg-red-100" },
 };
 
 export const INVOICE_STATUS_CONFIG: Record<InvoiceStatus, { label: string; color: string; bg: string }> = {

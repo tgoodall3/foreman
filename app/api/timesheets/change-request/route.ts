@@ -38,6 +38,17 @@ export async function POST(req: NextRequest) {
 
     const supabase = await createServerSideClient();
 
+    // Verify time_entry_id belongs to this worker
+    if (parsed.data.time_entry_id) {
+      const { data: entry } = await supabase
+        .from("time_entries")
+        .select("id")
+        .eq("id", parsed.data.time_entry_id)
+        .eq("worker_id", worker.id)
+        .single();
+      if (!entry) return errorResponse("Time entry not found.", 404);
+    }
+
     const { data: inserted, error } = await supabase
       .from("time_change_requests")
       .insert({

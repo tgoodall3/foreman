@@ -9,7 +9,7 @@ import PhotoLightbox from "@/components/ui/PhotoLightbox";
 interface PropertyManager {
   id: string;
   full_name: string;
-  email: string;
+  email: string | null;
   company?: string | null;
   tenant_id: string;
 }
@@ -71,6 +71,17 @@ interface Estimate {
   approval_token?: string | null;
 }
 
+interface ChangeOrder {
+  id: string;
+  change_order_number: string;
+  status: string;
+  total: number;
+  title: string;
+  created_at: string;
+  approval_token?: string | null;
+  jobs?: { title: string } | null;
+}
+
 interface Comment {
   id: string;
   work_order_id: string;
@@ -87,6 +98,7 @@ interface Props {
   invoices: Invoice[];
   comments: Comment[];
   estimates: Estimate[];
+  changeOrders: ChangeOrder[];
   initialTab?: Tab;
   paidSuccess?: boolean;
 }
@@ -124,6 +136,13 @@ const EST_STATUS: Record<string, { label: string; bg: string; color: string }> =
   approved:  { label: "Approved",  bg: "bg-green-100",  color: "text-green-800" },
   declined:  { label: "Declined",  bg: "bg-red-100",    color: "text-red-700" },
   converted: { label: "Converted", bg: "bg-amber-100",  color: "text-amber-800" },
+};
+
+const CO_STATUS: Record<string, { label: string; bg: string; color: string }> = {
+  draft:    { label: "Draft",    bg: "bg-gray-100",  color: "text-gray-500"  },
+  sent:     { label: "Pending",  bg: "bg-blue-100",  color: "text-blue-800"  },
+  approved: { label: "Approved", bg: "bg-green-100", color: "text-green-800" },
+  declined: { label: "Declined", bg: "bg-red-100",   color: "text-red-700"   },
 };
 
 const PRIORITY_LABEL: Record<string, string> = {
@@ -635,7 +654,7 @@ function InvoiceCard({
         <div className="flex items-start justify-between gap-3 mb-2">
           <div>
             <p className="font-700 text-forge text-sm">{inv.invoice_number}</p>
-            {job?.title && <p className="text-xs text-mist mt-0.5">{job.title}</p>}
+            {job?.title && <p className="line-clamp-1 text-xs text-mist mt-0.5">{job.title}</p>}
           </div>
           <span className={`badge text-xs ${s.bg} ${s.color}`}>{s.label}</span>
         </div>
@@ -728,6 +747,7 @@ export default function PortalDashboard({
   invoices,
   comments,
   estimates,
+  changeOrders,
   initialTab = "home",
   paidSuccess = false,
 }: Props) {
@@ -737,6 +757,7 @@ export default function PortalDashboard({
   const [propertiesState, setProperties] = useState<Property[]>(properties);
   const [commentsState, setComments] = useState<Comment[]>(comments);
   const [estimatesState] = useState<Estimate[]>(estimates);
+  const [changeOrdersState] = useState<ChangeOrder[]>(changeOrders);
   const [workOrdersState, setWorkOrdersState] = useState<WorkOrder[]>(workOrders);
   const [showPastWO, setShowPastWO]   = useState(false);
   const [showPastInv, setShowPastInv] = useState(false);
@@ -915,7 +936,7 @@ export default function PortalDashboard({
                       <div key={inv.id} className="px-4 py-3 flex items-center justify-between gap-3">
                         <div className="min-w-0">
                           <p className="text-sm font-600 text-forge">{inv.invoice_number}</p>
-                          <p className="text-xs text-mist mt-0.5">
+                          <p className="line-clamp-1 text-xs text-mist mt-0.5">
                             {job?.title ?? ""}
                             {inv.due_date ? ` · Due ${formatDate(inv.due_date)}` : ""}
                           </p>
@@ -924,6 +945,38 @@ export default function PortalDashboard({
                           <span className={`badge text-xs ${s.bg} ${s.color}`}>{s.label}</span>
                           <p className="font-700 text-forge text-sm">{formatCurrency(inv.total)}</p>
                           <PayButton invoiceId={inv.id} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* Pending change orders */}
+            {changeOrdersState.filter((co) => co.status === "sent").length > 0 && (
+              <section>
+                <div className="flex items-center justify-between mb-2">
+                  <h2 className="font-display font-700 text-base text-forge">Change Orders Pending Approval</h2>
+                  <button onClick={() => setTab("estimates")} className="text-xs text-amber hover:underline font-600">View all →</button>
+                </div>
+                <div className="bg-white rounded-xl border border-amber/40 divide-y divide-gray-100">
+                  {changeOrdersState.filter((co) => co.status === "sent").map((co) => {
+                    const job = Array.isArray(co.jobs) ? co.jobs[0] : co.jobs;
+                    return (
+                      <div key={co.id} className="px-4 py-3 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-600 text-forge line-clamp-1">{co.title}</p>
+                          <p className="text-xs text-mist mt-0.5">{job?.title ?? co.change_order_number}</p>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <p className="font-700 text-forge text-sm">{formatCurrency(co.total)}</p>
+                          <a
+                            href={`/portal/change-order?token=${co.approval_token ?? ""}`}
+                            className="bg-forge hover:bg-forge-light text-white text-xs font-700 px-3 py-1.5 rounded-lg transition-colors"
+                          >
+                            Review →
+                          </a>
                         </div>
                       </div>
                     );
@@ -999,7 +1052,7 @@ export default function PortalDashboard({
                   return (
                     <div key={wo.id} className="px-4 py-3.5">
                       <div className="flex items-start justify-between gap-2 mb-1">
-                        <p className="text-sm font-600 text-forge leading-snug">{wo.title}</p>
+                        <p className="text-sm font-600 text-forge line-clamp-1">{wo.title}</p>
                         <div className="flex items-center gap-2 shrink-0">
                           <span className="text-xs text-mist">{PRIORITY_LABEL[wo.priority] ?? wo.priority}</span>
                           <span className={`badge text-xs ${s.bg} ${s.color}`}>{s.label}</span>
@@ -1162,6 +1215,48 @@ export default function PortalDashboard({
                   );
                 })}
               </div>
+            )}
+
+            {/* Change Orders section */}
+            {changeOrdersState.length > 0 && (
+              <section className="mt-2">
+                <h2 className="text-sm font-700 text-forge mb-3">Change Orders</h2>
+                <div className="space-y-3">
+                  {changeOrdersState.map((co) => {
+                    const s = CO_STATUS[co.status] ?? CO_STATUS.draft;
+                    const job = Array.isArray(co.jobs) ? co.jobs[0] : co.jobs;
+                    const needsAction = co.status === "sent";
+                    return (
+                      <div key={co.id} className={`bg-white rounded-xl border p-4 ${needsAction ? "border-amber" : "border-gray-200"}`}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-xs text-mist">#{co.change_order_number} &middot; {formatDate(co.created_at.split("T")[0])}</p>
+                            <p className="font-700 text-forge line-clamp-1 mt-0.5">{co.title}</p>
+                            {job?.title && <p className="line-clamp-1 text-xs text-mist mt-0.5">{job.title}</p>}
+                            <div className="flex items-center gap-2 mt-1.5">
+                              <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-600 ${s.bg} ${s.color}`}>{s.label}</span>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="font-700 text-forge">{formatCurrency(co.total)}</p>
+                            {needsAction && (
+                              <a
+                                href={`/portal/change-order?token=${co.approval_token ?? ""}`}
+                                className="mt-2 inline-block bg-forge hover:bg-forge-light text-white text-xs font-700 px-3 py-1.5 rounded-lg transition-colors"
+                              >
+                                Review →
+                              </a>
+                            )}
+                            {co.status === "approved" && (
+                              <p className="text-xs text-green-700 font-600 mt-1.5">Approved</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
             )}
           </>
         )}

@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase";
 import { requireOwner } from "@/lib/auth";
 import { validateInput, updateAccountSchema } from "@/lib/validation";
 import { errorResponse } from "@/lib/api";
+import { logError } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
   try {
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Update account error:", error);
+    logError("Update account error", error);
     return errorResponse("Internal server error", 500);
   }
 }

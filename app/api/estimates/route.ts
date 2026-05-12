@@ -2,7 +2,8 @@ import { NextRequest } from "next/server";
 import { badRequest, errorResponse, jsonResponse } from "@/lib/api";
 import { createServerSideClient } from "@/lib/supabase-server";
 import { getProfile } from "@/lib/auth";
-import { createEstimateSchema, validateInput } from "@/lib/validation";
+import { createEstimateSchema, invoiceLineItemSchema, validateInput } from "@/lib/validation";
+import { z } from "zod";
 import { generateEstimateNumber } from "@/lib/utils";
 import { logError } from "@/lib/logger";
 import { checkPlanForApi } from "@/lib/plan";
@@ -81,12 +82,13 @@ export async function POST(req: NextRequest) {
     .select("id", { count: "exact", head: true })
     .eq("tenant_id", profile.tenant_id);
 
-  const sanitizedLineItems = lineItems.map((item) => {
-    const quantity   = Number(item.quantity);
-    const unit_price = Number(item.unit_price);
-    const total      = Math.round((quantity * unit_price + Number.EPSILON) * 100) / 100;
-    return { description: item.description.trim(), quantity, unit_price, total };
-  });
+  const sanitizedLineItems: { description: string; quantity: number; unit_price: number; total: number }[] =
+    lineItems.map((item: z.infer<typeof invoiceLineItemSchema>) => {
+      const quantity   = Number(item.quantity);
+      const unit_price = Number(item.unit_price);
+      const total      = Math.round((quantity * unit_price + Number.EPSILON) * 100) / 100;
+      return { description: item.description.trim(), quantity, unit_price, total };
+    });
 
   const subtotal   = sanitizedLineItems.reduce((sum, i) => sum + i.total, 0);
   const taxRateVal = taxRate ?? 0;

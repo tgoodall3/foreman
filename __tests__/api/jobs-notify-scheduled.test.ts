@@ -32,6 +32,15 @@ jest.mock("@/lib/supabase", () => ({
 
 jest.mock("next/headers", () => ({ cookies: jest.fn(() => ({ get: jest.fn() })) }));
 
+jest.mock("@/lib/auth", () => ({
+  getProfile: jest.fn().mockResolvedValue({
+    id: "123e4567-e89b-12d3-a456-426614174099",
+    tenant_id: "123e4567-e89b-12d3-a456-426614174031",
+    role: "owner",
+    full_name: "Owner User",
+  }),
+}));
+
 const mockResendSend = jest.fn().mockResolvedValue({ data: { id: "email_sched_1" }, error: null });
 jest.mock("resend", () => ({
   Resend: jest.fn().mockImplementation(() => ({

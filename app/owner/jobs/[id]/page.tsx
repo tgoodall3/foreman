@@ -1,12 +1,13 @@
 import { requireOwner } from "@/lib/auth";
 import { createServerSideClient } from "@/lib/supabase-server";
-import { formatDate, formatDateTime, JOB_STATUS_CONFIG, PRIORITY_CONFIG, formatCurrency } from "@/lib/utils";
+import { formatDate, formatDateTime, JOB_STATUS_CONFIG, PRIORITY_CONFIG, formatCurrency, CHANGE_ORDER_STATUS_CONFIG } from "@/lib/utils";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import JobChecklist from "@/components/jobs/JobChecklist";
 import JobStatusActions from "@/components/owner/JobStatusActions";
 import QuickAssign from "@/components/owner/QuickAssign";
 import JobPhotoGrid from "@/components/owner/JobPhotoGrid";
+import JobCostingTab from "@/components/owner/JobCostingTab";
 
 export default async function JobDetailPage({ params }: { params: { id: string } }) {
   const profile = await requireOwner();
@@ -21,11 +22,13 @@ export default async function JobDetailPage({ params }: { params: { id: string }
 
   if (!job) notFound();
 
-  const [{ data: photos }, { data: notes }, { data: workers }, { data: checklist }] = await Promise.all([
+  const [{ data: photos }, { data: notes }, { data: workers }, { data: checklist }, { data: changeOrders }, { data: timeEntries }] = await Promise.all([
     supabase.from("job_photos").select("*, profiles(full_name)").eq("job_id", job.id).order("created_at"),
     supabase.from("job_notes").select("*, profiles(full_name)").eq("job_id", job.id).order("created_at"),
-    supabase.from("profiles").select("id, full_name").eq("tenant_id", profile.tenant_id).eq("role", "worker").eq("is_active", true),
+    supabase.from("profiles").select("id, full_name, hourly_rate").eq("tenant_id", profile.tenant_id).eq("role", "worker").eq("is_active", true),
     supabase.from("job_checklist_items").select("id, text, position, done, done_at, profiles(full_name)").eq("job_id", job.id).order("position"),
+    supabase.from("change_orders").select("id, change_order_number, title, status, total").eq("job_id", job.id).eq("tenant_id", profile.tenant_id).order("created_at"),
+    supabase.from("time_entries").select("worker_id, hours_worked").eq("job_id", job.id).eq("tenant_id", profile.tenant_id),
   ]);
 
   const assignedWorkers = workers?.filter((w) => job.assigned_workers?.includes(w.id)) || [];
@@ -33,6 +36,12 @@ export default async function JobDetailPage({ params }: { params: { id: string }
   const priorityCfg = PRIORITY_CONFIG[job.priority as keyof typeof PRIORITY_CONFIG];
   const lineItems = job.line_items || [];
   const total = lineItems.reduce((s: number, i: any) => s + i.total, 0);
+
+  const workerRateMap = Object.fromEntries((workers ?? []).map((w: any) => [w.id, w.hourly_rate ?? 0]));
+  const laborCostEstimate = (timeEntries ?? []).reduce((sum: number, entry: any) => {
+    const rate = workerRateMap[entry.worker_id] ?? 0;
+    return sum + (entry.hours_worked ?? 0) * rate;
+  }, 0);
 
   return (
     <div className="page-shell page-shell-standard">
@@ -123,6 +132,45 @@ export default async function JobDetailPage({ params }: { params: { id: string }
             <JobPhotoGrid photos={(photos ?? []) as any} />
           </section>
 
+          {/* Change Orders */}
+          <section aria-labelledby="co-heading" className="bg-white rounded-xl border border-gray-200 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 id="co-heading" className="font-display font-700 text-lg text-forge">
+                Change Orders
+                {(changeOrders?.length ?? 0) > 0 && (
+                  <span className="ml-2 text-sm font-500 text-mist">({changeOrders!.length})</span>
+                )}
+              </h2>
+              <Link
+                href={`/owner/jobs/${job.id}/change-orders/new`}
+                className="text-sm text-amber hover:underline font-600"
+              >
+                + New
+              </Link>
+            </div>
+            {!changeOrders?.length ? (
+              <p className="text-sm text-mist">No change orders yet.</p>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {changeOrders.map((co: any) => {
+                  const cfg = CHANGE_ORDER_STATUS_CONFIG[co.status] ?? CHANGE_ORDER_STATUS_CONFIG.draft;
+                  return (
+                    <Link key={co.id} href={`/owner/change-orders/${co.id}`} className="flex items-center justify-between py-3 hover:bg-gray-50 -mx-1 px-1 rounded-lg transition-colors">
+                      <div>
+                        <p className="text-sm font-600 text-forge">{co.title}</p>
+                        <p className="text-xs text-mist font-mono">{co.change_order_number}</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`badge ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
+                        <span className="text-sm font-700 text-forge">{formatCurrency(co.total)}</span>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
           {/* Notes */}
           <section aria-labelledby="notes-heading" className="bg-white rounded-xl border border-gray-200 p-5">
             <h2 id="notes-heading" className="font-display font-700 text-lg text-forge mb-4">
@@ -143,6 +191,12 @@ export default async function JobDetailPage({ params }: { params: { id: string }
                 ))}
               </div>
             )}
+          </section>
+
+          {/* Job Costing */}
+          <section aria-labelledby="costing-heading" className="bg-white rounded-xl border border-gray-200 p-5">
+            <h2 id="costing-heading" className="font-display font-700 text-lg text-forge mb-4">Job Costing</h2>
+            <JobCostingTab jobId={job.id} revenue={total} laborCostEstimate={laborCostEstimate} />
           </section>
 
           {/* Line Items */}

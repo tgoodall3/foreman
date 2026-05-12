@@ -11,7 +11,6 @@ export function generateMetadata(): Metadata {
   return {
     title: { default: "Foreman", template: "%s | Foreman" },
     description: "Field service management for general contractors",
-    manifest: "/manifest.json",
     icons: {
       icon: [
         { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },

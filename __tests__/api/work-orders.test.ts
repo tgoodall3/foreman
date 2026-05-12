@@ -168,7 +168,7 @@ describe("POST /api/work-orders/action", () => {
       if (callCount === 2) {
         // Work order lookup
         return buildChain({
-          data: { title: "Fix roof", description: "Leak", property_id: UUID_PROP },
+          data: { status: "pending", title: "Fix roof", description: "Leak", property_id: UUID_PROP },
           error: null,
         });
       }
@@ -204,7 +204,7 @@ describe("POST /api/work-orders/action", () => {
       }
       if (callCount === 2) {
         return buildChain({
-          data: { title: "Fix roof", description: "Leak", property_id: UUID_PROP },
+          data: { status: "pending", title: "Fix roof", description: "Leak", property_id: UUID_PROP },
           error: null,
         });
       }

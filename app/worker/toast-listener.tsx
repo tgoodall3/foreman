@@ -28,7 +28,7 @@ export function ToastClientListener({ tenantId, workerId }: { tenantId: string; 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [tenantId, workerId, addToast]);
+  }, [tenantId, workerId, addToast, t]);
 
   return null;
 }

@@ -117,25 +117,35 @@ export async function POST(req: NextRequest) {
     ? body.getAll("photos").filter((entry: FormDataEntryValue): entry is File => entry instanceof File && entry.size > 0)
     : [];
 
+  if (files.length > 5) {
+    await supabase.from("work_order_comments").delete().eq("id", note.id);
+    return errorResponse("Maximum 5 photos per comment.", 400);
+  }
+
   const uploadedPhotos: WorkOrderPhoto[] = [];
 
   for (const file of files) {
     if (!ALLOWED_TYPES.includes(file.type)) {
+      await supabase.from("work_order_comments").delete().eq("id", note.id);
       return errorResponse("Only JPEG, PNG, WebP, HEIC, and HEIF images are accepted.", 400);
     }
     if (file.size > 20 * 1024 * 1024) {
+      await supabase.from("work_order_comments").delete().eq("id", note.id);
       return errorResponse("Each image must be under 20 MB.", 400);
     }
 
     const fileExt = EXT_MAP[file.type] ?? "jpg";
-    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${fileExt}`;
+    const fileName = `${crypto.randomUUID()}.${fileExt}`;
     const filePath = `${pm.tenant_id}/work-orders/${work_order_id}/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
       .from("job-photos")
       .upload(filePath, file, { upsert: false });
 
-    if (uploadError) return errorResponse("Failed to upload photo.", 500);
+    if (uploadError) {
+      await supabase.from("work_order_comments").delete().eq("id", note.id);
+      return errorResponse("Failed to upload photo.", 500);
+    }
 
     const { data: publicUrl } = supabase.storage.from("job-photos").getPublicUrl(filePath);
     uploadedPhotos.push({

@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
   const fullName = typeof body.fullName === "string" ? body.fullName.trim() : "";
-  const email = typeof body.email === "string" ? body.email.trim() : "";
+  const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
   const password = typeof body.password === "string" ? body.password : "";
   const bizName = typeof body.bizName === "string" ? body.bizName.trim() : "";
   const bizPhone = typeof body.bizPhone === "string" ? body.bizPhone.trim() : undefined;
@@ -22,9 +22,13 @@ export async function POST(req: NextRequest) {
     return badRequest("Missing required fields.");
   }
 
+  if (fullName.length > 100) return badRequest("Name must be 100 characters or fewer.");
+  if (bizName.length > 100) return badRequest("Business name must be 100 characters or fewer.");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return badRequest("Invalid email address.");
   if (password.length < 8) {
     return badRequest("Password must be at least 8 characters.");
   }
+  if (password.length > 128) return badRequest("Password must be 128 characters or fewer.");
 
   try {
     const tenant = await createOwnerAccount({ fullName, email, password, bizName, bizPhone, bizAddress });

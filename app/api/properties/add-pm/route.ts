@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase";
 import { requireOwner } from "@/lib/auth";
 import { validateInput, uuidSchema, nameSchema, emailSchema, phoneSchema } from "@/lib/validation";
 import { errorResponse } from "@/lib/api";
+import { logError } from "@/lib/logger";
 import { z } from "zod";
 
 const addPMSchema = z.object({
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ pm });
   } catch (error) {
-    console.error("Add PM error:", error);
+    logError("Add PM error", error);
     return errorResponse("Internal server error", 500);
   }
 }

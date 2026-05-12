@@ -10,7 +10,15 @@ export function nextDate(baseDate: string, recurrence: string): string | null {
     case "daily":    d.setUTCDate(d.getUTCDate() + 1);  break;
     case "weekly":   d.setUTCDate(d.getUTCDate() + 7);  break;
     case "biweekly": d.setUTCDate(d.getUTCDate() + 14); break;
-    case "monthly":  d.setUTCMonth(d.getUTCMonth() + 1); break;
+    case "monthly": {
+      // Clamp to last day of the target month (e.g. Jan 31 → Feb 28, not Mar 2)
+      const day = d.getUTCDate();
+      d.setUTCDate(1);
+      d.setUTCMonth(d.getUTCMonth() + 1);
+      const lastDay = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+      d.setUTCDate(Math.min(day, lastDay));
+      break;
+    }
     default: return null;
   }
 

@@ -33,6 +33,19 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   if (!job) return badRequest("Job not found");
 
+  // Verify all supplied worker IDs belong to this tenant
+  if (assigned_workers?.length) {
+    const { count } = await supabase
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .in("id", assigned_workers)
+      .eq("tenant_id", profile.tenant_id)
+      .eq("role", "worker");
+    if ((count ?? 0) !== assigned_workers.length) {
+      return badRequest("One or more workers not found.");
+    }
+  }
+
   const updates: Record<string, any> = {};
   if (scheduled_date !== undefined) updates.scheduled_date = scheduled_date || null;
   if (scheduled_time !== undefined) updates.scheduled_time = scheduled_time || null;

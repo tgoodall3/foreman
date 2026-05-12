@@ -8,6 +8,20 @@ export async function POST(req: NextRequest) {
     const profile = await requireWorker();
     const supabase = await createServerSideClient();
 
+    const body = await req.json().catch(() => ({}));
+    const jobId = body.job_id || null;
+
+    // Validate job belongs to tenant if provided
+    if (jobId) {
+      const { data: job } = await supabase
+        .from("jobs")
+        .select("id")
+        .eq("id", jobId)
+        .eq("tenant_id", profile.tenant_id)
+        .single();
+      if (!job) return errorResponse("Job not found.", 404);
+    }
+
     // Prevent double clock-in: check for open entry
     const { data: open } = await supabase
       .from("time_entries")
@@ -26,6 +40,7 @@ export async function POST(req: NextRequest) {
         tenant_id:     profile.tenant_id,
         worker_id:     profile.id,
         clocked_in_at: new Date().toISOString(),
+        job_id:        jobId,
       })
       .select()
       .single();

@@ -4,6 +4,8 @@ import { Resend } from "resend";
 import { requireOwner } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase";
 import { errorResponse } from "@/lib/api";
+import { logError } from "@/lib/logger";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { getFromAddress, renderDetailCard, renderEmailLayout, renderMessageCard, renderNoticeCard } from "@/lib/email";
 
 const messageSchema = z.object({
@@ -17,6 +19,10 @@ export async function POST(req: NextRequest) {
   try {
     const profile = await requireOwner();
     if (!profile) return errorResponse("Unauthorized", 401);
+
+    if (!(await checkRateLimit(`wo-message:${profile.id}`, 30, 60 * 60 * 1000))) {
+      return errorResponse("Too many messages. Please wait before sending again.", 429);
+    }
 
     const parsed = messageSchema.safeParse(await req.json());
     if (!parsed.success) {
@@ -83,7 +89,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("work-orders/message error", error);
+    logError("work-orders/message error", error);
     return errorResponse("Internal server error", 500);
   }
 }

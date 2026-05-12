@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase";
 import { requireOwner } from "@/lib/auth";
 import { validateInput, addPropertySchema } from "@/lib/validation";
 import { errorResponse } from "@/lib/api";
+import { logError } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
   try {
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ property });
   } catch (error) {
-    console.error("Add property error:", error);
+    logError("Add property error", error);
     return errorResponse("Internal server error", 500);
   }
 }

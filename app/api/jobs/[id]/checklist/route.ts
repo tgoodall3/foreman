@@ -82,7 +82,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       done_at: validation.data.done ? new Date().toISOString() : null,
     })
     .eq("id", validation.data.itemId)
-    .eq("job_id", params.id);
+    .eq("job_id", params.id)
+    .eq("tenant_id", profile.tenant_id);
 
   if (error) { logError("Checklist toggle failed", error); return errorResponse("Failed to update item.", 500); }
   return jsonResponse({ success: true });

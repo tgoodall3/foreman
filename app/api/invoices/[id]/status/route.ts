@@ -24,7 +24,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   if (error) {
     logError("Invoice status update failed", error);
-    return errorResponse(error.message || "Failed to update invoice", 500);
+    return errorResponse("Failed to update invoice", 500);
   }
 
   return jsonResponse({ success: true });

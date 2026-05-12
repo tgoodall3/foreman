@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
+import { getProfile } from "@/lib/auth";
+import { errorResponse } from "@/lib/api";
 import { Resend } from "resend";
 import { getFromAddress, renderDetailCard, renderEmailLayout, renderMessageCard, renderNoticeCard } from "@/lib/email";
 import { formatDate } from "@/lib/utils";
@@ -29,6 +31,11 @@ async function sendSms(to: string, body: string) {
 }
 
 export async function POST(req: NextRequest) {
+  const profile = await getProfile();
+  if (!profile || profile.role !== "owner") {
+    return errorResponse("Unauthorized", 401);
+  }
+
   const { jobId, workerIds } = await req.json();
   if (!jobId || !workerIds?.length) return NextResponse.json({ ok: true });
 
@@ -41,6 +48,7 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (!job) return NextResponse.json({ ok: true });
+  if (job.tenant_id !== profile.tenant_id) return NextResponse.json({ ok: true });
 
   const { data: tenantData } = await supabase.from("tenants").select("name").eq("id", job.tenant_id).single();
   const appUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;

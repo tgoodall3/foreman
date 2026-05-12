@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase";
 import { requireOwner } from "@/lib/auth";
 import { validateInput, toggleWorkerSchema } from "@/lib/validation";
 import { errorResponse } from "@/lib/api";
+import { logError } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
   try {
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Toggle worker error:", error);
+    logError("Toggle worker error", error);
     return errorResponse("Internal server error", 500);
   }
 }

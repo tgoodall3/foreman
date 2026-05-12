@@ -3,6 +3,8 @@ import { Resend } from "resend";
 import Stripe from "stripe";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceClient } from "@/lib/supabase";
+import { getProfile } from "@/lib/auth";
+import { errorResponse } from "@/lib/api";
 import { getFromAddress, renderDetailCard, renderEmailLayout, renderMessageCard, renderNoticeCard } from "@/lib/email";
 import { maybeCreateNextOccurrence } from "@/lib/recurring";
 import { audit } from "@/lib/audit";
@@ -57,6 +59,11 @@ const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KE
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
 export async function POST(req: NextRequest) {
+  const profile = await getProfile();
+  if (!profile || (profile.role !== "owner" && profile.role !== "worker")) {
+    return errorResponse("Unauthorized", 401);
+  }
+
   const { jobId } = await req.json();
   if (!jobId) return NextResponse.json({ ok: true });
 
@@ -69,6 +76,7 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (!job) return NextResponse.json({ ok: true });
+  if (job.tenant_id !== profile.tenant_id) return NextResponse.json({ ok: true });
 
   const { data: tenantData } = await supabase.from("tenants").select("name").eq("id", job.tenant_id).single();
 

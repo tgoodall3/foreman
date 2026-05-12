@@ -36,6 +36,7 @@ export async function middleware(request: NextRequest) {
     (pathname.startsWith("/portal/") &&
       !pathname.startsWith("/portal/setup") &&
       !pathname.startsWith("/portal/estimate") &&
+      !pathname.startsWith("/portal/change-order") &&
       !pathname.startsWith("/portal/revoked"));
 
   if (isPortalRoute && !user) {

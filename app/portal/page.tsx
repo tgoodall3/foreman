@@ -27,6 +27,7 @@ export default async function PortalPage({ searchParams }: { searchParams: { tab
     { data: workOrders },
     { data: invoices },
     { data: estimates },
+    { data: changeOrders },
   ] = await Promise.all([
     supabase
       .from("properties")
@@ -49,6 +50,12 @@ export default async function PortalPage({ searchParams }: { searchParams: { tab
     supabase
       .from("estimates")
       .select("id, estimate_number, status, total, title, created_at, approval_token")
+      .in("property_manager_id", propertyManagerIds)
+      .order("created_at", { ascending: false }),
+
+    supabase
+      .from("change_orders")
+      .select("id, change_order_number, status, total, title, created_at, approval_token, jobs(title)")
       .in("property_manager_id", propertyManagerIds)
       .order("created_at", { ascending: false }),
   ]);
@@ -91,6 +98,7 @@ export default async function PortalPage({ searchParams }: { searchParams: { tab
       invoices={(invoices ?? []) as any[]}
       comments={(comments ?? []) as any[]}
       estimates={(estimates ?? []) as any[]}
+      changeOrders={(changeOrders ?? []) as any[]}
       initialTab={(searchParams.tab as any) ?? "home"}
       paidSuccess={searchParams.paid === "true"}
     />

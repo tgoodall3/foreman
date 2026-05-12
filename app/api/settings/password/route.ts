@@ -4,6 +4,7 @@ import { createServiceClient } from "@/lib/supabase";
 import { requireOwner } from "@/lib/auth";
 import { validateInput } from "@/lib/validation";
 import { errorResponse } from "@/lib/api";
+import { logError } from "@/lib/logger";
 import { z } from "zod";
 
 const changePasswordSchema = z.object({
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Change password error:", error);
+    logError("Change password error", error);
     return errorResponse("Internal server error", 500);
   }
 }

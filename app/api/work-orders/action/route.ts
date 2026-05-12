@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase";
 import { requireOwner } from "@/lib/auth";
 import { validateInput, workOrderActionSchema } from "@/lib/validation";
 import { errorResponse } from "@/lib/api";
+import { logError } from "@/lib/logger";
 import { checkPlanForApi } from "@/lib/plan";
 import { Resend } from "resend";
 import { audit } from "@/lib/audit";
@@ -87,7 +88,7 @@ export async function POST(req: NextRequest) {
         .from("work_orders")
         .select("id, title, property_managers(email, full_name, portal_token)")
         .eq("id", workOrderId)
-        .eq("tenant_id", tenantId)
+        .eq("tenant_id", profile.tenant_id)
         .single();
 
       if (!wo) return errorResponse("Work order not found", 404);
@@ -100,7 +101,7 @@ export async function POST(req: NextRequest) {
       if (error) return errorResponse("Failed to decline work order", 500);
 
       audit({
-        tenant_id: tenantId,
+        tenant_id: profile.tenant_id,
         actor_id: profile.id,
         actor_name: profile.full_name,
         entity_type: "work_order",
@@ -130,19 +131,33 @@ export async function POST(req: NextRequest) {
       // Verify work order and get details
       const { data: wo } = await supabase
         .from("work_orders")
-        .select("title, description, property_id, priority, property_manager_id, properties(name), property_managers(full_name, email, portal_token)")
+        .select("status, title, description, property_id, priority, property_manager_id, properties(name), property_managers(full_name, email, portal_token)")
         .eq("id", workOrderId)
-        .eq("tenant_id", tenantId)
+        .eq("tenant_id", profile.tenant_id)
         .single();
 
       if (!wo) return errorResponse("Work order not found", 404);
+      if (wo.status !== "pending") return errorResponse("Work order is not pending.", 409);
+
+      // Verify override propertyId belongs to this tenant
+      let resolvedPropertyId = wo.property_id;
+      if (propertyId) {
+        const { data: prop } = await supabase
+          .from("properties")
+          .select("id")
+          .eq("id", propertyId)
+          .eq("tenant_id", profile.tenant_id)
+          .single();
+        if (!prop) return errorResponse("Property not found.", 404);
+        resolvedPropertyId = propertyId;
+      }
 
       const { data: job, error: jobError } = await supabase
         .from("jobs")
         .insert({
-          tenant_id: tenantId,
+          tenant_id: profile.tenant_id,
           work_order_id: workOrderId,
-          property_id: propertyId || wo.property_id,
+          property_id: resolvedPropertyId,
           title: title || wo.title,
           description: description || wo.description,
           status: "pending",
@@ -155,7 +170,7 @@ export async function POST(req: NextRequest) {
       if (jobError) return errorResponse("Failed to create job", 500);
 
       audit({
-        tenant_id: tenantId,
+        tenant_id: profile.tenant_id,
         actor_id: profile.id,
         actor_name: profile.full_name,
         entity_type: "work_order",
@@ -197,7 +212,7 @@ export async function POST(req: NextRequest) {
 
     return errorResponse("Invalid action", 400);
   } catch (error) {
-    console.error("Work order action error:", error);
+    logError("Work order action error", error);
     return errorResponse("Internal server error", 500);
   }
 }

@@ -17,6 +17,9 @@ export default function WorkersClient({ workers: initial, tenantId }: { workers:
   const [invitePassword, setInvitePassword] = useState("");
   const [inviting, setInviting] = useState(false);
   const [toggling, setToggling] = useState<string | null>(null);
+  const [editingRate, setEditingRate] = useState<string | null>(null);
+  const [rateInput, setRateInput] = useState("");
+  const [savingRate, setSavingRate] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [showCreds, setShowCreds] = useState(false);
@@ -53,6 +56,24 @@ export default function WorkersClient({ workers: initial, tenantId }: { workers:
       addToast(t("workers.workerAdded", { name: inviteName }), "success");
     }
     setInviting(false);
+  };
+
+  const saveRate = async (workerId: string) => {
+    setSavingRate(true);
+    const rate = rateInput === "" ? null : Number(rateInput);
+    const res = await fetch(`/api/workers/${workerId}/rate`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hourly_rate: rate }),
+    });
+    if (res.ok) {
+      setWorkers((prev) => prev.map((w) => w.id === workerId ? { ...w, hourly_rate: rate } : w));
+      addToast("Hourly rate updated.", "success");
+    } else {
+      addToast("Failed to update rate.", "error");
+    }
+    setSavingRate(false);
+    setEditingRate(null);
   };
 
   const toggleActive = async (worker: Profile) => {
@@ -178,6 +199,7 @@ export default function WorkersClient({ workers: initial, tenantId }: { workers:
                   <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">{t("workers.workerColumn")}</th>
                   <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">{t("workers.phone")}</th>
                   <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">{t("workers.addedColumn")}</th>
+                  <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">Hourly Rate</th>
                   <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">{t("workers.statusColumn")}</th>
                   <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">{t("workers.actionsColumn")}</th>
                 </tr>
@@ -198,6 +220,34 @@ export default function WorkersClient({ workers: initial, tenantId }: { workers:
                     </td>
                     <td className="px-4 py-3 text-mist">{worker.phone || "—"}</td>
                     <td className="px-4 py-3 text-mist">{formatDate(worker.created_at)}</td>
+                    <td className="px-4 py-3">
+                      {editingRate === worker.id ? (
+                        <div className="flex items-center gap-1">
+                          <span className="text-mist text-xs">$</span>
+                          <input
+                            type="number"
+                            value={rateInput}
+                            onChange={(e) => setRateInput(e.target.value)}
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            autoFocus
+                            className="w-20 border border-amber rounded px-2 py-1 text-xs focus:outline-none"
+                          />
+                          <button onClick={() => saveRate(worker.id)} disabled={savingRate} className="text-xs text-amber font-700 hover:underline">
+                            {savingRate ? "…" : "Save"}
+                          </button>
+                          <button onClick={() => setEditingRate(null)} className="text-xs text-mist hover:text-forge">✕</button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => { setEditingRate(worker.id); setRateInput(worker.hourly_rate != null ? String(worker.hourly_rate) : ""); }}
+                          className="text-sm text-forge hover:text-amber transition-colors"
+                        >
+                          {worker.hourly_rate != null ? `$${worker.hourly_rate}/hr` : <span className="text-mist text-xs">Set rate</span>}
+                        </button>
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       <span className={`badge ${worker.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
                         {worker.is_active ? t("common.active") : t("common.inactive")}
@@ -244,6 +294,9 @@ export default function WorkersClient({ workers: initial, tenantId }: { workers:
                           <span className="text-xs text-mist">{formatDate(worker.created_at)}</span>
                         </div>
                         {worker.phone && <p className="text-xs text-mist mt-1">{worker.phone}</p>}
+                        {worker.hourly_rate != null && (
+                          <p className="text-xs text-mist mt-0.5">${worker.hourly_rate}/hr</p>
+                        )}
                       </div>
                     </div>
                     <button

@@ -472,6 +472,8 @@ const es: TranslationKeys = {
     approved: "Aprobada",
     declined: "Rechazada",
     requestChange: "Solicitar cambio",
+    timeEntry: "Registro de tiempo",
+    generalOrMissingPunch: "General / agregar marcación faltante",
     noPunches: "Sin registros.",
     requestAChange: "Solicitar un cambio",
     requestSentNote: "Enviado a tu empleador para revisión.",

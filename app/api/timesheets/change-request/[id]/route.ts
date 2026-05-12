@@ -22,12 +22,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     const { data: request } = await supabase
       .from("time_change_requests")
-      .select("id, tenant_id, worker_id, time_entry_id, requested_clocked_in_at, requested_clocked_out_at, requested_date, reason")
+      .select("id, tenant_id, worker_id, time_entry_id, status, requested_clocked_in_at, requested_clocked_out_at, requested_date, reason")
       .eq("id", params.id)
       .eq("tenant_id", profile.tenant_id)
       .maybeSingle();
 
     if (!request) return errorResponse("Request not found.", 404);
+    if (request.status !== "pending") return errorResponse("Request already processed.", 409);
 
     let updatedEntry: any = null;
 

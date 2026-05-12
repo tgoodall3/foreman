@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
     const returnBase = `${siteUrl}/portal/invoice?invoice=${encodeURIComponent(invoice_id)}${portal_token ? `&token=${encodeURIComponent(portal_token)}` : ""}`;
 
     const baseAmount = typeof amount === "number" && amount > 0 && amount <= invoice.total ? amount : invoice.total;
-    const tip = allowTips && typeof tipAmount === "number" && tipAmount > 0 ? tipAmount : 0;
+    const tip = allowTips && typeof tipAmount === "number" && tipAmount > 0 && tipAmount <= baseAmount ? tipAmount : 0;
 
     const session = await stripe.checkout.sessions.create({
       ui_mode:              "embedded",

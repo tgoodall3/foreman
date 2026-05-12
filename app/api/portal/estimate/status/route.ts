@@ -47,16 +47,17 @@ export async function POST(req: NextRequest) {
 
   const supabase = createServiceClient();
 
+  const trimmedSig = signatureName?.trim().slice(0, 200) ?? "";
   const update: Record<string, string> = { status };
-  if (status === "approved" && signatureName?.trim()) {
-    update.signature_name = signatureName.trim();
+  if (status === "approved" && trimmedSig) {
+    update.signature_name = trimmedSig;
     update.signed_at = new Date().toISOString();
   }
 
   // Load current status to make the operation idempotent
   const { data: existing, error: fetchError } = await supabase
     .from("estimates")
-    .select("id, status, title, estimate_number, total, tenant_id, property_managers(full_name, email)")
+    .select("id, status, valid_until, title, estimate_number, total, tenant_id, property_managers(full_name, email)")
     .eq("approval_token", token)
     .single();
 
@@ -65,6 +66,18 @@ export async function POST(req: NextRequest) {
     return isJson
       ? NextResponse.json({ error: message }, { status: 404 })
       : NextResponse.redirect(new URL(`/portal/estimate?token=${token || ""}&result=error`, siteUrl));
+  }
+
+  // Reject approvals on expired estimates (declines are still allowed)
+  if (
+    status === "approved" &&
+    existing.valid_until &&
+    new Date(existing.valid_until) < new Date()
+  ) {
+    const message = "This estimate has expired and can no longer be approved.";
+    return isJson
+      ? NextResponse.json({ error: message }, { status: 410 })
+      : NextResponse.redirect(new URL(`/portal/estimate?token=${token}&result=expired`, siteUrl));
   }
 
   const terminalStatuses = ["approved", "declined", "converted"];

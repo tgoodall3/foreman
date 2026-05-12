@@ -42,6 +42,17 @@ function fmtDate(dateStr: string) {
   });
 }
 
+function fmtWeekRange(startStr: string, endStr: string) {
+  const start = new Date(startStr + "T00:00:00Z");
+  const end   = new Date(endStr   + "T00:00:00Z");
+  const month = start.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" });
+  const endMonth = end.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" });
+  const startDay = start.getUTCDate();
+  const endDay   = end.getUTCDate();
+  if (month === endMonth) return `${month} ${startDay} – ${endDay}`;
+  return `${month} ${startDay} – ${endMonth} ${endDay}`;
+}
+
 function fmtTime(iso: string) {
   return new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
@@ -52,31 +63,35 @@ function hoursWorked(inAt: string, outAt: string | null) {
 }
 
 const STATUS_STYLES: Record<Request["status"], { bg: string; text: string }> = {
-  pending:   { bg: "bg-amber/15 border-amber/40",  text: "text-amber-dark" },
-  approved:  { bg: "bg-green-50 border-green-200", text: "text-green-700" },
-  declined:  { bg: "bg-red-50 border-red-200",     text: "text-red-700" },
+  pending:  { bg: "bg-amber/15 border-amber/40",  text: "text-amber-dark" },
+  approved: { bg: "bg-green-50 border-green-200", text: "text-green-700" },
+  declined: { bg: "bg-red-50 border-red-200",     text: "text-red-700" },
 };
 
 export default function Timesheet({ weekStart, entries, requests }: Props) {
   const { addToast } = useToast();
   const { t } = useLanguage();
   const [localRequests, setLocalRequests] = useState<Request[]>(requests);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [requestsOpen, setRequestsOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(weekStart);
+  const [modalOpen, setModalOpen]         = useState(false);
+  const [requestsOpen, setRequestsOpen]   = useState(false);
+  const [selectedDate, setSelectedDate]   = useState(weekStart);
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
-  const [inTime, setInTime] = useState("");
+  const [inTime, setInTime]   = useState("");
   const [outTime, setOutTime] = useState("");
-  const [reason, setReason] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [reason, setReason]   = useState("");
+  const [saving, setSaving]   = useState(false);
+  const [error, setError]     = useState("");
 
-  const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
-  const prevWeek = addDays(weekStart, -7);
-  const nextWeek = addDays(weekStart, 7);
-  const today = new Date().toISOString().split("T")[0];
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
+  const days      = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
+  const prevWeek  = addDays(weekStart, -7);
+  const nextWeek  = addDays(weekStart, 7);
   const pendingCount = localRequests.filter((r) => r.status === "pending").length;
+
+  const today         = mounted ? new Date().toISOString().split("T")[0] : "";
+  const isCurrentWeek = mounted ? weekStart === getMonday(new Date()) : true;
 
   const entriesByDate = useMemo(() => {
     const map: Record<string, Entry[]> = {};
@@ -97,26 +112,42 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
     return map;
   }, [localRequests]);
 
-  // Close requests panel when navigating weeks
   useEffect(() => { setRequestsOpen(false); }, [weekStart]);
 
-  const openModal = (date: string, entryId: string | null) => {
-    setSelectedDate(date);
-    setSelectedEntryId(entryId);
+  if (!mounted) {
+    return (
+      <div className="p-4 max-w-3xl mx-auto space-y-3 animate-pulse">
+        <div className="h-8 bg-gray-200 rounded w-40" />
+        <div className="h-10 bg-gray-100 rounded-xl" />
+        {Array.from({ length: 7 }).map((_, i) => (
+          <div key={i} className="h-20 bg-gray-100 rounded-xl" />
+        ))}
+      </div>
+    );
+  }
+
+  const openModal = () => {
+    const defaultDate = days.includes(today) ? today : weekStart;
+    setSelectedDate(defaultDate);
+    setSelectedEntryId(null);
     setInTime("");
     setOutTime("");
     setReason("");
     setError("");
-    setSuccess("");
     setModalOpen(true);
+  };
+
+  // When selected date changes in the modal, clear the entry selection
+  const handleDateChange = (date: string) => {
+    setSelectedDate(date);
+    setSelectedEntryId(null);
   };
 
   const submit = async () => {
     setSaving(true);
     setError("");
-    setSuccess("");
 
-    const requested_clocked_in_at = inTime ? `${selectedDate}T${inTime}:00Z` : undefined;
+    const requested_clocked_in_at  = inTime  ? `${selectedDate}T${inTime}:00Z`  : undefined;
     const requested_clocked_out_at = outTime ? `${selectedDate}T${outTime}:00Z` : undefined;
 
     const res = await fetch("/api/timesheets/change-request", {
@@ -141,174 +172,185 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
 
     addToast(t("timesheets.requestSubmitted"), "success");
     setLocalRequests((prev) => [data.request as Request, ...prev]);
-    setSuccess(t("timesheets.requestSentSuccess"));
     setModalOpen(false);
   };
 
+  const reqBadge = (req: Request | undefined) => {
+    if (!req) return null;
+    const s = STATUS_STYLES[req.status];
+    const label = req.status === "pending" ? t("timesheets.pendingReview")
+                : req.status === "approved" ? t("timesheets.approved")
+                : t("timesheets.declined");
+    return (
+      <span className={`inline-block text-[11px] font-700 px-2 py-0.5 rounded border ${s.bg} ${s.text}`}>
+        {label}
+      </span>
+    );
+  };
+
+  const dateEntries = entriesByDate[selectedDate] ?? [];
+
   return (
     <div className="p-4 max-w-3xl mx-auto">
-      <div className="flex items-center justify-between mb-4 gap-2">
-        <div>
-          <h1 className="font-display font-800 text-2xl text-forge">{t("timesheets.myTimesheet")}</h1>
-          <p className="text-mist text-sm">{t("timesheets.reviewWeek")}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <a
-            href={`/worker/timesheets?week=${prevWeek}`}
-            className="p-2 rounded-lg border border-gray-200 hover:border-forge transition-colors"
-            aria-label={t("timesheets.previousWeek")}
-          >
-            <svg className="w-4 h-4 text-forge" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </a>
-          <span className="font-display font-700 text-forge text-base min-w-[140px] text-center">
-            {fmtDate(weekStart)} – {fmtDate(addDays(weekStart, 6))}
-          </span>
-          <a
-            href={`/worker/timesheets?week=${nextWeek}`}
-            className="p-2 rounded-lg border border-gray-200 hover:border-forge transition-colors"
-            aria-label={t("timesheets.nextWeek")}
-          >
-            <svg className="w-4 h-4 text-forge" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </a>
-          {weekStart !== getMonday(new Date()) && (
+      {/* Header */}
+      <div className="mb-5">
+        <h1 className="font-display font-800 text-2xl text-forge">{t("timesheets.myTimesheet")}</h1>
+
+        <div className="mt-3 flex items-center gap-2">
+          {/* Week navigation pill */}
+          <div className="flex items-center justify-between gap-1 bg-white border border-gray-200 rounded-xl px-2 py-1.5 flex-1">
             <a
-              href="/worker/timesheets"
-              className="px-3 py-2 rounded-lg border border-gray-200 text-sm font-600 text-mist hover:text-forge hover:border-forge transition-colors"
+              href={`/worker/timesheets?week=${prevWeek}`}
+              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              aria-label={t("timesheets.previousWeek")}
             >
-              {t("timesheets.thisWeek")}
-            </a>
-          )}
-          {localRequests.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setRequestsOpen(true)}
-              className="relative inline-flex items-center gap-1.5 px-3 py-2 text-sm font-600 text-forge bg-white border border-gray-200 rounded-lg hover:border-gray-400 transition-colors shadow-sm"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              <svg className="w-4 h-4 text-forge" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
-              {t("timesheets.myRequests")}
-              {pendingCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 inline-flex items-center justify-center w-4 h-4 bg-red-500 text-white text-[10px] font-800 rounded-full">
-                  {pendingCount}
-                </span>
+            </a>
+            <div className="text-center flex-1">
+              <p className="font-display font-700 text-forge text-sm leading-tight">
+                {fmtWeekRange(weekStart, addDays(weekStart, 6))}
+              </p>
+              {!isCurrentWeek && (
+                <a href="/worker/timesheets" className="text-[11px] text-amber font-600 hover:underline">
+                  {t("timesheets.thisWeek")}
+                </a>
               )}
-            </button>
-          )}
+            </div>
+            <a
+              href={`/worker/timesheets?week=${nextWeek}`}
+              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              aria-label={t("timesheets.nextWeek")}
+            >
+              <svg className="w-4 h-4 text-forge" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </a>
+          </div>
+
+          {/* Requests badge — always visible so nav row stays stable */}
+          <button
+            type="button"
+            onClick={() => setRequestsOpen(true)}
+            className="relative p-2.5 bg-white border border-gray-200 rounded-xl hover:border-gray-400 transition-colors"
+            aria-label={t("timesheets.myRequests")}
+          >
+            <svg className="w-4 h-4 text-forge" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            {pendingCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 inline-flex items-center justify-center w-4 h-4 bg-red-500 text-white text-[10px] font-800 rounded-full">
+                {pendingCount}
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
-      {/* Request status summary */}
-      {localRequests.length > 0 && (
-        <div className="mb-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {(["pending", "approved", "declined"] as Request["status"][]).map((s) => {
-            const count = localRequests.filter((r) => r.status === s).length;
-            if (count === 0) return null;
-            const style = STATUS_STYLES[s];
-            const label = s === "pending" ? t("timesheets.pendingReview") : s === "approved" ? t("timesheets.approved") : t("timesheets.declined");
-            return (
-              <div key={s} className={`border ${style.bg} ${style.text} rounded-lg px-3 py-2`}>
-                <p className="text-[11px] uppercase tracking-wide font-700">{label}</p>
-                <p className="font-display font-800 text-lg">{count}</p>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {/* FAB — floats above the bottom nav */}
+      <button
+        type="button"
+        onClick={openModal}
+        className="fixed bottom-20 right-4 z-40 inline-flex items-center gap-2 px-4 py-3 bg-amber text-forge font-display font-700 text-sm rounded-2xl shadow-lg hover:bg-amber-dark active:scale-95 transition-all"
+      >
+        <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+        {t("timesheets.requestChange")}
+      </button>
 
+      {/* Day cards */}
       <div className="space-y-3">
         {days.map((date) => {
-          const dayEntries = entriesByDate[date] ?? [];
+          const dayEntries  = entriesByDate[date] ?? [];
           const dayRequests = requestsByDate[date] ?? [];
-          // Most recent request for this day (day-level, not tied to a specific entry)
-          const dayReq = dayRequests.filter((r) => !r.time_entry_id)[0] ?? dayRequests[0];
-          const totalHours = dayEntries.reduce((s, e) => s + (hoursWorked(e.clocked_in_at, e.clocked_out_at) ?? 0), 0);
-
-          const reqBadge = (req: Request | undefined) => {
-            if (!req) return null;
-            const s = STATUS_STYLES[req.status];
-            const label = req.status === "pending" ? t("timesheets.pendingReview") : req.status === "approved" ? t("timesheets.approved") : t("timesheets.declined");
-            return (
-              <span className={`inline-block text-[11px] font-700 px-2 py-0.5 rounded border ${s.bg} ${s.text}`}>
-                {label}
-              </span>
-            );
-          };
+          const dayReq      = dayRequests.find((r) => !r.time_entry_id) ?? dayRequests[0];
+          const totalHours  = dayEntries.reduce((s, e) => s + (hoursWorked(e.clocked_in_at, e.clocked_out_at) ?? 0), 0);
 
           return (
             <div
               key={date}
               className={`bg-white border rounded-xl p-4 ${date === today ? "border-amber" : "border-gray-200"}`}
             >
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-xs uppercase tracking-wider text-mist font-600">{fmtDate(date)}</p>
-                  <p className="font-display font-800 text-lg text-forge">{totalHours > 0 ? `${totalHours.toFixed(1)}h` : "–"}</p>
-                  {dayReq && <div className="mt-1">{reqBadge(dayReq)}</div>}
-                </div>
-                <button
-                  onClick={() => openModal(date, null)}
-                  className="text-sm font-600 text-amber hover:underline shrink-0"
-                >
-                  {t("timesheets.requestChange")}
-                </button>
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <p className="text-xs uppercase tracking-wider text-mist font-600">{fmtDate(date)}</p>
+                {dayReq && reqBadge(dayReq)}
               </div>
+              <p className="font-display font-800 text-lg text-forge mb-3">
+                {totalHours > 0 ? `${totalHours.toFixed(1)}h` : "–"}
+              </p>
 
-              <div className="mt-3 space-y-2">
-                {dayEntries.length === 0 ? (
-                  <p className="text-xs text-mist">{t("timesheets.noPunches")}</p>
-                ) : (
-                  dayEntries.map((e) => {
+              {dayEntries.length === 0 ? (
+                <p className="text-xs text-mist">{t("timesheets.noPunches")}</p>
+              ) : (
+                <div className="space-y-2">
+                  {dayEntries.map((e) => {
                     const req = dayRequests.find((r) => r.time_entry_id === e.id);
                     return (
                       <div
                         key={e.id}
-                        className={`flex items-start justify-between gap-2 rounded-lg border px-3 py-2 ${req ? STATUS_STYLES[req.status].bg : "border-gray-100"}`}
+                        className={`rounded-lg border px-3 py-2 ${req ? STATUS_STYLES[req.status].bg : "border-gray-100"}`}
                       >
-                        <div className="min-w-0">
-                          <p className="font-600 text-sm text-forge">
-                            {fmtTime(e.clocked_in_at)} – {e.clocked_out_at ? fmtTime(e.clocked_out_at) : t("timesheets.openEntry")}
-                          </p>
-                          {e.notes && <p className="text-xs text-mist mt-0.5">{e.notes}</p>}
-                          {req && <div className="mt-1">{reqBadge(req)}</div>}
-                        </div>
-                        <button
-                          onClick={() => openModal(date, e.id)}
-                          className="text-xs font-600 text-amber hover:underline shrink-0"
-                        >
-                          {t("timesheets.requestChange")}
-                        </button>
+                        <p className="font-600 text-sm text-forge">
+                          {fmtTime(e.clocked_in_at)} – {e.clocked_out_at ? fmtTime(e.clocked_out_at) : t("timesheets.openEntry")}
+                        </p>
+                        {e.notes && <p className="text-xs text-mist mt-0.5">{e.notes}</p>}
+                        {req && <div className="mt-1">{reqBadge(req)}</div>}
                       </div>
                     );
-                  })
-                )}
-              </div>
+                  })}
+                </div>
+              )}
             </div>
           );
         })}
       </div>
 
+      {/* Request change modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setModalOpen(false)} aria-hidden="true" />
-          <div className="relative bg-white rounded-xl shadow-2xl max-w-md w-full p-5 border border-gray-200">
-            <h2 className="font-display font-700 text-lg text-forge mb-2">{t("timesheets.requestAChange")}</h2>
-            <p className="text-xs text-mist mb-3">{t("timesheets.requestSentNote")}</p>
+          <div className="relative bg-white rounded-t-2xl sm:rounded-xl shadow-2xl max-w-md w-full p-5 border border-gray-200">
+            <h2 className="font-display font-700 text-lg text-forge mb-1">{t("timesheets.requestAChange")}</h2>
+            <p className="text-xs text-mist mb-4">{t("timesheets.requestSentNote")}</p>
 
             <div className="space-y-3">
+              {/* Day selector */}
               <div>
                 <label className="block text-xs font-700 text-mist uppercase tracking-wider mb-1">{t("jobs.date")}</label>
-                <input
-                  type="date"
+                <select
                   value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                />
+                  onChange={(e) => handleDateChange(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+                >
+                  {days.map((d) => (
+                    <option key={d} value={d}>{fmtDate(d)}</option>
+                  ))}
+                </select>
               </div>
+
+              {/* Entry selector — only shown when the day has punches */}
+              {dateEntries.length > 0 && (
+                <div>
+                  <label className="block text-xs font-700 text-mist uppercase tracking-wider mb-1">
+                    Time entry
+                  </label>
+                  <select
+                    value={selectedEntryId ?? ""}
+                    onChange={(e) => setSelectedEntryId(e.target.value || null)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+                  >
+                    <option value="">General / add missing punch</option>
+                    {dateEntries.map((e) => (
+                      <option key={e.id} value={e.id}>
+                        {fmtTime(e.clocked_in_at)} – {e.clocked_out_at ? fmtTime(e.clocked_out_at) : t("timesheets.openEntry")}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-700 text-mist uppercase tracking-wider mb-1">{t("timesheets.clockIn")}</label>
@@ -329,6 +371,7 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
                   />
                 </div>
               </div>
+
               <div>
                 <label className="block text-xs font-700 text-mist uppercase tracking-wider mb-1">{t("timesheets.whatNeedsToChange")}</label>
                 <textarea
@@ -342,7 +385,6 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
             </div>
 
             {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
-            {success && <p className="text-xs text-green-700 mt-2">{success}</p>}
 
             <div className="flex items-center justify-end gap-2 mt-4">
               <button
@@ -363,10 +405,11 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
         </div>
       )}
 
+      {/* My requests panel */}
       {requestsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/30" onClick={() => setRequestsOpen(false)} aria-hidden="true" />
-          <div className="relative bg-white rounded-xl shadow-2xl max-w-md w-full p-5 border border-gray-200">
+          <div className="relative bg-white rounded-t-2xl sm:rounded-xl shadow-2xl max-w-md w-full p-5 border border-gray-200">
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-display font-700 text-lg text-forge">{t("timesheets.requestsThisWeek")}</h2>
               <button onClick={() => setRequestsOpen(false)} className="text-sm text-mist hover:text-forge">{t("common.close")}</button>
@@ -377,7 +420,7 @@ export default function Timesheet({ weekStart, entries, requests }: Props) {
               <div className="space-y-2 max-h-80 overflow-auto pr-1">
                 {localRequests.map((r) => (
                   <div key={r.id} className="border border-gray-100 rounded-lg px-3 py-2">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2">
                       <p className="text-sm font-700 text-forge">{fmtDate(r.requested_date)}</p>
                       <span className={`text-[11px] font-700 px-2 py-0.5 rounded border ${STATUS_STYLES[r.status].bg} ${STATUS_STYLES[r.status].text}`}>
                         {r.status === "pending" ? t("timesheets.pendingReview") : r.status === "approved" ? t("timesheets.approved") : t("timesheets.declined")}

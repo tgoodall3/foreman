@@ -7,6 +7,12 @@ import { useLanguage } from "@/lib/i18n";
 interface TimeEntry {
   id: string;
   clocked_in_at: string;
+  job_id?: string | null;
+}
+
+interface Job {
+  id: string;
+  title: string;
 }
 
 function elapsed(since: string): string {
@@ -27,14 +33,19 @@ export default function ClockWidget() {
   const [notes, setNotes]       = useState("");
   const [showNotes, setShowNotes] = useState(false);
   const [tick, setTick]         = useState(0);
+  const [jobs, setJobs]         = useState<Job[]>([]);
+  const [selectedJobId, setSelectedJobId] = useState("");
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Fetch current status on mount
+  // Fetch current status + active assigned jobs on mount
   useEffect(() => {
-    fetch("/api/timesheets/status")
-      .then((r) => r.json())
-      .then((d) => setEntry(d.entry))
-      .catch(() => setEntry(null));
+    Promise.all([
+      fetch("/api/timesheets/status").then((r) => r.json()),
+      fetch("/api/worker/jobs").then((r) => r.json()).catch(() => ({ jobs: [] })),
+    ]).then(([statusData, jobsData]) => {
+      setEntry(statusData.entry);
+      setJobs(jobsData.jobs ?? []);
+    }).catch(() => setEntry(null));
   }, []);
 
   // Live timer when clocked in
@@ -49,7 +60,11 @@ export default function ClockWidget() {
 
   const clockIn = async () => {
     setSaving(true); setError("");
-    const res = await fetch("/api/timesheets/clock-in", { method: "POST" });
+    const res = await fetch("/api/timesheets/clock-in", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ job_id: selectedJobId || null }),
+    });
     const data = await res.json();
     setSaving(false);
     if (!res.ok) { addToast(data.error || t("timesheets.failedClockIn"), "error"); setError(data.error || t("timesheets.failedClockIn")); return; }
@@ -150,11 +165,26 @@ export default function ClockWidget() {
         <button
           onClick={clockIn}
           disabled={saving}
-          className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-display font-700 px-4 py-2.5 rounded-xl text-sm transition-colors"
+          className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-display font-700 px-4 py-2.5 rounded-xl text-sm transition-colors shrink-0"
         >
           {saving ? t("timesheets.clockingIn") : t("timesheets.clockIn")}
         </button>
       </div>
+      {jobs.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-gray-100">
+          <label className="block text-xs font-600 text-mist uppercase tracking-wider mb-1.5">Job (optional)</label>
+          <select
+            value={selectedJobId}
+            onChange={(e) => setSelectedJobId(e.target.value)}
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber bg-white"
+          >
+            <option value="">No specific job</option>
+            {jobs.map((j) => (
+              <option key={j.id} value={j.id}>{j.title}</option>
+            ))}
+          </select>
+        </div>
+      )}
       {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
     </div>
   );

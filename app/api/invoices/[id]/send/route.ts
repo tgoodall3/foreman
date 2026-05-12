@@ -27,6 +27,7 @@ function escHtml(str: string): string {
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const profile = await requireOwner();
+  if (!profile) return errorResponse("Unauthorized", 401);
   if (!(await checkRateLimit(`email-send:${profile.id}`, 20, 60 * 60 * 1000))) {
     return errorResponse("Too many emails sent. Please wait before sending more.", 429);
   }

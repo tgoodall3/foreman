@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createServiceClient } from "@/lib/supabase";
 import { errorResponse, jsonResponse } from "@/lib/api";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { logError } from "@/lib/logger";
 
 const schema = z.object({
   token: z.string().min(10),
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (authError || !authData.user) {
-      console.error("auth.admin.createUser failed:", authError?.message, authError?.status);
+      logError("auth.admin.createUser failed", { message: authError?.message, status: authError?.status });
       const msg = authError?.message?.toLowerCase() ?? "";
       const isDuplicate = msg.includes("already registered")
         || msg.includes("duplicate")
@@ -92,7 +93,7 @@ export async function POST(req: NextRequest) {
 
     return jsonResponse({ success: true, email: pm.email });
   } catch (error) {
-    console.error("portal setup error", error);
+    logError("portal setup error", error);
     return errorResponse("Internal server error.", 500);
   }
 }

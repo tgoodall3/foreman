@@ -73,8 +73,8 @@ export async function POST(req: NextRequest) {
     });
     const subtotal = sanitized.reduce((s: number, i: any) => s + i.total, 0);
 
-    counter++;
-    const invoiceNumber = generateInvoiceNumber(tenant.slug, counter);
+    // Increment counter only here so gaps don't form on failed inserts
+    const invoiceNumber = generateInvoiceNumber(tenant.slug, counter + 1);
 
     const { data: invoice, error: insertErr } = await supabase
       .from("invoices")
@@ -100,11 +100,23 @@ export async function POST(req: NextRequest) {
       continue;
     }
 
-    await supabase
+    // Only advance the counter after a successful insert
+    counter++;
+
+    const { error: jobUpdateErr } = await supabase
       .from("jobs")
       .update({ invoice_id: invoice.id, status: "invoiced" })
       .eq("id", job.id)
       .eq("tenant_id", profile.tenant_id);
+
+    if (jobUpdateErr) {
+      logError("Bulk invoice job update failed", jobUpdateErr);
+      // Roll back the invoice so we don't leave an orphaned invoice
+      await supabase.from("invoices").delete().eq("id", invoice.id);
+      counter--;
+      skipped++;
+      continue;
+    }
 
     invoiceIds.push(invoice.id);
   }

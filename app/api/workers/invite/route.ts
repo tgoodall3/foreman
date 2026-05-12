@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase";
 import { requireOwner } from "@/lib/auth";
 import { validateInput, inviteWorkerSchema } from "@/lib/validation";
 import { errorResponse } from "@/lib/api";
+import { logError } from "@/lib/logger";
 import { checkPlanForApi } from "@/lib/plan";
 
 export async function POST(req: NextRequest) {
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ profile: profileData });
   } catch (error) {
-    console.error("Invite worker error:", error);
+    logError("Invite worker error", error);
     return errorResponse("Internal server error", 500);
   }
 }
