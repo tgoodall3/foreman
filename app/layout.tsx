@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import * as Sentry from "@sentry/nextjs";
-import { headers } from "next/headers";
 import "./globals.css";
 import { ToastProvider } from "@/components/ui/ToastContainer";
 import NavigationProgress from "@/components/ui/NavigationProgress";
@@ -63,7 +62,6 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const nonce = headers().get("x-nonce") ?? undefined;
   return (
     <html lang="en">
       <body>
@@ -75,7 +73,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <RegisterSW />
           </ToastProvider>
         </LanguageProvider>
-        <Analytics nonce={nonce} />
+        <Analytics />
       </body>
     </html>
   );
