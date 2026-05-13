@@ -8,3 +8,8 @@ node_modules/
 
 # Sentry Config File
 .env.sentry-build-plugin
+
+# Build artifacts
+android/
+out/
+tsconfig.tsbuildinfo
