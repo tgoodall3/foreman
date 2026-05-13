@@ -769,8 +769,9 @@ export default function PortalDashboard({
     return wo.status;
   };
 
-  const openWOs   = workOrdersState.filter((w) => !["completed", "cancelled"].includes(deriveStatus(w)));
-  const unpaidInv = invoices.filter((i) => ["sent", "overdue"].includes(i.status));
+  const openWOs      = workOrdersState.filter((w) => !["completed", "cancelled"].includes(deriveStatus(w)));
+  const unpaidInv    = invoices.filter((i) => ["sent", "overdue"].includes(i.status));
+  const pendingEsts  = estimatesState.filter((e) => e.status === "sent");
   const unpaidTotal = unpaidInv.reduce((s, i) => s + i.total, 0);
   const hasProperties = propertiesState.length > 0;
   const now = Date.now();
@@ -803,15 +804,15 @@ export default function PortalDashboard({
               <button
                 key={t}
               onClick={() => { setTab(t); setShowForm(propertiesState.length === 0 ? true : false); }}
-              className={`flex-1 py-3 text-sm font-600 transition-colors border-b-2 ${
+              className={`flex-1 py-3 text-xs sm:text-sm font-600 transition-colors border-b-2 ${
                 tab === t
                   ? "border-amber text-forge"
                   : "border-transparent text-mist hover:text-forge"
               }`}
             >
-              {t === "home"     ? "Home"      : null}
-              {t === "work-orders"  ? (
-                <span className="flex items-center justify-center gap-1.5">
+              {t === "home" ? "Home" : null}
+              {t === "work-orders" ? (
+                <span className="flex items-center justify-center gap-1">
                   Work Orders
                   {openWOs.length > 0 && (
                     <span className="inline-flex items-center justify-center w-4 h-4 bg-amber text-forge text-[10px] font-800 rounded-full">
@@ -821,11 +822,21 @@ export default function PortalDashboard({
                 </span>
               ) : null}
               {t === "invoices" ? (
-                <span className="flex items-center justify-center gap-1.5">
+                <span className="flex items-center justify-center gap-1">
                   Invoices
                   {unpaidInv.length > 0 && (
                     <span className="inline-flex items-center justify-center w-4 h-4 bg-red-500 text-white text-[10px] font-800 rounded-full">
                       {unpaidInv.length}
+                    </span>
+                  )}
+                </span>
+              ) : null}
+              {t === "estimates" ? (
+                <span className="flex items-center justify-center gap-1">
+                  Estimates
+                  {pendingEsts.length > 0 && (
+                    <span className="inline-flex items-center justify-center w-4 h-4 bg-amber text-forge text-[10px] font-800 rounded-full">
+                      {pendingEsts.length}
                     </span>
                   )}
                 </span>
@@ -1040,7 +1051,7 @@ export default function PortalDashboard({
                 <p className="text-mist text-sm mt-1">Submit your first work order above.</p>
               </div>
             ) : (
-              <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+              <div className="space-y-4">
                 {(showPastWO ? workOrdersState : woActive).map((wo) => {
                   const derived = deriveStatus(wo);
                   const s = WO_STATUS[derived] ?? WO_STATUS.pending;
@@ -1050,7 +1061,7 @@ export default function PortalDashboard({
                   const submissionPhotos = allPhotos.filter((photo) => !photo.comment_id && photo.source !== "comment");
                   const showSchedule = wo.job_scheduled_date && ["accepted", "in_progress", "completed"].includes(derived);
                   return (
-                    <div key={wo.id} className="px-4 py-3.5">
+                    <div key={wo.id} className="bg-white rounded-xl border border-gray-200 px-4 py-4">
                       <div className="flex items-start justify-between gap-2 mb-1">
                         <p className="text-sm font-600 text-forge line-clamp-1">{wo.title}</p>
                         <div className="flex items-center gap-2 shrink-0">
