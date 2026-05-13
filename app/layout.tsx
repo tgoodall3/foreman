@@ -51,6 +51,7 @@ export function generateMetadata(): Metadata {
     },
     other: {
       ...Sentry.getTraceData(),
+      "mobile-web-app-capable": "yes",
     },
   };
 }

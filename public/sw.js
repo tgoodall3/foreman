@@ -1,5 +1,5 @@
 // Minimal caching service worker for Foreman PWA.
-const CACHE_NAME = "foreman-static-v2";
+const CACHE_NAME = "foreman-static-v3";
 const ASSETS = [
   "/manifest.webmanifest",
   "/favicon.ico",
@@ -35,9 +35,8 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Only cache known static assets and Next.js build output
-  const isCacheable =
-    ASSETS.includes(url.pathname) || url.pathname.startsWith("/_next/static/");
+  // Only cache known static assets (not /_next/static/ — Next.js handles those via HTTP cache headers)
+  const isCacheable = ASSETS.includes(url.pathname);
 
   if (!isCacheable) return;
 
