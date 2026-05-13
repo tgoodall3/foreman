@@ -53,6 +53,7 @@ export function generateMetadata(): Metadata {
     other: {
       ...Sentry.getTraceData(),
       "mobile-web-app-capable": "yes",
+      "probely-verification": "c44b3723-4d65-4d40-b049-3f4482f1213e",
     },
   };
 }
