@@ -33,6 +33,7 @@ export default async function EstimateConversionPage() {
         <h1 className="page-title">{t("reports.estimateConversionTitle")}</h1>
         <p className="page-subtitle">{t("reports.estimateConversionSub")}</p>
       </div>
+      <ReportTabs active="estimate-conversion" />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label={t("reports.winRate")} value={`${winRate}%`} />
@@ -64,8 +65,15 @@ export default async function EstimateConversionPage() {
               {estimates.map((e: any) => {
                 const cfg = ESTIMATE_STATUS_CONFIG[e.status] ?? ESTIMATE_STATUS_CONFIG.draft;
                 return (
-                  <tr key={e.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 font-600 text-forge">{e.title}</td>
+                  <tr key={e.id} className="relative hover:bg-gray-50 transition-colors cursor-pointer">
+                    <td className="px-4 py-3">
+                      <a
+                        href={`/owner/estimates/${e.id}`}
+                        className="font-600 text-forge line-clamp-1 after:absolute after:inset-0 after:content-['']"
+                      >
+                        {e.title}
+                      </a>
+                    </td>
                     <td className="px-4 py-3">
                       <span className={`badge ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
                     </td>
@@ -83,9 +91,9 @@ export default async function EstimateConversionPage() {
             {estimates.map((e: any) => {
               const cfg = ESTIMATE_STATUS_CONFIG[e.status] ?? ESTIMATE_STATUS_CONFIG.draft;
               return (
-                <div key={e.id} className="px-4 py-3 flex items-start justify-between gap-3">
+                <a key={e.id} href={`/owner/estimates/${e.id}`} className="flex items-start justify-between gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
                   <div className="min-w-0">
-                    <p className="font-600 text-forge text-sm leading-snug">{e.title}</p>
+                    <p className="font-600 text-forge text-sm leading-snug line-clamp-1">{e.title}</p>
                     <p className="text-xs text-mist mt-0.5">
                       {e.property_managers?.full_name ?? "—"} &middot; {e.created_at?.split("T")[0]}
                     </p>
@@ -94,7 +102,7 @@ export default async function EstimateConversionPage() {
                     <span className={`badge ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
                     <span className="text-sm font-600 text-forge">{formatCurrency(e.total ?? 0)}</span>
                   </div>
-                </div>
+                </a>
               );
             })}
           </div>
@@ -109,6 +117,29 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       <p className="text-xs text-mist uppercase tracking-wide font-700">{label}</p>
       <p className="font-display font-800 text-xl text-forge mt-1">{value}</p>
+    </div>
+  );
+}
+
+function ReportTabs({ active }: { active: "revenue" | "jobs-to-invoice" | "estimate-conversion" }) {
+  const tabs = [
+    { key: "revenue" as const, label: "Revenue", href: "/owner/reports/revenue" },
+    { key: "jobs-to-invoice" as const, label: "Billing Gap", href: "/owner/reports/jobs-to-invoice" },
+    { key: "estimate-conversion" as const, label: "Conversions", href: "/owner/reports/estimate-conversion" },
+  ];
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      {tabs.map((tab) => (
+        <a
+          key={tab.key}
+          href={tab.href}
+          className={`px-4 py-1.5 rounded-full text-sm font-600 transition-colors ${
+            active === tab.key ? "bg-forge text-white" : "text-mist hover:text-forge border border-gray-200 hover:border-forge"
+          }`}
+        >
+          {tab.label}
+        </a>
+      ))}
     </div>
   );
 }

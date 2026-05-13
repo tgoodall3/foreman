@@ -97,6 +97,7 @@ export default async function RevenueReportPage() {
         <h1 className="page-title">{t("reports.revenueTitle")}</h1>
         <p className="text-mist text-sm mt-1">{t("reports.revenueSub", { count: String(all.length) })}</p>
       </div>
+      <ReportTabs active="revenue" />
 
       {/* Summary KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -205,6 +206,29 @@ export default async function RevenueReportPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ReportTabs({ active }: { active: "revenue" | "jobs-to-invoice" | "estimate-conversion" }) {
+  const tabs = [
+    { key: "revenue" as const, label: "Revenue", href: "/owner/reports/revenue" },
+    { key: "jobs-to-invoice" as const, label: "Billing Gap", href: "/owner/reports/jobs-to-invoice" },
+    { key: "estimate-conversion" as const, label: "Conversions", href: "/owner/reports/estimate-conversion" },
+  ];
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      {tabs.map((tab) => (
+        <a
+          key={tab.key}
+          href={tab.href}
+          className={`px-4 py-1.5 rounded-full text-sm font-600 transition-colors ${
+            active === tab.key ? "bg-forge text-white" : "text-mist hover:text-forge border border-gray-200 hover:border-forge"
+          }`}
+        >
+          {tab.label}
+        </a>
+      ))}
     </div>
   );
 }

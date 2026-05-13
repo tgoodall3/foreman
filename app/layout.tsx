@@ -5,6 +5,7 @@ import { ToastProvider } from "@/components/ui/ToastContainer";
 import NavigationProgress from "@/components/ui/NavigationProgress";
 import RegisterSW from "@/components/pwa/RegisterSW";
 import { LanguageProvider } from "@/lib/i18n";
+import { Analytics } from "@vercel/analytics/next";
 
 export function generateMetadata(): Metadata {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://foremanapp.io";
@@ -72,6 +73,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <RegisterSW />
           </ToastProvider>
         </LanguageProvider>
+        <Analytics />
       </body>
     </html>
   );

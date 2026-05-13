@@ -85,7 +85,7 @@ const ICONS: Record<string, JSX.Element> = {
 
 const NAV_CONFIG = [
   {
-    labelKey: "nav.today",
+    labelKey: "nav.operations",
     items: [
       { href: "/owner", labelKey: "nav.overview", icon: ICONS.today },
       { href: "/owner/work-orders", labelKey: "nav.workOrders", icon: ICONS.tasks },
@@ -99,9 +99,7 @@ const NAV_CONFIG = [
     items: [
       { href: "/owner/invoices", labelKey: "nav.invoices", icon: ICONS.invoice },
       { href: "/owner/estimates", labelKey: "nav.estimates", icon: ICONS.doc },
-      { href: "/owner/reports/revenue", labelKey: "nav.revenue", icon: ICONS.report },
-      { href: "/owner/reports/jobs-to-invoice", labelKey: "nav.billingGap", icon: ICONS.report },
-      { href: "/owner/reports/estimate-conversion", labelKey: "nav.conversions", icon: ICONS.report },
+      { href: "/owner/reports", labelKey: "nav.reports", icon: ICONS.report },
     ],
   },
   {
@@ -133,6 +131,7 @@ export default function OwnerShell({ profile, tenantName, children }: OwnerShell
 
   const isActive = (href: string) => {
     if (href === "/owner") return pathname === "/owner";
+    if (href === "/owner/reports") return pathname.startsWith("/owner/reports/") && pathname !== "/owner/reports/recurring-health";
     return pathname === href || pathname.startsWith(href + "/");
   };
 

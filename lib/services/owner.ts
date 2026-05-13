@@ -10,7 +10,7 @@ import {
   WorkOrder,
 } from "@/types";
 
-export const OWNER_PAGE_SIZE = 20;
+export const OWNER_PAGE_SIZE = 8;
 
 export async function getOwnerDashboardData(profile: Profile) {
   const supabase = await createServerSideClient();
@@ -173,21 +173,35 @@ export async function getOwnerDashboardData(profile: Profile) {
   };
 }
 
-export async function getOwnerJobs(profile: Profile, status?: string, page = 1, pageSize = OWNER_PAGE_SIZE) {
+const PAST_STATUSES = ["completed", "invoiced", "cancelled"] as const;
+
+export async function getOwnerJobs(
+  profile: Profile,
+  status?: string,
+  page = 1,
+  pageSize = OWNER_PAGE_SIZE,
+  options: { pastOnly?: boolean; search?: string; sortBy?: string; sortDir?: "asc" | "desc" } = {}
+) {
+  const { pastOnly = false, search, sortBy = "created_at", sortDir = "desc" } = options;
   const supabase = await createServerSideClient();
   const start = (page - 1) * pageSize;
   const end = start + pageSize - 1;
 
   let query = supabase
     .from("jobs")
-    .select("id, title, status, priority, scheduled_date, invoice_id, properties(name)", { count: "exact" })
+    .select("id, title, status, priority, scheduled_date, invoice_id, updated_at, properties(name)", { count: "exact" })
     .eq("tenant_id", profile.tenant_id)
-    .order("created_at", { ascending: false })
+    .order(sortBy, { ascending: sortDir === "asc" })
     .range(start, end);
 
-  if (status) {
-    query = query.eq("status", status);
+  if (pastOnly) {
+    query = query.in("status", [...PAST_STATUSES]);
+  } else {
+    query = query.not("status", "in", `("${PAST_STATUSES.join('","')}")`);
+    if (status) query = query.eq("status", status);
   }
+
+  if (search) query = query.ilike("title", `%${search}%`);
 
   const { data, count, error } = await query;
   if (error) throw error;
@@ -251,17 +265,37 @@ export async function getOwnerInvoiceTotals(profile: Profile) {
   return totals;
 }
 
-export async function getOwnerWorkOrders(profile: Profile) {
+const WO_ARCHIVE_DAYS = 14;
+
+export async function getOwnerWorkOrders(
+  profile: Profile,
+  opts: { pastOnly?: boolean; page?: number; pageSize?: number } = {}
+) {
+  const { pastOnly = false, page, pageSize = OWNER_PAGE_SIZE } = opts;
   const supabase = await createServerSideClient();
-  const { data, error } = await supabase
+  const cutoff = new Date(Date.now() - WO_ARCHIVE_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
+  let query = supabase
     .from("work_orders")
-    .select("id, title, priority, status, created_at, properties(name), property_managers(full_name, company)")
+    .select("id, title, priority, status, created_at, properties(name), property_managers(full_name, company)", { count: "exact" })
     .eq("tenant_id", profile.tenant_id)
     .order("created_at", { ascending: false });
 
+  if (pastOnly) {
+    query = query.in("status", ["accepted", "declined"]).lt("created_at", cutoff);
+    if (page !== undefined) {
+      const start = (page - 1) * pageSize;
+      query = query.range(start, start + pageSize - 1);
+    }
+  } else {
+    // Active: either pending, or accepted/declined but NOT old yet
+    query = query.or(`status.eq.pending,and(status.in.(accepted,declined),created_at.gte.${cutoff})`);
+  }
+
+  const { data, count, error } = await query;
   if (error) throw error;
 
-  return data as unknown as OwnerWorkOrderSummary[];
+  return { data: data as unknown as OwnerWorkOrderSummary[], count: count ?? 0 };
 }
 
 export async function getOwnerInvoiceFormData(profile: Profile) {

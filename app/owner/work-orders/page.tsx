@@ -1,41 +1,28 @@
 import { requireOwner } from "@/lib/auth";
-import { getOwnerWorkOrders } from "@/lib/services/owner";
+import { getOwnerWorkOrders, OWNER_PAGE_SIZE } from "@/lib/services/owner";
 import { formatDate, PRIORITY_CONFIG } from "@/lib/utils";
 import Link from "next/link";
 import { getServerT } from "@/lib/i18n/server";
 
-const ARCHIVE_DAYS = 14;
-
-function biweeklyLabel(iso: string): string {
-  const d = new Date(iso);
-  const month = d.toLocaleString("en-US", { month: "long", year: "numeric" });
-  const day = d.getDate();
-  return day <= 14 ? `${month} (1–14)` : `${month} (15–31)`;
-}
-
-export default async function WorkOrdersPage({ searchParams }: { searchParams: { past?: string } }) {
+export default async function WorkOrdersPage({ searchParams }: { searchParams: { past?: string; page?: string } }) {
   const profile = await requireOwner();
   const t = await getServerT();
   const showPast = searchParams.past === "1";
-  const workOrders = await getOwnerWorkOrders(profile);
+  const page = Math.max(1, Number(searchParams.page || "1"));
 
-  const now = Date.now();
-  const ageDays = (iso: string) => (now - new Date(iso).getTime()) / (1000 * 60 * 60 * 24);
-  const isPast = (w: any) => ["accepted", "declined"].includes(w.status) && ageDays(w.created_at) > ARCHIVE_DAYS;
+  const { data: workOrders, count } = await getOwnerWorkOrders(profile, {
+    pastOnly: showPast,
+    page: showPast ? page : undefined,
+  });
 
-  const active   = workOrders?.filter((w) => !isPast(w)) || [];
-  const archived = workOrders?.filter((w) => isPast(w)) || [];
+  const active   = showPast ? [] : (workOrders || []);
+  const archived = showPast ? (workOrders || []) : [];
 
   const pending  = active.filter((w) => w.status === "pending");
   const accepted = active.filter((w) => w.status === "accepted");
   const declined = active.filter((w) => w.status === "declined");
 
-  const archivedGroups: Record<string, any[]> = {};
-  for (const wo of archived) {
-    const label = biweeklyLabel(wo.created_at);
-    if (!archivedGroups[label]) archivedGroups[label] = [];
-    archivedGroups[label].push(wo);
-  }
+  const pageCount = showPast ? Math.ceil(count / OWNER_PAGE_SIZE) : 1;
 
   return (
     <div className="page-shell page-shell-standard">
@@ -44,7 +31,7 @@ export default async function WorkOrdersPage({ searchParams }: { searchParams: {
           <h1 className="page-title">{t("workOrders.title")}</h1>
           <p className="page-subtitle">
             {showPast
-              ? t("common.total", { count: archived.length })
+              ? t("common.total", { count })
               : t("workOrders.pendingReview", { count: pending.length })}
           </p>
         </div>
@@ -63,26 +50,35 @@ export default async function WorkOrdersPage({ searchParams }: { searchParams: {
           className={`px-4 py-1.5 rounded-full text-sm font-600 transition-colors ${showPast ? "bg-forge text-white" : "text-mist hover:text-forge"}`}
         >
           {t("workOrders.pastTab")}
-          {archived.length > 0 && <span className="ml-1 text-xs opacity-60">{archived.length}</span>}
         </Link>
       </div>
 
       {/* Past view */}
       {showPast && (
-        <div className="space-y-6">
-          {Object.keys(archivedGroups).length === 0 ? (
+        <div className="space-y-3">
+          {archived.length === 0 ? (
             <div className="surface-empty">
               <p>{t("workOrders.noWorkOrders")}</p>
             </div>
           ) : (
-            Object.entries(archivedGroups).map(([label, items]) => (
-              <div key={label}>
-                <p className="text-xs font-700 uppercase tracking-widest text-mist mb-2 px-1">{label}</p>
-                <div className="space-y-3">
-                  {items.map((wo: any) => <WorkOrderCard key={wo.id} wo={wo} muted t={t} />)}
-                </div>
-              </div>
-            ))
+            archived.map((wo: any) => <WorkOrderCard key={wo.id} wo={wo} muted t={t} />)
+          )}
+          {pageCount > 1 && (
+            <div className="flex items-center justify-between px-1 py-3">
+              <Link
+                href={`/owner/work-orders?past=1&page=${Math.max(1, page - 1)}`}
+                className={`text-sm font-600 ${page === 1 ? "text-gray-400 pointer-events-none" : "text-forge hover:text-amber"}`}
+              >
+                ← {t("common.previous")}
+              </Link>
+              <p className="text-xs text-mist">{t("common.pageOf", { page, pageCount })}</p>
+              <Link
+                href={`/owner/work-orders?past=1&page=${Math.min(pageCount, page + 1)}`}
+                className={`text-sm font-600 ${page === pageCount ? "text-gray-400 pointer-events-none" : "text-forge hover:text-amber"}`}
+              >
+                {t("common.next")} →
+              </Link>
+            </div>
           )}
         </div>
       )}
@@ -159,7 +155,7 @@ function WorkOrderCard({ wo, muted = false, t }: { wo: any; muted?: boolean; t: 
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            <h3 className="text-sm font-700 text-forge sm:text-base">{wo.title}</h3>
+            <h3 className="text-sm font-700 text-forge sm:text-base line-clamp-1">{wo.title}</h3>
             <span className={`badge ${priorityCfg.bg} ${priorityCfg.color}`}>{priorityCfg.label}</span>
             <span className={`badge ${statusColors[wo.status]}`}>{wo.status}</span>
           </div>

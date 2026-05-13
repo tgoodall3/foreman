@@ -143,9 +143,30 @@ export default function NotificationBell() {
     setLoading(false);
   };
 
-  const handleOpen = () => {
-    setOpen((v) => !v);
-    if (!open) fetchNotifications();
+  const markAllRead = () => {
+    const nextIds = new Set(readIds);
+    notifications.forEach((n) => nextIds.add(n.id));
+    const nextReadAllBefore = Date.now();
+    setReadIds(nextIds);
+    setReadAllBefore(nextReadAllBefore);
+    saveReadState(nextIds, nextReadAllBefore);
+  };
+
+  const handleOpen = async () => {
+    const opening = !open;
+    setOpen(opening);
+    if (opening) {
+      await fetchNotifications();
+      // Auto-mark all as read when the panel is opened
+      setReadIds((prev) => {
+        const next = new Set(prev);
+        notifications.forEach((n) => next.add(n.id));
+        const ts = Date.now();
+        saveReadState(next, ts);
+        setReadAllBefore(ts);
+        return next;
+      });
+    }
   };
 
   // Fetch on mount and poll in background so badge stays fresh without clicking
@@ -160,16 +181,6 @@ export default function NotificationBell() {
     readIds.has(notification.id) ||
     (readAllBefore !== null && new Date(notification.createdAt).getTime() <= readAllBefore)
   );
-
-  const markAllRead = () => {
-    const nextIds = new Set(readIds);
-    notifications.forEach((notification) => nextIds.add(notification.id));
-    const nextReadAllBefore = Date.now();
-
-    setReadIds(nextIds);
-    setReadAllBefore(nextReadAllBefore);
-    saveReadState(nextIds, nextReadAllBefore);
-  };
 
   const unread = notifications.filter((notification) => !isRead(notification)).length;
 
@@ -195,11 +206,6 @@ export default function NotificationBell() {
         <div className="absolute right-0 lg:right-auto lg:left-0 top-10 w-80 max-w-[calc(100vw-1rem)] bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
             <p className="font-600 text-forge text-sm">{t("nav.notifications")}</p>
-            {unread > 0 && (
-              <button onClick={markAllRead} className="text-xs text-amber hover:underline font-600">
-                {t("nav.markAllRead")}
-              </button>
-            )}
           </div>
 
           <div className="max-h-96 overflow-y-auto">

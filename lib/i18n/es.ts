@@ -78,14 +78,17 @@ const es: TranslationKeys = {
 
   nav: {
     today: "Hoy",
+    operations: "Operaciones",
     overview: "Resumen",
     workOrders: "Órdenes de trabajo",
+    requests: "Solicitudes",
     jobs: "Trabajos",
     schedule: "Calendario",
     timesheets: "Hojas de tiempo",
     revenue: "Ingresos",
     invoices: "Facturas",
     estimates: "Presupuestos",
+    reports: "Reportes",
     billingGap: "Brechas de facturación",
     conversions: "Conversiones",
     admin: "Administración",

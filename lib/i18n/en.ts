@@ -79,14 +79,17 @@ const en = {
   // ── Navigation ────────────────────────────────────────────────────────────
   nav: {
     today: "Today",
+    operations: "Operations",
     overview: "Overview",
     workOrders: "Work Orders",
+    requests: "Requests",
     jobs: "Jobs",
     schedule: "Schedule",
     timesheets: "Timesheets",
     revenue: "Revenue",
     invoices: "Invoices",
     estimates: "Estimates",
+    reports: "Reports",
     billingGap: "Billing Gap",
     conversions: "Conversions",
     admin: "Admin",
