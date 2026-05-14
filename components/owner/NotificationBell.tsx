@@ -107,6 +107,7 @@ export default function NotificationBell() {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [visibleNotifs, setVisibleNotifs] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
   const [readAllBefore, setReadAllBefore] = useState<number | null>(null);
@@ -124,13 +125,14 @@ export default function NotificationBell() {
     const handler = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setOpen(false);
+        setVisibleNotifs([]);
       }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const fetchNotifications = async () => {
+  const fetchForBadge = async () => {
     if (loading) return;
     setLoading(true);
     try {
@@ -143,36 +145,48 @@ export default function NotificationBell() {
     setLoading(false);
   };
 
-  const markAllRead = () => {
-    const nextIds = new Set(readIds);
-    notifications.forEach((n) => nextIds.add(n.id));
-    const nextReadAllBefore = Date.now();
-    setReadIds(nextIds);
-    setReadAllBefore(nextReadAllBefore);
-    saveReadState(nextIds, nextReadAllBefore);
-  };
-
   const handleOpen = async () => {
     const opening = !open;
     setOpen(opening);
-    if (opening) {
-      await fetchNotifications();
-      // Auto-mark all as read when the panel is opened
-      setReadIds((prev) => {
-        const next = new Set(prev);
-        notifications.forEach((n) => next.add(n.id));
+    if (!opening) {
+      setVisibleNotifs([]);
+      return;
+    }
+
+    // Fetch fresh notifications
+    setLoading(true);
+    try {
+      const res = await fetch("/api/notifications");
+      if (res.ok) {
+        const data = await res.json();
+        const fresh: Notification[] = data.notifications ?? [];
+        setNotifications(fresh);
+
+        // Read state from storage directly to avoid stale closure
+        const { ids: currentIds, readAllBefore: currentReadAllBefore } = loadReadState();
+        const isReadNow = (n: Notification) =>
+          currentIds.has(n.id) ||
+          (currentReadAllBefore !== null && new Date(n.createdAt).getTime() <= currentReadAllBefore);
+
+        // Snapshot the unread ones to show this session
+        setVisibleNotifs(fresh.filter((n) => !isReadNow(n)));
+
+        // Mark all as read so they don't come back
+        const next = new Set(currentIds);
+        fresh.forEach((n) => next.add(n.id));
         const ts = Date.now();
         saveReadState(next, ts);
+        setReadIds(next);
         setReadAllBefore(ts);
-        return next;
-      });
-    }
+      }
+    } catch {}
+    setLoading(false);
   };
 
-  // Fetch on mount and poll in background so badge stays fresh without clicking
+  // Poll in background so badge stays fresh
   useEffect(() => {
-    fetchNotifications();
-    const id = setInterval(fetchNotifications, 30000);
+    fetchForBadge();
+    const id = setInterval(fetchForBadge, 30000);
     return () => clearInterval(id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -211,33 +225,30 @@ export default function NotificationBell() {
           <div className="max-h-96 overflow-y-auto">
             {loading ? (
               <div className="p-6 text-center text-mist text-sm">{t("common.loading")}</div>
-            ) : notifications.length === 0 ? (
+            ) : visibleNotifs.length === 0 ? (
               <div className="p-6 text-center text-mist text-sm">{t("nav.noActivity")}</div>
             ) : (
-              notifications.map((n) => {
+              visibleNotifs.map((n) => {
                 const style = TYPE_STYLES[n.type];
-                const notificationIsRead = isRead(n);
                 return (
                   <Link
                     key={n.id}
                     href={n.href}
                     onClick={() => {
-                      const next = new Set(readIds).add(n.id);
-                      setReadIds(next);
-                      saveReadState(next, readAllBefore);
+                      setVisibleNotifs((prev) => prev.filter((x) => x.id !== n.id));
                       setOpen(false);
                     }}
-                    className={`flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0 ${notificationIsRead ? "opacity-60" : ""}`}
+                    className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0"
                   >
-                    <div className={`mt-0.5 w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${notificationIsRead ? "bg-gray-100 text-mist" : "bg-amber/10 text-amber-dark"}`}>
+                    <div className="mt-0.5 w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-amber/10 text-amber-dark">
                       {style.icon}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className={`text-sm leading-snug ${notificationIsRead ? "text-mist" : "text-forge font-600"}`}>{n.title}</p>
+                      <p className="text-sm leading-snug text-forge font-600">{n.title}</p>
                       <p className="text-xs text-mist mt-0.5 truncate">{n.subtitle}</p>
                       <p className="text-xs text-steel mt-0.5">{timeAgo(n.createdAt, t)}</p>
                     </div>
-                    {!notificationIsRead && <span className={`mt-2 w-2 h-2 rounded-full shrink-0 ${style.dot}`} />}
+                    <span className={`mt-2 w-2 h-2 rounded-full shrink-0 ${style.dot}`} />
                   </Link>
                 );
               })

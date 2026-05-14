@@ -177,45 +177,42 @@ export default async function TimesheetsPage({
         />
       </div>
 
-      {/* Utilization summary */}
-      {workers?.length ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-6">
-          {workers.map((w: any) => {
-            const hours = (workerTotals[w.id] ?? 0).toFixed(1);
-            const jobs = workerJobs[w.id] ?? 0;
-            return (
-              <div key={w.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-steel text-white rounded-full flex items-center justify-center text-sm font-700">
-                      {w.full_name[0]}
-                    </div>
-                    <div>
-                      <p className="font-700 text-forge text-sm">{w.full_name}</p>
-                      <p className="text-xs text-mist">{t("timesheets.jobsThisWeek", { count: jobs })}</p>
-                    </div>
-                  </div>
-                  <span className="text-xs font-700 text-forge bg-amber/30 px-2 py-1 rounded-lg">
-                    {hours}h
-                  </span>
-                </div>
-                <p className="text-xs text-mist">
-                  {t("timesheets.hoursNote")}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-      ) : null}
-
       {!workers?.length ? (
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
           <p className="text-mist text-sm">{t("timesheets.noActiveWorkers")}</p>
         </div>
       ) : (
         <>
+          {/* Desktop: utilization summary + grid table */}
+          <div className="hidden lg:block">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-6">
+            {workers.map((w: any) => {
+              const hours = (workerTotals[w.id] ?? 0).toFixed(1);
+              const jobs = workerJobs[w.id] ?? 0;
+              return (
+                <div key={w.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 bg-steel text-white rounded-full flex items-center justify-center text-sm font-700">
+                        {w.full_name[0]}
+                      </div>
+                      <div>
+                        <p className="font-700 text-forge text-sm">{w.full_name}</p>
+                        <p className="text-xs text-mist">{t("timesheets.jobsThisWeek", { count: jobs })}</p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-700 text-forge bg-amber/30 px-2 py-1 rounded-lg">
+                      {hours}h
+                    </span>
+                  </div>
+                  <p className="text-xs text-mist">{t("timesheets.hoursNote")}</p>
+                </div>
+              );
+            })}
+          </div>
+
           {/* Desktop: grid table */}
-          <div className="hidden lg:block bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50">
@@ -289,60 +286,73 @@ export default async function TimesheetsPage({
             </table>
           </div>
 
-          {/* Mobile: card list */}
+          </div>{/* end desktop block */}
+
+          {/* Mobile: one card per worker combining summary + entries */}
           <div className="lg:hidden space-y-4">
             {(workers ?? []).map((worker) => {
               const wEntries = byWorkerDate[worker.id] ?? {};
               const total    = workerTotals[worker.id] ?? 0;
+              const jobs     = workerJobs[worker.id] ?? 0;
               const hasOpen  = (entries ?? []).some((e: any) => e.worker_id === worker.id && !e.clocked_out_at);
+              const hasEntries = Object.keys(wEntries).length > 0;
 
               return (
                 <div key={worker.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                  <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 bg-steel rounded-full flex items-center justify-center">
+                  {/* Worker header */}
+                  <div className="px-4 py-3 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 bg-steel rounded-full flex items-center justify-center shrink-0">
                         <span className="text-white text-sm font-700">{worker.full_name[0]}</span>
                       </div>
                       <div>
                         <p className="font-700 text-forge text-sm">{worker.full_name}</p>
-                        {hasOpen && (
-                          <span className="inline-flex items-center gap-1 text-xs text-green-700 font-600">
-                            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-                            {t("timesheets.clockedInLabel")}
-                          </span>
-                        )}
+                        <p className="text-xs text-mist">{t("timesheets.jobsThisWeek", { count: jobs })}</p>
                       </div>
                     </div>
-                    <span className="font-display font-800 text-lg text-forge">
-                      {total > 0 ? `${total.toFixed(1)}h` : "—"}
-                    </span>
+                    <div className="text-right">
+                      <span className="font-display font-800 text-lg text-forge">
+                        {total > 0 ? `${total.toFixed(1)}h` : "—"}
+                      </span>
+                      {hasOpen && (
+                        <div className="inline-flex items-center gap-1 text-xs text-green-700 font-600 ml-2">
+                          <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                          {t("timesheets.clockedInLabel")}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="divide-y divide-gray-50">
-                    {days.map((d, i) => {
-                      const dayEntries = wEntries[d] ?? [];
-                      if (dayEntries.length === 0) return null;
-                      const dayHours = dayEntries.reduce((s, e) => s + (hoursWorked(e.clocked_in_at, e.clocked_out_at) ?? 0), 0);
-
-                      return (
-                        <div key={d} className={`px-4 py-2.5 ${d === today ? "bg-amber/5" : ""}`}>
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-600 text-mist">{DAY_NAMES[i]} {fmtDate(d)}</span>
-                            <span className="text-sm font-700 text-forge">{dayHours.toFixed(1)}h</span>
-                          </div>
-                          {dayEntries.map((e) => (
-                            <div key={e.id} className="flex items-center justify-between mt-0.5">
-                              <span className="text-xs text-mist">
-                                {fmtTime(e.clocked_in_at)} – {e.clocked_out_at ? fmtTime(e.clocked_out_at) : <span className="text-green-600 font-600">now</span>}
-                              </span>
-                              {e.notes && <span className="text-xs text-mist truncate max-w-[120px]">{e.notes}</span>}
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })}
-                    {Object.keys(wEntries).length === 0 && (
+                  {/* Daily entries */}
+                  <div className="border-t border-gray-100 divide-y divide-gray-50">
+                    {!hasEntries ? (
                       <p className="px-4 py-3 text-xs text-mist">{t("timesheets.noEntriesThisWeek")}</p>
+                    ) : (
+                      days.map((d, i) => {
+                        const dayEntries = wEntries[d] ?? [];
+                        if (dayEntries.length === 0) return null;
+                        const dayHours = dayEntries.reduce((s, e) => s + (hoursWorked(e.clocked_in_at, e.clocked_out_at) ?? 0), 0);
+                        const isOpen   = dayEntries.some((e) => !e.clocked_out_at);
+
+                        return (
+                          <div key={d} className={`px-4 py-2.5 ${d === today ? "bg-amber/5" : ""}`}>
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-600 text-mist">{DAY_NAMES[i]} · {fmtDate(d)}</span>
+                              <span className={`text-sm font-700 ${isOpen ? "text-green-600" : "text-forge"}`}>
+                                {isOpen ? `${dayHours.toFixed(1)}h…` : `${dayHours.toFixed(1)}h`}
+                              </span>
+                            </div>
+                            {dayEntries.map((e) => (
+                              <div key={e.id} className="flex items-center justify-between mt-0.5">
+                                <span className="text-xs text-mist">
+                                  {fmtTime(e.clocked_in_at)} – {e.clocked_out_at ? fmtTime(e.clocked_out_at) : <span className="text-green-600 font-600">now</span>}
+                                </span>
+                                {e.notes && <span className="text-xs text-mist truncate max-w-[120px]">{e.notes}</span>}
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })
                     )}
                   </div>
                 </div>
