@@ -23,10 +23,13 @@ export default defineConfig({
   projects: [
     {
       name: "setup",
-      testMatch: /.*\.setup\.ts/,
+      testMatch: /.*auth\.setup\.ts/,
     },
     {
-      name: "owner",
+      // Creates minimum test data (estimate + job) so data-dependent tests
+      // run instead of skipping. Non-fatal if API calls fail.
+      name: "seed",
+      testMatch: /.*seed\.setup\.ts/,
       use: {
         ...devices["Desktop Chrome"],
         storageState: "e2e/.auth/owner.json",
@@ -34,8 +37,16 @@ export default defineConfig({
       dependencies: ["setup"],
     },
     {
+      name: "owner",
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "e2e/.auth/owner.json",
+      },
+      dependencies: ["setup", "seed"],
+    },
+    {
       name: "portal",
-      testMatch: /.*portal-invoice\.spec\.ts/,
+      testMatch: /.*portal-(invoice|dashboard)\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
       },

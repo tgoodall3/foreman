@@ -42,18 +42,17 @@ test.describe("Work order flow", () => {
     await pendingLink.click();
     await expect(page).toHaveURL(/\/owner\/work-orders\/[a-f0-9-]+/, { timeout: 10_000 });
 
-    let acceptStatus: number | null = null;
-    page.on("response", (response) => {
-      if (response.url().includes("/api/work-orders/action")) {
-        acceptStatus = response.status();
-      }
-    });
-
     const acceptBtn = page.getByRole("button", { name: /accept/i }).first();
     if (!(await acceptBtn.isVisible({ timeout: 3_000 }).catch(() => false))) {
       test.skip();
       return;
     }
+
+    const acceptResponsePromise = page.waitForResponse(
+      (r) => r.url().includes("/api/work-orders/action"),
+      { timeout: 10_000 }
+    ).catch(() => null);
+
     await acceptBtn.click();
 
     // Confirm dialog
@@ -62,11 +61,10 @@ test.describe("Work order flow", () => {
       await confirmBtn.click();
     }
 
-    await page.waitForTimeout(3_000);
-
-    if (acceptStatus !== null) {
-      expect(acceptStatus, "Accept work order should not 500").not.toBe(500);
-      expect(acceptStatus, "Accept work order should succeed").toBe(200);
+    const acceptResponse = await acceptResponsePromise;
+    if (acceptResponse) {
+      expect(acceptResponse.status()).not.toBe(500);
+      expect(acceptResponse.status()).toBe(200);
     }
 
     await expect(page.getByText(/failed|error|500/i).first()).not.toBeVisible();

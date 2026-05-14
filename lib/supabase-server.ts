@@ -13,7 +13,10 @@ export async function createServerSideClient() {
         },
         set(name, value, options) {
           try {
-            cookieStore.set(name, value, options);
+            cookieStore.set(name, value, {
+              ...options,
+              secure: process.env.NODE_ENV === "production",
+            });
           } catch {}
         },
         remove(name, options) {

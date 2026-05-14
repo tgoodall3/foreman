@@ -123,5 +123,5 @@ export async function POST(req: NextRequest) {
     return errorResponse("Failed to create estimate.", 500);
   }
 
-  return jsonResponse({ success: true, estimateId: estimate.id }, 201);
+  return jsonResponse({ success: true, estimateId: estimate.id, pmId }, 201);
 }

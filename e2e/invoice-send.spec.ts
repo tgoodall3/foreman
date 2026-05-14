@@ -43,34 +43,30 @@ test.describe("Invoice — send flow", () => {
     await firstLink.click();
     await expect(page).toHaveURL(/\/owner\/invoices\/[a-f0-9-]+/, { timeout: 10_000 });
 
-    // Intercept the send API call to capture the response code
-    let sendStatus: number | null = null;
-    page.on("response", (response) => {
-      if (response.url().includes("/api/invoices/") && response.url().includes("/send")) {
-        sendStatus = response.status();
-      }
-    });
-
     // Click send button
     const sendBtn = page.getByRole("button", { name: /send invoice|send email/i }).first();
     if (!(await sendBtn.isVisible({ timeout: 3_000 }).catch(() => false))) {
       test.skip();
       return;
     }
+
+    // Confirm modal if present, then capture the API response
+    const sendResponsePromise = page.waitForResponse(
+      (r) => r.url().includes("/api/invoices/") && r.url().includes("/send"),
+      { timeout: 10_000 }
+    ).catch(() => null);
+
     await sendBtn.click();
 
-    // Confirm modal if present
     const confirmBtn = page.getByRole("button", { name: /confirm|send/i }).last();
     if (await confirmBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
       await confirmBtn.click();
     }
 
-    // Wait for the network call to complete
-    await page.waitForTimeout(3_000);
-
-    if (sendStatus !== null) {
-      expect(sendStatus, "Send invoice API should not return 400").not.toBe(400);
-      expect(sendStatus, "Send invoice API should succeed").toBe(200);
+    const sendResponse = await sendResponsePromise;
+    if (sendResponse) {
+      expect(sendResponse.status()).not.toBe(400); // should not 400
+      expect(sendResponse.status()).toBe(200);     // should succeed
     }
 
     // No error message on screen
