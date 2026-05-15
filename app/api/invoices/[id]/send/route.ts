@@ -231,7 +231,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const { data, error } = await resend.emails.send({
       from: `${tenant?.name ?? "Foreman"} <${fromAddress}>`,
       to: managerEmail,
-      reply_to: invoice.property_managers?.email || undefined,
+      replyTo: invoice.property_managers?.email || undefined,
       subject: `Invoice ${invoiceNumber} from ${tenant?.name ?? "Foreman"} — ${total} due ${dueDate}`,
       html,
     });
