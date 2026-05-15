@@ -78,23 +78,26 @@ test.describe("Change orders — owner flow", () => {
       test.skip();
       return;
     }
-    await titleInput.fill("E2E Test Change Order");
+    await titleInput.pressSequentially("E2E Test Change Order");
 
-    // Fill line item description
-    const descInput = page.locator("input[placeholder*='labor' i], input[placeholder*='description' i], input[placeholder*='material' i]").first();
+    // Fill line item description — pressSequentially fires per-keystroke onChange (more reliable than fill)
+    const descInput = page.locator("input[placeholder='Item description']").first();
     if (await descInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await descInput.fill("Additional labor");
+      await descInput.pressSequentially("Additional labor");
     }
 
     // Fill line item unit price
     const priceInput = page.locator("input[placeholder='0.00']").first();
     if (await priceInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await priceInput.fill("500");
+      await priceInput.pressSequentially("500");
     }
 
-    // Submit and capture the API response
+    // Wait for React to re-render the button as enabled after filling the title.
+    // isEnabled() returns immediately without waiting; toBeEnabled() polls.
     const submitBtn = page.getByRole("button", { name: /create|save|submit/i }).first();
-    if (!(await submitBtn.isEnabled({ timeout: 8_000 }).catch(() => false))) {
+    try {
+      await expect(submitBtn).toBeEnabled({ timeout: 8_000 });
+    } catch {
       test.skip();
       return;
     }
@@ -120,7 +123,7 @@ test.describe("Change orders — owner flow", () => {
     await gotoSafe(page, "/owner/jobs");
 
     const firstJob = page.locator("main a[href*='/owner/jobs/']:not([href$='/new']):visible").first();
-    if (!(await firstJob.isVisible({ timeout: 8_000 }).catch(() => false))) {
+    if (!(await firstJob.isVisible({ timeout: 15_000 }).catch(() => false))) {
       test.skip();
       return;
     }

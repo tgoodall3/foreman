@@ -86,6 +86,18 @@ export default function BillingGapClient({ jobs: initialJobs }: { jobs: Job[] })
         </div>
       </div>
 
+      <div className="flex items-center gap-2 flex-wrap">
+        {(["revenue", "jobs-to-invoice", "estimate-conversion"] as const).map((key) => {
+          const labels = { revenue: "Revenue", "jobs-to-invoice": "Billing Gap", "estimate-conversion": "Conversions" };
+          const hrefs  = { revenue: "/owner/reports/revenue", "jobs-to-invoice": "/owner/reports/jobs-to-invoice", "estimate-conversion": "/owner/reports/estimate-conversion" };
+          return (
+            <a key={key} href={hrefs[key]} className={`px-4 py-1.5 rounded-full text-sm font-600 transition-colors ${key === "jobs-to-invoice" ? "bg-forge text-white" : "text-mist hover:text-forge border border-gray-200 hover:border-forge"}`}>
+              {labels[key]}
+            </a>
+          );
+        })}
+      </div>
+
       {!jobs.length ? (
         <div className="surface-empty">
           All completed jobs are invoiced.

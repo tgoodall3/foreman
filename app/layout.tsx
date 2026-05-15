@@ -10,6 +10,7 @@ import { Analytics } from "@vercel/analytics/next";
 export function generateMetadata(): Metadata {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://foremanapp.io";
   return {
+    metadataBase: new URL(appUrl),
     title: { default: "Foreman", template: "%s | Foreman" },
     description: "Field service management for general contractors",
     icons: {

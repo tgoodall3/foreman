@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireOwner } from "@/lib/auth";
 import { createServerSideClient } from "@/lib/supabase-server";
@@ -8,8 +8,9 @@ import WorkOrderInlineActions from "@/components/owner/WorkOrderInlineActions";
 import MessagePM from "@/components/owner/MessagePM";
 import QuickAssign from "@/components/owner/QuickAssign";
 import { getServerT } from "@/lib/i18n/server";
+import { Briefcase, FileText, Receipt, CalendarDays, ChevronRight, type LucideIcon } from "lucide-react";
 
-const ROW_CARD_CLASS = "block rounded-xl border border-gray-200/80 px-3 py-3 transition-colors hover:bg-gray-50";
+const ROW_CARD_CLASS = "block rounded-xl border border-gray-200/80 px-3 py-3 transition-all hover:bg-gray-50 hover:shadow-sm";
 const ROW_TITLE_CLASS = "line-clamp-1 text-sm font-700 text-forge";
 const ROW_META_CLASS = "mt-1 line-clamp-1 text-xs text-mist";
 
@@ -18,7 +19,6 @@ export default async function OwnerToday() {
   const supabase = await createServerSideClient();
   const t = await getServerT();
 
-  // Redirect brand-new tenants to onboarding
   const [{ count: workerCount }, { count: pmCount }] = await Promise.all([
     supabase.from("profiles").select("id", { count: "exact", head: true })
       .eq("tenant_id", profile.tenant_id).eq("role", "worker"),
@@ -41,43 +41,47 @@ export default async function OwnerToday() {
     .eq("tenant_id", profile.tenant_id)
     .is("clocked_out_at", null);
 
-  const quickActions = [
-    { href: "/owner/jobs/new", label: t("dashboard.newJob") },
-    { href: "/owner/estimates/new", label: t("dashboard.newEstimate") },
-    { href: "/owner/invoices/new", label: t("dashboard.newInvoice") },
-    { href: "/owner/schedule", label: t("nav.schedule") },
+  const quickActions: { href: string; label: string; icon: LucideIcon }[] = [
+    { href: "/owner/jobs/new",       label: t("dashboard.newJob"),      icon: Briefcase   },
+    { href: "/owner/estimates/new",  label: t("dashboard.newEstimate"), icon: FileText    },
+    { href: "/owner/invoices/new",   label: t("dashboard.newInvoice"),  icon: Receipt     },
+    { href: "/owner/schedule",       label: t("nav.schedule"),          icon: CalendarDays },
   ];
 
   return (
     <div className="page-shell page-shell-standard lg:p-8">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+
+      {/* Hero header — dark card */}
+      <div className="rounded-2xl bg-gradient-to-br from-forge to-forge-light px-4 py-5 sm:px-6 sm:py-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-mist font-700">{t("dashboard.todayLabel")}</p>
-          <h1 className="font-display font-800 text-3xl text-forge leading-tight">{formatDate(today)}</h1>
+          <p className="text-[11px] uppercase tracking-[0.25em] text-amber font-700">{t("dashboard.todayLabel")}</p>
+          <h1 className="font-display font-800 text-3xl text-white leading-tight mt-0.5">{formatDate(today)}</h1>
         </div>
         <div className="grid grid-cols-2 sm:flex sm:items-center gap-2">
-          <Kpi label={t("dashboard.jobsToday")} value={todayJobs.length} tone="forge" />
-          <Kpi label={t("dashboard.unassigned")} value={unassignedToday} tone={unassignedToday ? "amber" : "steel"} />
-          <Kpi label={t("dashboard.clockedIn")} value={clockedInCount ?? 0} tone={(clockedInCount ?? 0) ? "green" : "steel"} />
-          <Kpi label={t("dashboard.overdueInv")} value={overdueCount} tone={overdueCount ? "red" : "steel"} />
+          <Kpi label={t("dashboard.jobsToday")}  value={todayJobs.length}       tone="neutral" />
+          <Kpi label={t("dashboard.unassigned")} value={unassignedToday}         tone={unassignedToday ? "amber" : "neutral"} />
+          <Kpi label={t("dashboard.clockedIn")}  value={clockedInCount ?? 0}     tone={(clockedInCount ?? 0) ? "green" : "neutral"} />
+          <Kpi label={t("dashboard.overdueInv")} value={overdueCount}            tone={overdueCount ? "red" : "neutral"} />
         </div>
       </div>
 
+      {/* Quick Actions */}
       <section className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-        <header className="px-3 py-3 sm:px-4 border-b border-gray-100">
-          <p className="text-xs text-mist uppercase tracking-wide font-700">{t("dashboard.quickActions")}</p>
+        <header className="px-4 py-3 sm:px-5 border-b border-gray-100">
+          <h2 className="font-display font-700 text-base text-forge">{t("dashboard.quickActions")}</h2>
         </header>
-        <div className="space-y-3 p-3 sm:p-4">
+        <div className="space-y-3 p-4 sm:p-5">
           <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-            {quickActions.map((action) => (
+            {quickActions.map(({ href, label, icon: Icon }) => (
               <Link
-                key={action.href}
-                href={action.href}
-                className="flex min-h-[52px] items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-600 text-forge transition-all hover:border-amber hover:text-amber"
+                key={href}
+                href={href}
+                className="group flex min-h-[56px] items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-600 text-forge transition-all hover:border-amber hover:bg-white hover:shadow-sm"
               >
-                <span className="inline-block h-2 w-2 rounded-full bg-amber" aria-hidden />
-                {action.label}
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber/15 text-amber transition-colors group-hover:bg-amber group-hover:text-forge">
+                  <Icon className="h-4 w-4" />
+                </span>
+                {label}
               </Link>
             ))}
           </div>
@@ -110,28 +114,31 @@ export default async function OwnerToday() {
         </div>
       </section>
 
+      {/* Jobs */}
       <section className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-        <header className="flex items-center justify-between px-3 py-3 sm:px-4 border-b border-gray-100">
+        <header className="flex items-center justify-between px-4 py-3 sm:px-5 border-b border-gray-100">
           <div>
-            <p className="text-xs text-mist uppercase tracking-wide font-700">{t("nav.jobs")}</p>
-            <p className="text-sm text-steel">
-              {todayJobs.length + upcomingJobs.length > 0 ? `${todayJobs.length} today, ${upcomingJobs.length} next` : t("dashboard.nothingScheduled")}
+            <h2 className="font-display font-700 text-base text-forge">{t("nav.jobs")}</h2>
+            <p className="text-xs text-mist mt-0.5">
+              {todayJobs.length + upcomingJobs.length > 0
+                ? `${todayJobs.length} today, ${upcomingJobs.length} next`
+                : t("dashboard.nothingScheduled")}
             </p>
           </div>
-          <Link href="/owner/schedule" className="text-xs font-700 text-amber hover:underline">{t("dashboard.openSchedule")} →</Link>
+          <Link href="/owner/schedule" className="inline-flex items-center gap-1.5 rounded-lg bg-forge px-3 py-1.5 text-xs font-700 text-white hover:bg-forge-light transition-colors">{t("dashboard.openSchedule")} →</Link>
         </header>
 
         <div className="divide-y divide-gray-100">
           <div>
-            <div className="px-3 py-2 sm:px-4 bg-gray-50/80 border-b border-gray-100">
-              <p className="text-[11px] text-mist uppercase tracking-[0.18em] font-700">Today</p>
+            <div className="px-4 py-2 sm:px-5 bg-amber/5 border-b border-amber/10">
+              <p className="text-[11px] text-amber-dark uppercase tracking-[0.18em] font-700">Today</p>
             </div>
             {todayJobs.length === 0 ? (
-              <div className="p-5 text-center text-mist text-sm">{t("dashboard.scheduleTodayNote")}</div>
+              <div className="p-6 text-center text-mist text-sm">{t("dashboard.scheduleTodayNote")}</div>
             ) : (
               <div className="divide-y divide-gray-100">
                 {todayJobs.map((job: any) => {
-                  const statusCfg = JOB_STATUS_CONFIG[job.status as keyof typeof JOB_STATUS_CONFIG];
+                  const statusCfg   = JOB_STATUS_CONFIG[job.status as keyof typeof JOB_STATUS_CONFIG];
                   const priorityCfg = PRIORITY_CONFIG[job.priority as keyof typeof PRIORITY_CONFIG];
                   const prop = Array.isArray(job.properties) ? job.properties[0] : job.properties;
                   const isUnassigned = !job.assigned_workers || job.assigned_workers.length === 0;
@@ -140,13 +147,8 @@ export default async function OwnerToday() {
                     .filter(Boolean);
 
                   return (
-                    <div key={job.id} className="space-y-2 px-2 py-2 sm:px-3">
-                      <Link
-                        href={`/owner/jobs/${job.id}`}
-                        className={`${ROW_CARD_CLASS} ${
-                          isUnassigned ? "border-amber/40 bg-amber/5" : "border-gray-200/80"
-                        }`}
-                      >
+                    <div key={job.id} className={`mx-3 my-2 sm:mx-4 rounded-xl border transition-all hover:shadow-sm ${isUnassigned ? "border-amber/40 bg-amber/5" : "border-gray-200/80 bg-white"}`}>
+                      <Link href={`/owner/jobs/${job.id}`} className="block px-3 py-3">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0 space-y-1.5">
                             <p className={ROW_TITLE_CLASS}>{job.title}</p>
@@ -178,7 +180,7 @@ export default async function OwnerToday() {
                         </div>
                       </Link>
 
-                      <div className="px-1 sm:px-0 sm:flex sm:justify-end">
+                      <div className="border-t border-gray-100 px-3 py-2 flex justify-end">
                         <QuickAssign
                           jobId={job.id}
                           scheduledDate={job.scheduled_date}
@@ -195,20 +197,20 @@ export default async function OwnerToday() {
           </div>
 
           <div>
-            <div className="px-3 py-2 sm:px-4 bg-gray-50/80 border-b border-gray-100">
+            <div className="px-4 py-2 sm:px-5 bg-gray-50/80 border-b border-gray-100">
               <p className="text-[11px] text-mist uppercase tracking-[0.18em] font-700">Next</p>
             </div>
             {upcomingJobs.length === 0 ? (
-              <div className="p-5 text-center text-mist text-sm">{t("dashboard.noUpcomingJobs")}</div>
+              <div className="p-6 text-center text-mist text-sm">{t("dashboard.noUpcomingJobs")}</div>
             ) : (
               <div className="divide-y divide-gray-100">
                 {upcomingJobs.map((job: any) => {
-                  const statusCfg = JOB_STATUS_CONFIG[job.status as keyof typeof JOB_STATUS_CONFIG];
+                  const statusCfg   = JOB_STATUS_CONFIG[job.status as keyof typeof JOB_STATUS_CONFIG];
                   const priorityCfg = PRIORITY_CONFIG[job.priority as keyof typeof PRIORITY_CONFIG];
                   const prop = Array.isArray(job.properties) ? job.properties[0] : job.properties;
 
                   return (
-                    <div key={job.id} className="px-2 py-2 sm:px-3">
+                    <div key={job.id} className="px-3 py-2 sm:px-4">
                       <Link
                         href={`/owner/jobs/${job.id}`}
                         className={`flex min-h-[72px] items-center justify-between gap-3 ${ROW_CARD_CLASS}`}
@@ -234,35 +236,31 @@ export default async function OwnerToday() {
         </div>
       </section>
 
+      {/* Work Orders */}
       <section className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-        <header className="flex items-center justify-between px-3 py-3 sm:px-4 border-b border-gray-100">
+        <header className="flex items-center justify-between px-4 py-3 sm:px-5 border-b border-gray-100">
           <div>
-            <p className="text-xs text-mist uppercase tracking-wide font-700">{t("nav.workOrders")}</p>
-            <p className="text-sm text-steel">{t("workOrders.pendingTab")}</p>
+            <h2 className="font-display font-700 text-base text-forge">{t("nav.workOrders")}</h2>
+            <p className="text-xs text-mist mt-0.5">{t("workOrders.pendingTab")}</p>
           </div>
-          <Link href="/owner/work-orders" className="text-xs font-700 text-amber hover:underline">{t("common.open")} →</Link>
+          <Link href="/owner/work-orders" className="inline-flex items-center gap-1.5 rounded-lg bg-forge px-3 py-1.5 text-xs font-700 text-white hover:bg-forge-light transition-colors">{t("common.open")} →</Link>
         </header>
         <div className="divide-y divide-gray-100">
           {!workOrders?.length ? (
-            <div className="p-5 text-center text-mist text-sm">{t("workOrders.noWorkOrders")}</div>
+            <div className="p-6 text-center text-mist text-sm">{t("workOrders.noWorkOrders")}</div>
           ) : (
             workOrders.map((wo: any) => {
               const priorityCfg = PRIORITY_CONFIG[wo.priority as keyof typeof PRIORITY_CONFIG];
-              const pm = Array.isArray(wo.property_managers) ? wo.property_managers[0] : wo.property_managers;
+              const pm   = Array.isArray(wo.property_managers) ? wo.property_managers[0] : wo.property_managers;
               const prop = Array.isArray(wo.properties) ? wo.properties[0] : wo.properties;
 
               return (
-                <div key={wo.id} className="space-y-2 px-2 py-2 sm:px-3">
-                  <Link
-                    href={`/owner/work-orders/${wo.id}`}
-                    className={ROW_CARD_CLASS}
-                  >
+                <div key={wo.id} className="space-y-2 px-3 py-2 sm:px-4">
+                  <Link href={`/owner/work-orders/${wo.id}`} className={ROW_CARD_CLASS}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className={ROW_TITLE_CLASS}>{wo.title}</p>
-                        <p className={ROW_META_CLASS}>
-                          {pm?.full_name}{prop?.name ? ` · ${prop.name}` : ""}
-                        </p>
+                        <p className={ROW_META_CLASS}>{pm?.full_name}{prop?.name ? ` · ${prop.name}` : ""}</p>
                       </div>
                       <span className={`badge shrink-0 ${priorityCfg.bg} ${priorityCfg.color}`}>{priorityCfg.label}</span>
                     </div>
@@ -285,11 +283,12 @@ export default async function OwnerToday() {
         </div>
       </section>
 
+      {/* Billing */}
       <section className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-        <header className="px-3 py-3 sm:px-4 border-b border-gray-100">
-          <p className="text-xs text-mist uppercase tracking-wide font-700">{t("dashboard.billing")}</p>
+        <header className="px-4 py-3 sm:px-5 border-b border-gray-100">
+          <h2 className="font-display font-700 text-base text-forge">{t("dashboard.billing")}</h2>
         </header>
-        <div className="grid gap-2 p-3 sm:grid-cols-2 sm:p-4 xl:grid-cols-3">
+        <div className="grid gap-2 p-4 sm:grid-cols-2 sm:p-5 xl:grid-cols-3">
           <ActionCard
             title={t("dashboard.overdueInvoices")}
             count={overdueCount}
@@ -316,14 +315,13 @@ export default async function OwnerToday() {
         </div>
       </section>
 
+      {/* Metrics — mobile collapsible */}
       <details className="group rounded-2xl border border-gray-200 bg-white shadow-sm md:hidden [&_summary::-webkit-details-marker]:hidden">
         <summary className="list-none cursor-pointer px-3 py-3">
           <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 transition-colors group-open:bg-white group-open:border-gray-300">
             <div className="min-w-0">
               <p className="text-xs text-mist uppercase tracking-wide font-700">{t("dashboard.metricsHealth")}</p>
-              <p className="mt-1 text-sm text-steel">
-                {t("dashboard.tapToExpand")}
-              </p>
+              <p className="mt-1 text-sm text-steel">{t("dashboard.tapToExpand")}</p>
               <p className="mt-1 text-xs text-mist">
                 {formatCurrency(metrics.revenueThisMonth)} revenue · {formatCurrency(metrics.outstanding)} outstanding
               </p>
@@ -342,42 +340,38 @@ export default async function OwnerToday() {
             <p className="text-[11px] font-700 uppercase tracking-[0.16em] text-steel">{t("dashboard.expandedMetrics")}</p>
             <span className="text-[11px] font-700 text-mist">{t("dashboard.tapToCollapse")}</span>
           </div>
-          <MetricsHealthContent
-            metrics={metrics}
-            overdueCount={overdueCount}
-            t={t}
-          />
+          <MetricsHealthContent metrics={metrics} overdueCount={overdueCount} t={t} />
         </div>
       </details>
 
+      {/* Metrics — desktop */}
       <section className="hidden rounded-2xl border border-gray-200 bg-white shadow-sm md:block">
-        <header className="px-4 py-3 border-b border-gray-100">
-          <p className="text-xs text-mist uppercase tracking-wide font-700">{t("dashboard.metricsHealth")}</p>
+        <header className="px-4 py-3 sm:px-5 border-b border-gray-100">
+          <h2 className="font-display font-700 text-base text-forge">{t("dashboard.metricsHealth")}</h2>
         </header>
-        <div className="p-4">
-          <MetricsHealthContent
-            metrics={metrics}
-            overdueCount={overdueCount}
-            t={t}
-          />
+        <div className="p-4 sm:p-5">
+          <MetricsHealthContent metrics={metrics} overdueCount={overdueCount} t={t} />
         </div>
       </section>
     </div>
   );
 }
 
-function Kpi({ label, value, tone }: { label: string; value: number | string; tone: "forge" | "amber" | "green" | "red" | "steel"; }) {
+function Kpi({ label, value, tone }: {
+  label: string;
+  value: number | string;
+  tone: "neutral" | "amber" | "green" | "red";
+}) {
   const styles = {
-    forge: "bg-forge text-white",
-    amber: "bg-amber text-forge",
-    green: "bg-green-100 text-green-800",
-    red:   "bg-red-100 text-red-700",
-    steel: "bg-steel text-white",
+    neutral: "bg-white/10 text-white border-white/10",
+    amber:   "bg-amber text-forge border-amber",
+    green:   "bg-emerald-400/25 text-emerald-100 border-emerald-400/20",
+    red:     "bg-red-400/25 text-red-100 border-red-400/20",
   } as const;
   return (
-    <div className={`rounded-xl px-3 py-2 border border-transparent text-left ${styles[tone]}`}>
-      <p className="text-[11px] uppercase tracking-wider font-700 opacity-80">{label}</p>
-      <p className="font-display font-800 text-xl leading-tight">{value}</p>
+    <div className={`rounded-xl px-3 py-2.5 border ${styles[tone]}`}>
+      <p className="text-[10px] uppercase tracking-widest font-700 opacity-70 leading-none mb-1">{label}</p>
+      <p className="font-display font-800 text-2xl leading-none">{value}</p>
     </div>
   );
 }
@@ -386,29 +380,35 @@ function ActionCard({ title, count, body, href, cta, tone = "gray" }: {
   title: string; count: number | string; body: string; href: string; cta: string; tone?: "gray" | "red" | "amber";
 }) {
   const styles = {
-    red:   { border: "border-red-200",  bg: "bg-red-50/80", text: "text-red-800", cta: "text-red-700" },
-    amber: { border: "border-amber/60", bg: "bg-amber/20",  text: "text-amber-900", cta: "text-amber-900" },
-    gray:  { border: "border-gray-200", bg: "bg-white",     text: "text-forge", cta: "text-amber-dark" },
+    red:   { border: "border-red-200",  bg: "bg-red-50/80",  badge: "bg-red-100 text-red-700",   cta: "text-red-700"    },
+    amber: { border: "border-amber/60", bg: "bg-amber/10",   badge: "bg-amber text-forge",        cta: "text-amber-dark" },
+    gray:  { border: "border-gray-200", bg: "bg-white",      badge: "bg-forge text-white",        cta: "text-amber-dark" },
   } as const;
   const style = styles[tone];
   return (
-    <Link href={href} className={`rounded-2xl border ${style.border} ${style.bg} shadow-sm p-4 flex min-h-[112px] items-center justify-between gap-3 transition-all hover:shadow-md hover:-translate-y-[1px]`}>
+    <Link
+      href={href}
+      className={`rounded-2xl border ${style.border} ${style.bg} p-4 flex min-h-[112px] items-center justify-between gap-3 transition-all hover:shadow-md hover:-translate-y-[1px]`}
+    >
       <div className="min-w-0">
-        <div className="flex items-center gap-2 text-sm font-700 text-forge">
-          <span className="inline-block w-2 h-2 rounded-full bg-current opacity-60" aria-hidden />
-          <span>{title}</span>
+        <p className="flex items-center gap-1 text-sm font-700 text-forge">
+          {title}
+          <ChevronRight className="h-3.5 w-3.5 text-steel shrink-0" />
+        </p>
+        <p className={`text-xs mt-1 ${tone === "red" ? "text-red-600" : tone === "amber" ? "text-amber-900" : "text-mist"}`}>{body}</p>
+      </div>
+      {typeof count === "number" && (
+        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl font-display font-800 text-2xl ${count === 0 ? "bg-gray-100 text-gray-400" : style.badge}`}>
+          {count}
         </div>
-        <p className={`text-xs mt-1 ${tone === "red" ? "text-red-700" : tone === "amber" ? "text-amber-900" : "text-mist"}`}>{body}</p>
-      </div>
-      <div className="flex flex-col items-end gap-2">
-        <span className={`px-2 py-1 rounded-lg text-xs font-700 ${style.text} bg-white/60 border border-black/5`}>{count}</span>
-        <span className={`text-xs font-700 ${style.cta}`}>{cta} →</span>
-      </div>
+      )}
     </Link>
   );
 }
 
-function Metric({ label, value, sub, accent, urgent }: { label: string; value: string | number; sub?: string; accent?: boolean; urgent?: boolean; }) {
+function Metric({ label, value, sub, accent, urgent }: {
+  label: string; value: string | number; sub?: string; accent?: boolean; urgent?: boolean;
+}) {
   return (
     <div className={`rounded-xl border p-3 ${urgent ? "border-red-200 bg-red-50/30" : "border-gray-200"}`}>
       <p className="text-xs text-mist uppercase tracking-wider font-700 leading-tight">{label}</p>
@@ -446,11 +446,11 @@ function MetricsHealthContent({ metrics, overdueCount, t }: {
         cta={t("dashboard.openReport")}
       />
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <Metric label={t("dashboard.revenueLabel")} value={formatCurrency(metrics.revenueThisMonth)} accent />
-        <Metric label={t("dashboard.outstanding")} value={formatCurrency(metrics.outstanding)} urgent={overdueCount > 0} />
-        <Metric label={t("dashboard.jobsDone")} value={metrics.completedThisMonth} sub={metrics.avgJobHours != null ? `avg ${metrics.avgJobHours.toFixed(1)}h` : undefined} />
-        <Metric label={t("dashboard.workersActive")} value={metrics.activeWorkers} sub={t("dashboard.active")} />
-        <Metric label={t("dashboard.estimateWinRate")} value={`${metrics.estimateWinRate}%`} sub={`${metrics.estimateTotals} sent`} />
+        <Metric label={t("dashboard.revenueLabel")}     value={formatCurrency(metrics.revenueThisMonth)} accent />
+        <Metric label={t("dashboard.outstanding")}      value={formatCurrency(metrics.outstanding)} urgent={overdueCount > 0} />
+        <Metric label={t("dashboard.jobsDone")}         value={metrics.completedThisMonth} sub={metrics.avgJobHours != null ? `avg ${metrics.avgJobHours.toFixed(1)}h` : undefined} />
+        <Metric label={t("dashboard.workersActive")}    value={metrics.activeWorkers} sub={t("dashboard.active")} />
+        <Metric label={t("dashboard.estimateWinRate")}  value={`${metrics.estimateWinRate}%`} sub={`${metrics.estimateTotals} sent`} />
       </div>
     </div>
   );

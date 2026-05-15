@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
 
   const { data: job } = await supabase
     .from("jobs")
-    .select("id, property_manager_id")
+    .select("id, properties(property_manager_id)")
     .eq("id", jobId)
     .eq("tenant_id", profile.tenant_id)
     .single();
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     .insert({
       tenant_id:           profile.tenant_id,
       job_id:              jobId,
-      property_manager_id: job.property_manager_id ?? null,
+      property_manager_id: (job.properties as any)?.property_manager_id ?? null,
       change_order_number: generateChangeOrderNumber(tenant.slug, (count ?? 0) + 1),
       title:               title.trim(),
       description:         description?.trim() || null,

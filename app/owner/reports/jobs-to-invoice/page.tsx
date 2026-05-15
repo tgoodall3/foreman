@@ -17,33 +17,5 @@ export default async function JobsToInvoicePage() {
     .is("invoice_id", null)
     .order("updated_at", { ascending: false });
 
-  return (
-    <>
-      <ReportTabs active="jobs-to-invoice" />
-      <BillingGapClient jobs={(jobs ?? []) as any[]} />
-    </>
-  );
-}
-
-function ReportTabs({ active }: { active: "revenue" | "jobs-to-invoice" | "estimate-conversion" }) {
-  const tabs = [
-    { key: "revenue" as const, label: "Revenue", href: "/owner/reports/revenue" },
-    { key: "jobs-to-invoice" as const, label: "Billing Gap", href: "/owner/reports/jobs-to-invoice" },
-    { key: "estimate-conversion" as const, label: "Conversions", href: "/owner/reports/estimate-conversion" },
-  ];
-  return (
-    <div className="flex items-center gap-2 flex-wrap mb-5">
-      {tabs.map((tab) => (
-        <a
-          key={tab.key}
-          href={tab.href}
-          className={`px-4 py-1.5 rounded-full text-sm font-600 transition-colors ${
-            active === tab.key ? "bg-forge text-white" : "text-mist hover:text-forge border border-gray-200 hover:border-forge"
-          }`}
-        >
-          {tab.label}
-        </a>
-      ))}
-    </div>
-  );
+  return <BillingGapClient jobs={(jobs ?? []) as any[]} />;
 }

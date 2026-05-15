@@ -168,16 +168,8 @@ export default function NotificationBell() {
           currentIds.has(n.id) ||
           (currentReadAllBefore !== null && new Date(n.createdAt).getTime() <= currentReadAllBefore);
 
-        // Snapshot the unread ones to show this session
+        // Show unread notifications without marking them as read yet
         setVisibleNotifs(fresh.filter((n) => !isReadNow(n)));
-
-        // Mark all as read so they don't come back
-        const next = new Set(currentIds);
-        fresh.forEach((n) => next.add(n.id));
-        const ts = Date.now();
-        saveReadState(next, ts);
-        setReadIds(next);
-        setReadAllBefore(ts);
       }
     } catch {}
     setLoading(false);
@@ -235,6 +227,11 @@ export default function NotificationBell() {
                     key={n.id}
                     href={n.href}
                     onClick={() => {
+                      const { ids: currentIds, readAllBefore: rab } = loadReadState();
+                      const next = new Set(currentIds);
+                      next.add(n.id);
+                      saveReadState(next, rab);
+                      setReadIds(next);
                       setVisibleNotifs((prev) => prev.filter((x) => x.id !== n.id));
                       setOpen(false);
                     }}
