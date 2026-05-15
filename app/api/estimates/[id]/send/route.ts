@@ -21,7 +21,8 @@ function escHtml(str: string): string {
     .replace(/"/g, "&quot;");
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const profile = await requireOwner();
   if (!(await checkRateLimit(`email-send:${profile.id}`, 20, 60 * 60 * 1000))) {
     return errorResponse("Too many emails sent. Please wait before sending more.", 429);
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     supabase
       .from("estimates")
       .select("*, property_managers(full_name, email), properties(name, address, city, state)")
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("tenant_id", profile.tenant_id)
       .single(),
     serviceClient.from("tenants").select("name").eq("id", profile.tenant_id).single(),
@@ -217,7 +218,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const { error: emailError } = await resend.emails.send({
       from: `${tenantData?.name ?? "Foreman"} <${fromAddress}>`,
       to:   toEmail,
-      reply_to: pm?.email || undefined,
+      replyTo: pm?.email || undefined,
       subject: `Estimate ${escHtml(estimate.estimate_number)} from ${tenantData?.name ?? "your contractor"} — ${total}`,
       html,
     });
@@ -234,7 +235,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   await supabase
     .from("estimates")
     .update({ status: "sent" })
-    .eq("id", params.id)
+    .eq("id", id)
     .eq("tenant_id", profile.tenant_id);
 
   return jsonResponse({ success: true });

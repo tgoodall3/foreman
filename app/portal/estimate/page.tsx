@@ -6,8 +6,9 @@ import PortalEstimateClient from "./PortalEstimateClient";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export default async function PortalEstimatePage({ searchParams }: { searchParams: { token?: string; result?: string } }) {
-  if (!searchParams.token) {
+export default async function PortalEstimatePage({ searchParams }: { searchParams: Promise<{ token?: string; result?: string }> }) {
+  const { token, result } = await searchParams;
+  if (!token) {
     notFound();
   }
 
@@ -15,7 +16,7 @@ export default async function PortalEstimatePage({ searchParams }: { searchParam
   const { data: estimate } = await supabase
     .from("estimates")
     .select("id, title, estimate_number, status, total, subtotal, tax_rate, tax_amount, description, notes, valid_until, approval_token, line_items, property_managers(full_name, email, company, phone), properties(name, address, city, state), tenants(name)")
-    .eq("approval_token", searchParams.token)
+    .eq("approval_token", token)
     .single();
 
   if (!estimate) notFound();
@@ -34,8 +35,8 @@ export default async function PortalEstimatePage({ searchParams }: { searchParam
       pm={pm}
       prop={prop}
       tenant={tenant}
-      token={searchParams.token}
-      result={searchParams.result ?? terminalResult}
+      token={token}
+      result={result ?? terminalResult}
     />
   );
 }

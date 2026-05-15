@@ -4,11 +4,12 @@ import { formatDate, PRIORITY_CONFIG } from "@/lib/utils";
 import Link from "next/link";
 import { getServerT } from "@/lib/i18n/server";
 
-export default async function WorkOrdersPage({ searchParams }: { searchParams: { past?: string; page?: string } }) {
+export default async function WorkOrdersPage({ searchParams }: { searchParams: Promise<{ past?: string; page?: string }> }) {
+  const { past, page: pageParam } = await searchParams;
   const profile = await requireOwner();
   const t = await getServerT();
-  const showPast = searchParams.past === "1";
-  const page = Math.max(1, Number(searchParams.page || "1"));
+  const showPast = past === "1";
+  const page = Math.max(1, Number(pageParam || "1"));
 
   const { data: workOrders, count } = await getOwnerWorkOrders(profile, {
     pastOnly: showPast,

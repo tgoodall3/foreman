@@ -3,14 +3,15 @@ import { createServerSideClient } from "@/lib/supabase-server";
 import { notFound } from "next/navigation";
 import WorkerJobDetail from "@/components/worker/WorkerJobDetail";
 
-export default async function WorkerJobPage({ params }: { params: { id: string } }) {
+export default async function WorkerJobPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const profile = await requireWorker();
   const supabase = await createServerSideClient();
 
   const { data: job } = await supabase
     .from("jobs")
     .select("*, properties(name, address, city, state)")
-    .eq("id", params.id)
+    .eq("id", id)
     .eq("tenant_id", profile.tenant_id)
     .contains("assigned_workers", [profile.id])
     .single();

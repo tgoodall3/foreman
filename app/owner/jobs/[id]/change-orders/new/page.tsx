@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -8,9 +8,9 @@ interface LineItem { description: string; quantity: number; unit_price: number }
 
 const inp = "w-full min-w-0 border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-amber";
 
-export default function NewChangeOrderPage({ params }: { params: { id: string } }) {
+export default function NewChangeOrderPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
-  const jobId = params.id;
+  const { id: jobId } = use(params);
 
   const [title, setTitle]           = useState("");
   const [description, setDescription] = useState("");

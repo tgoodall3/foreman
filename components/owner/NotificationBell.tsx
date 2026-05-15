@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type JSX } from "react";
 import Link from "next/link";
 import { useLanguage } from "@/lib/i18n";
 

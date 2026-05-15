@@ -11,7 +11,8 @@ const schema = z.object({
   actual_hours: z.number().min(0).max(999),
 });
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const profile = await getProfile();
   if (!profile) return badRequest("Unauthorized");
 
@@ -25,7 +26,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const { data: job } = await supabase
     .from("jobs")
     .select("id, tenant_id, assigned_workers")
-    .eq("id", params.id)
+    .eq("id", id)
     .eq("tenant_id", profile.tenant_id)
     .single();
 
@@ -38,7 +39,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const { error } = await supabase
     .from("jobs")
     .update({ actual_hours: validation.data.actual_hours })
-    .eq("id", params.id);
+    .eq("id", id);
 
   if (error) {
     logError("Hours update failed", error);
@@ -46,7 +47,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 
   // Fire-and-forget: create next occurrence if this is a recurring job
-  maybeCreateNextOccurrence(supabase as any, params.id, profile.tenant_id).catch(() => {});
+  maybeCreateNextOccurrence(supabase as any, id, profile.tenant_id).catch(() => {});
 
   return jsonResponse({ success: true });
 }

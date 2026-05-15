@@ -17,14 +17,15 @@ type WorkOrderPhoto = {
   comment_id?: string;
 };
 
-export default async function WorkOrderDetailPage({ params }: { params: { id: string } }) {
+export default async function WorkOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const profile = await requireOwner();
   const supabase = await createServerSideClient();
 
   const { data: wo, error } = await supabase
     .from("work_orders")
     .select("id, title, description, status, priority, created_at, tenant_id, property_id, photos, property_managers(full_name, email, company, phone), properties(id, name, address, city, state), jobs(id, title, status)")
-    .eq("id", params.id)
+    .eq("id", id)
     .eq("tenant_id", profile.tenant_id)
     .maybeSingle();
 
@@ -34,7 +35,7 @@ export default async function WorkOrderDetailPage({ params }: { params: { id: st
     return (
       <div className="page-shell max-w-3xl">
         <h1 className="font-display font-800 text-2xl text-forge mb-2">Work Order Unavailable</h1>
-        <p className="text-mist text-sm mb-2">ID: {params.id}</p>
+        <p className="text-mist text-sm mb-2">ID: {id}</p>
         <p className="text-mist text-sm">Reason: {reason}.</p>
         {process.env.NODE_ENV !== "production" && (
           <pre className="mt-3 bg-gray-100 border border-gray-200 rounded-lg p-3 text-xs text-steel">

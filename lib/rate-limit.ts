@@ -36,6 +36,8 @@ export async function checkRateLimit(
   limit: number,
   windowMs = 15 * 60 * 1000
 ): Promise<boolean> {
+  if (process.env.DISABLE_RATE_LIMIT === "true") return true;
+
   if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
     try {
       const supabase = createServiceClient();

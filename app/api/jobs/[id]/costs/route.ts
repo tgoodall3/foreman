@@ -6,14 +6,15 @@ import { logError } from "@/lib/logger";
 
 const COST_TYPES = ["material", "subcontractor", "equipment", "other"] as const;
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const profile = await requireOwner();
   const supabase = await createServerSideClient();
 
   const { data: costs, error } = await supabase
     .from("job_costs")
     .select("id, type, description, amount, created_at")
-    .eq("job_id", params.id)
+    .eq("job_id", id)
     .eq("tenant_id", profile.tenant_id)
     .order("created_at");
 
@@ -25,7 +26,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   return jsonResponse({ costs: costs ?? [] });
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const profile = await requireOwner();
   const body = await req.json();
   const { type, description, amount } = body;
@@ -40,7 +42,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const { data: job } = await supabase
     .from("jobs")
     .select("id")
-    .eq("id", params.id)
+    .eq("id", id)
     .eq("tenant_id", profile.tenant_id)
     .single();
 
@@ -50,7 +52,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     .from("job_costs")
     .insert({
       tenant_id:   profile.tenant_id,
-      job_id:      params.id,
+      job_id:      id,
       type,
       description: description.trim(),
       amount:      Math.round((amt + Number.EPSILON) * 100) / 100,

@@ -11,7 +11,8 @@ const schema = z.object({
   assigned_workers: z.array(z.string().uuid()).optional(),
 });
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const profile = await getProfile();
   if (!profile || profile.role !== "owner") return badRequest("Unauthorized");
 
@@ -27,7 +28,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const { data: job } = await supabase
     .from("jobs")
     .select("id, tenant_id")
-    .eq("id", params.id)
+    .eq("id", id)
     .eq("tenant_id", profile.tenant_id)
     .single();
 
@@ -54,7 +55,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const { error } = await supabase
     .from("jobs")
     .update(updates)
-    .eq("id", params.id)
+    .eq("id", id)
     .eq("tenant_id", profile.tenant_id);
 
   if (error) return errorResponse("Failed to update job", 500);

@@ -9,8 +9,9 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 type Action = "approve" | "decline";
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const profile = await requireOwner();
     const { action } = (await req.json().catch(() => ({}))) as { action?: Action };
 
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const { data: request } = await supabase
       .from("time_change_requests")
       .select("id, tenant_id, worker_id, time_entry_id, status, requested_clocked_in_at, requested_clocked_out_at, requested_date, reason")
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("tenant_id", profile.tenant_id)
       .maybeSingle();
 

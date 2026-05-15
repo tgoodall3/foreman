@@ -5,14 +5,15 @@ import PortalChangeOrderClient from "./PortalChangeOrderClient";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export default async function PortalChangeOrderPage({ searchParams }: { searchParams: { token?: string; result?: string } }) {
-  if (!searchParams.token) notFound();
+export default async function PortalChangeOrderPage({ searchParams }: { searchParams: Promise<{ token?: string; result?: string }> }) {
+  const { token, result } = await searchParams;
+  if (!token) notFound();
 
   const supabase = createServiceClient();
   const { data: co } = await supabase
     .from("change_orders")
     .select("id, title, change_order_number, status, total, subtotal, tax_rate, tax_amount, description, notes, approval_token, line_items, property_managers(full_name, email), jobs(title), tenants(name)")
-    .eq("approval_token", searchParams.token)
+    .eq("approval_token", token)
     .single();
 
   if (!co) notFound();
@@ -29,8 +30,8 @@ export default async function PortalChangeOrderPage({ searchParams }: { searchPa
       pm={pm}
       job={job}
       tenant={tenant}
-      token={searchParams.token}
-      result={searchParams.result ?? terminalResult}
+      token={token}
+      result={result ?? terminalResult}
     />
   );
 }

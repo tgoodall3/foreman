@@ -4,7 +4,8 @@ import { requireOwner } from "@/lib/auth";
 import { createServerSideClient } from "@/lib/supabase-server";
 import { logError } from "@/lib/logger";
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const profile = await requireOwner();
   const body = await req.json();
 
@@ -17,7 +18,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const { data: existing } = await supabase
     .from("change_orders")
     .select("id, status")
-    .eq("id", params.id)
+    .eq("id", id)
     .eq("tenant_id", profile.tenant_id)
     .single();
 
@@ -49,7 +50,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       notes:       notes?.trim() || null,
       updated_at:  new Date().toISOString(),
     })
-    .eq("id", params.id)
+    .eq("id", id)
     .eq("tenant_id", profile.tenant_id);
 
   if (error) {
@@ -60,14 +61,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   return jsonResponse({ success: true });
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const profile = await requireOwner();
   const supabase = await createServerSideClient();
 
   const { data: existing } = await supabase
     .from("change_orders")
     .select("id, status")
-    .eq("id", params.id)
+    .eq("id", id)
     .eq("tenant_id", profile.tenant_id)
     .single();
 
@@ -77,7 +79,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   const { error } = await supabase
     .from("change_orders")
     .delete()
-    .eq("id", params.id)
+    .eq("id", id)
     .eq("tenant_id", profile.tenant_id);
 
   if (error) {

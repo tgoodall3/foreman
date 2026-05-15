@@ -10,14 +10,15 @@ import { logError } from "@/lib/logger";
  * Creates a draft invoice for a completed job that has line items + a property manager.
  * Idempotent — does nothing if an invoice already exists.
  */
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const profile  = await requireOwner();
   const supabase = await createServerSideClient();
 
   const { data: job } = await supabase
     .from("jobs")
     .select("id, title, status, invoice_id, line_items, property_id, tenant_id")
-    .eq("id", params.id)
+    .eq("id", id)
     .eq("tenant_id", profile.tenant_id)
     .single();
 

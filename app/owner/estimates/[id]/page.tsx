@@ -6,7 +6,8 @@ import { notFound } from "next/navigation";
 import EstimateActions from "./EstimateActions";
 import { getServerT } from "@/lib/i18n/server";
 
-export default async function EstimateDetailPage({ params }: { params: { id: string } }) {
+export default async function EstimateDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const profile  = await requireOwner();
   const supabase = await createServerSideClient();
   const t = await getServerT();
@@ -14,7 +15,7 @@ export default async function EstimateDetailPage({ params }: { params: { id: str
   const { data: estimate } = await supabase
     .from("estimates")
     .select("*, property_managers(id, full_name, email), properties(name, address, city, state)")
-    .eq("id", params.id)
+    .eq("id", id)
     .eq("tenant_id", profile.tenant_id)
     .single();
 

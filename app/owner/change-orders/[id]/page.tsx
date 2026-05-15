@@ -5,14 +5,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import ChangeOrderActions from "./ChangeOrderActions";
 
-export default async function ChangeOrderDetailPage({ params }: { params: { id: string } }) {
+export default async function ChangeOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const profile  = await requireOwner();
   const supabase = await createServerSideClient();
 
   const { data: co } = await supabase
     .from("change_orders")
     .select("*, property_managers(id, full_name, email), jobs(id, title)")
-    .eq("id", params.id)
+    .eq("id", id)
     .eq("tenant_id", profile.tenant_id)
     .single();
 

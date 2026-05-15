@@ -4,15 +4,16 @@ import { requireOwner } from "@/lib/auth";
 import { createServerSideClient } from "@/lib/supabase-server";
 import { logError } from "@/lib/logger";
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string; costId: string } }) {
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string; costId: string }> }) {
+  const { id, costId } = await params;
   const profile = await requireOwner();
   const supabase = await createServerSideClient();
 
   const { data: existing } = await supabase
     .from("job_costs")
     .select("id")
-    .eq("id", params.costId)
-    .eq("job_id", params.id)
+    .eq("id", costId)
+    .eq("job_id", id)
     .eq("tenant_id", profile.tenant_id)
     .single();
 
@@ -21,7 +22,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   const { error } = await supabase
     .from("job_costs")
     .delete()
-    .eq("id", params.costId)
+    .eq("id", costId)
     .eq("tenant_id", profile.tenant_id);
 
   if (error) {

@@ -25,12 +25,12 @@ function groupByBiweekly<T extends { created_at: string }>(items: T[]) {
   return groups;
 }
 
-export default async function InvoicesPage({ searchParams }: { searchParams: { status?: string; page?: string; past?: string } }) {
+export default async function InvoicesPage({ searchParams }: { searchParams: Promise<{ status?: string; page?: string; past?: string }> }) {
+  const { status, past, page: pageParam } = await searchParams;
   const profile  = await requireOwner();
   const t = await getServerT();
-  const showPast = searchParams.past === "1";
-  const page     = Math.max(1, Number(searchParams.page || "1"));
-  const status   = searchParams.status;
+  const showPast = past === "1";
+  const page     = Math.max(1, Number(pageParam || "1"));
   const totals   = await getOwnerInvoiceTotals(profile);
 
   const now = Date.now();
@@ -132,7 +132,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: { s
       <div className="flex gap-2 mb-5 flex-wrap">
         {[undefined, "draft", "sent", "paid", "overdue"].map((s) => {
           const label = s ? INVOICE_STATUS_CONFIG[s as keyof typeof INVOICE_STATUS_CONFIG].label : t("common.all");
-          const active = (s === undefined && !searchParams.status) || searchParams.status === s;
+          const active = (s === undefined && !status) || status === s;
           return (
             <Link key={s || "all"} href={s ? `/owner/invoices?status=${s}` : "/owner/invoices"}
               className={`px-3 py-1.5 rounded-full text-xs font-600 border transition-colors ${active ? "bg-forge text-white border-forge" : "border-gray-300 text-mist hover:border-gray-400"}`}>

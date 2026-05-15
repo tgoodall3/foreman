@@ -5,7 +5,8 @@ import { badRequest, errorResponse, jsonResponse } from "@/lib/api";
 import { logError } from "@/lib/logger";
 import { getClientIp } from "@/lib/rate-limit";
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const profile = await requireWorker();
   const supabase = await createServerSideClient();
 
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const { data: job } = await supabase
     .from("jobs")
     .select("id, assigned_workers")
-    .eq("id", params.id)
+    .eq("id", id)
     .eq("tenant_id", profile.tenant_id)
     .single();
 
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   };
   const fileExt = EXT_MAP[file.type] ?? "jpg";
   const fileName = `${crypto.randomUUID()}.${fileExt}`;
-  const filePath = `${profile.tenant_id}/${params.id}/${fileName}`;
+  const filePath = `${profile.tenant_id}/${id}/${fileName}`;
 
   const { data: uploadData, error: uploadError } = await supabase.storage
     .from("job-photos")
@@ -74,7 +75,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const { data: photo, error: insertError } = await supabase
     .from("job_photos")
     .insert({
-      job_id: params.id,
+      job_id: id,
       tenant_id: profile.tenant_id,
       url: publicUrl.publicUrl,
       caption: caption || null,
@@ -97,7 +98,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   });
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const profile = await requireWorker();
   const supabase = await createServerSideClient();
 
@@ -109,7 +111,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     .from("job_photos")
     .select("id, url, tenant_id, job_id")
     .eq("tenant_id", profile.tenant_id)
-    .eq("job_id", params.id)
+    .eq("job_id", id)
     .eq("url", url)
     .single();
 

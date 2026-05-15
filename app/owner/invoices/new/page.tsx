@@ -3,10 +3,11 @@ import { requireOwner } from "@/lib/auth";
 import { getOwnerInvoiceFormData, getOwnerInvoiceJob } from "@/lib/services/owner";
 import NewInvoiceForm from "./NewInvoiceForm";
 
-export default async function NewInvoicePage({ searchParams }: { searchParams: { job?: string } }) {
+export default async function NewInvoicePage({ searchParams }: { searchParams: Promise<{ job?: string }> }) {
+  const { job: jobParam } = await searchParams;
   const profile = await requireOwner();
   const { jobs, propertyManagers } = await getOwnerInvoiceFormData(profile);
-  const selectedJob = searchParams.job ? await getOwnerInvoiceJob(profile, searchParams.job) : null;
+  const selectedJob = jobParam ? await getOwnerInvoiceJob(profile, jobParam) : null;
 
   return (
     <div className="page-shell page-shell-tight">

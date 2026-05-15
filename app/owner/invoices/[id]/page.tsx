@@ -7,10 +7,11 @@ import { createServiceClient } from "@/lib/supabase";
 import InvoiceActions from "./InvoiceActions";
 import SendInvoiceWithEmail from "@/components/owner/SendInvoiceWithEmail";
 
-export default async function InvoiceDetailPage({ params }: { params: { id: string } }) {
+export default async function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const profile = await requireOwner();
   const [invoice, { data: tenant }] = await Promise.all([
-    getOwnerInvoice(profile, params.id),
+    getOwnerInvoice(profile, id),
     createServiceClient().from("tenants").select("stripe_connect_enabled").eq("id", profile.tenant_id).single(),
   ]);
   const stripeConnected = !!tenant?.stripe_connect_enabled;
