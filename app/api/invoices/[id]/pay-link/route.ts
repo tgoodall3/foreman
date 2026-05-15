@@ -7,7 +7,8 @@ import { logError } from "@/lib/logger";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const profile = await requireOwner();
   const supabase = await createServerSideClient();
 
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     supabase
       .from("invoices")
       .select("*, property_managers(full_name, email), jobs(title)")
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("tenant_id", profile.tenant_id)
       .single(),
     supabase
@@ -88,14 +89,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           quantity: 1,
         }] : []),
       ],
-      success_url: `${siteUrl}/owner/invoices/${params.id}?paid=true`,
-      cancel_url:  `${siteUrl}/owner/invoices/${params.id}`,
+      success_url: `${siteUrl}/owner/invoices/${id}?paid=true`,
+      cancel_url:  `${siteUrl}/owner/invoices/${id}`,
       payment_intent_data: {
         application_fee_amount: 0,
         transfer_data: { destination: tenant.stripe_connect_id! },
       },
       metadata: {
-        invoice_id: params.id,
+        invoice_id: id,
         tenant_id:  profile.tenant_id,
         deposit_amount: baseAmount,
         tip_amount: tip,
@@ -107,7 +108,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       await supabase
         .from("invoices")
         .update({ status: "sent" })
-        .eq("id", params.id)
+        .eq("id", id)
         .eq("tenant_id", profile.tenant_id);
     }
 

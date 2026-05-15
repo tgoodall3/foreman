@@ -25,13 +25,14 @@ function isArchived(est: { status: string; updated_at: string }) {
 export default async function EstimatesPage({
   searchParams,
 }: {
-  searchParams: { status?: string; past?: string; page?: string };
+  searchParams: Promise<{ status?: string; past?: string; page?: string }>;
 }) {
+  const { status: statusParam, past, page: pageParam } = await searchParams;
   const profile  = await requireOwner();
   const t = await getServerT();
   const supabase = await createServerSideClient();
-  const showPast = searchParams.past === "1";
-  const page = Math.max(1, Number(searchParams.page || "1"));
+  const showPast = past === "1";
+  const page = Math.max(1, Number(pageParam || "1"));
   const start = (page - 1) * PAGE_SIZE;
 
   let query = supabase
@@ -40,7 +41,7 @@ export default async function EstimatesPage({
     .eq("tenant_id", profile.tenant_id)
     .order("created_at", { ascending: false });
 
-  if (searchParams.status) query = query.eq("status", searchParams.status);
+  if (statusParam) query = query.eq("status", statusParam);
 
   const { data: allEstimates } = await query;
 
@@ -59,7 +60,7 @@ export default async function EstimatesPage({
   const counts: Record<string, number> = {};
   for (const e of allActive) counts[e.status] = (counts[e.status] ?? 0) + 1;
 
-  const paginationBase = `/owner/estimates?${showPast ? "past=1" : ""}${searchParams.status ? `${showPast ? "" : ""}&status=${searchParams.status}` : ""}`;
+  const paginationBase = `/owner/estimates?${showPast ? "past=1" : ""}${statusParam ? `${showPast ? "" : ""}&status=${statusParam}` : ""}`;
 
   return (
     <div className="page-shell page-shell-wide">
@@ -112,7 +113,7 @@ export default async function EstimatesPage({
           <Link
             href="/owner/estimates"
             className={`px-3 py-1.5 rounded-full text-xs font-600 border transition-colors ${
-              !searchParams.status
+              !statusParam
                 ? "bg-forge text-white border-forge"
                 : "border-gray-300 text-mist hover:border-forge"
             }`}
@@ -126,7 +127,7 @@ export default async function EstimatesPage({
                 key={s}
                 href={`/owner/estimates?status=${s}`}
                 className={`px-3 py-1.5 rounded-full text-xs font-600 border transition-colors ${
-                  searchParams.status === s
+                  statusParam === s
                     ? `${cfg.bg} ${cfg.color} border-current`
                     : "border-gray-300 text-mist hover:border-gray-400"
                 }`}

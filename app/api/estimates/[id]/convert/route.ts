@@ -4,14 +4,15 @@ import { requireOwner } from "@/lib/auth";
 import { createServerSideClient } from "@/lib/supabase-server";
 import { logError } from "@/lib/logger";
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const profile = await requireOwner();
   const supabase = await createServerSideClient();
 
   const { data: estimate } = await supabase
     .from("estimates")
     .select("*")
-    .eq("id", params.id)
+    .eq("id", id)
     .eq("tenant_id", profile.tenant_id)
     .single();
 
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const { data: updated, error: updateError } = await supabase
     .from("estimates")
     .update({ status: "converted", job_id: job.id })
-    .eq("id", params.id)
+    .eq("id", id)
     .in("status", ["draft", "approved"])  // allow converting approved estimates too
     .neq("status", "converted")
     .select("id")

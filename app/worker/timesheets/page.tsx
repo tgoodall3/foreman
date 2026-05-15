@@ -19,13 +19,14 @@ function addDays(dateStr: string, n: number): string {
 export default async function WorkerTimesheetsPage({
   searchParams,
 }: {
-  searchParams: { week?: string };
+  searchParams: Promise<{ week?: string }>;
 }) {
+  const { week } = await searchParams;
   const profile = await requireWorker();
   const supabase = await createServerSideClient();
 
   const weekStart = (() => {
-    const raw = searchParams.week;
+    const raw = week;
     if (raw && /^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
     return getMondayOf(new Date());
   })();

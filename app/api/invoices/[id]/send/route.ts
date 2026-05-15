@@ -25,7 +25,8 @@ function escHtml(str: string): string {
     .replace(/"/g, "&quot;");
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const profile = await requireOwner();
   if (!profile) return errorResponse("Unauthorized", 401);
   if (!(await checkRateLimit(`email-send:${profile.id}`, 20, 60 * 60 * 1000))) {
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
   } catch {}
 
-  const invoice = await getOwnerInvoice(profile, params.id);
+  const invoice = await getOwnerInvoice(profile, id);
   if (!invoice) return badRequest("Invoice not found.");
 
   const managerEmail = emailOverride || invoice.property_managers?.email;
@@ -88,8 +89,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   const invoicePageUrl = portalToken
-    ? `${siteUrl}/portal/invoice?token=${encodeURIComponent(portalToken)}&invoice=${encodeURIComponent(params.id)}`
-    : `${siteUrl}/portal/invoice?invoice=${encodeURIComponent(params.id)}`;
+    ? `${siteUrl}/portal/invoice?token=${encodeURIComponent(portalToken)}&invoice=${encodeURIComponent(id)}`
+    : `${siteUrl}/portal/invoice?invoice=${encodeURIComponent(id)}`;
 
   const managerName   = escHtml(invoice.property_managers?.full_name ?? "Customer");
   const invoiceNumber = escHtml(invoice.invoice_number);
@@ -245,7 +246,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       await supabase
         .from("invoices")
         .update({ status: "sent" })
-        .eq("id", params.id)
+        .eq("id", id)
         .eq("tenant_id", profile.tenant_id);
     }
 

@@ -8,9 +8,10 @@ export const dynamic = "force-dynamic";
 export default async function PortalInvoicePage({
   searchParams,
 }: {
-  searchParams: { invoice?: string; token?: string; paid?: string };
+  searchParams: Promise<{ invoice?: string; token?: string; paid?: string }>;
 }) {
-  if (!searchParams.invoice) notFound();
+  const { invoice: invoiceParam, token, paid } = await searchParams;
+  if (!invoiceParam) notFound();
 
   const supabase = createServiceClient();
 
@@ -18,11 +19,11 @@ export default async function PortalInvoicePage({
   let pm = await getPortalPm("id, tenant_id, full_name, email, company, is_active");
 
   // 2. Fall back to portal_token in the URL (clients clicking the invoice email link)
-  if (!pm && searchParams.token) {
+  if (!pm && token) {
     const { data: pmRaw } = await supabase
       .from("property_managers")
       .select("id, tenant_id, full_name, email, company, is_active")
-      .eq("portal_token", searchParams.token)
+      .eq("portal_token", token)
       .single();
 
     if (pmRaw && pmRaw.is_active !== false) {
@@ -50,7 +51,7 @@ export default async function PortalInvoicePage({
     .select(
       "id, invoice_number, status, total, subtotal, tax_rate, tax_amount, due_date, created_at, notes, line_items, jobs(title), tenants(name, email)"
     )
-    .eq("id", searchParams.invoice)
+    .eq("id", invoiceParam)
     .in("property_manager_id", propertyManagerIds)
     .eq("tenant_id", pm!.tenant_id)
     .single();
@@ -66,8 +67,8 @@ export default async function PortalInvoicePage({
       pm={pm!}
       tenant={tenant}
       job={job}
-      portalToken={searchParams.token}
-      paidSuccess={searchParams.paid === "true"}
+      portalToken={token}
+      paidSuccess={paid === "true"}
     />
   );
 }

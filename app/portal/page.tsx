@@ -4,7 +4,8 @@ import PortalDashboard from "@/components/portal/PortalDashboard";
 
 export const dynamic = "force-dynamic";
 
-export default async function PortalPage({ searchParams }: { searchParams: { tab?: string; paid?: string } }) {
+export default async function PortalPage({ searchParams }: { searchParams: Promise<{ tab?: string; paid?: string }> }) {
+  const { tab, paid } = await searchParams;
   const pm = await requirePortalPm("id, tenant_id, full_name, email, company, is_active, tenants(name)");
 
   const supabase = createServiceClient();
@@ -99,8 +100,8 @@ export default async function PortalPage({ searchParams }: { searchParams: { tab
       comments={(comments ?? []) as any[]}
       estimates={(estimates ?? []) as any[]}
       changeOrders={(changeOrders ?? []) as any[]}
-      initialTab={(searchParams.tab as any) ?? "home"}
-      paidSuccess={searchParams.paid === "true"}
+      initialTab={(tab as any) ?? "home"}
+      paidSuccess={paid === "true"}
     />
   );
 }

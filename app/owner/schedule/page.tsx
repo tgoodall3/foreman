@@ -23,15 +23,16 @@ function addDays(dateStr: string, n: number): string {
 export default async function SchedulePage({
   searchParams,
 }: {
-  searchParams: { week?: string };
+  searchParams: Promise<{ week?: string }>;
 }) {
+  const { week } = await searchParams;
   const profile = await requireOwner();
   const supabase = await createServerSideClient();
 
   // Determine the Monday of the requested week (default: current week)
   const today = new Date().toISOString().split("T")[0];
   const weekStart = (() => {
-    const raw = searchParams.week;
+    const raw = week;
     if (raw && /^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
     return getMondayOf(new Date());
   })();

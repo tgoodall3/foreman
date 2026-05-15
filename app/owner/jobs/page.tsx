@@ -26,16 +26,16 @@ function SortTh({
 export default async function JobsPage({
   searchParams,
 }: {
-  searchParams: { status?: string; page?: string; past?: string; search?: string; sort?: string; sortDir?: string };
+  searchParams: Promise<{ status?: string; page?: string; past?: string; search?: string; sort?: string; sortDir?: string }>;
 }) {
+  const { status: statusParam, page: pageParam, past, search, sort: sortParam, sortDir: sortDirParam } = await searchParams;
   const profile = await requireOwner();
   const t = await getServerT();
-  const showPast = searchParams.past === "1";
-  const page = Math.max(1, Number(searchParams.page || "1"));
-  const status = showPast ? undefined : searchParams.status;
-  const search = searchParams.search;
-  const sort = searchParams.sort || "created_at";
-  const sortDir = (searchParams.sortDir === "asc" ? "asc" : "desc") as "asc" | "desc";
+  const showPast = past === "1";
+  const page = Math.max(1, Number(pageParam || "1"));
+  const status = showPast ? undefined : statusParam;
+  const sort = sortParam || "created_at";
+  const sortDir = (sortDirParam === "asc" ? "asc" : "desc") as "asc" | "desc";
 
   const result = await getOwnerJobs(profile, status, page, 8, {
     pastOnly: showPast,

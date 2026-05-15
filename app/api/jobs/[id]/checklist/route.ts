@@ -21,7 +21,8 @@ const deleteSchema = z.object({
 });
 
 // POST — add a checklist item (owner only)
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const profile = await getProfile();
   if (!profile || profile.role !== "owner") return badRequest("Owner access required.");
 
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   // Verify job belongs to tenant
   const { data: job } = await supabase
-    .from("jobs").select("id").eq("id", params.id).eq("tenant_id", profile.tenant_id).single();
+    .from("jobs").select("id").eq("id", id).eq("tenant_id", profile.tenant_id).single();
   if (!job) return badRequest("Job not found.");
 
   // Auto position at end if not specified
@@ -42,13 +43,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const { count } = await supabase
       .from("job_checklist_items")
       .select("id", { count: "exact", head: true })
-      .eq("job_id", params.id);
+      .eq("job_id", id);
     position = count ?? 0;
   }
 
   const { data: item, error } = await supabase
     .from("job_checklist_items")
-    .insert({ job_id: params.id, tenant_id: profile.tenant_id, text: validation.data.text, position })
+    .insert({ job_id: id, tenant_id: profile.tenant_id, text: validation.data.text, position })
     .select("id, text, position, done, done_at")
     .single();
 
@@ -57,7 +58,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 }
 
 // PATCH — toggle done (owner or assigned worker)
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const profile = await getProfile();
   if (!profile) return badRequest("Unauthorized.");
 
@@ -70,7 +72,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   // Workers can only toggle items on their assigned jobs
   if (profile.role === "worker") {
     const { data: job } = await supabase
-      .from("jobs").select("assigned_workers").eq("id", params.id).eq("tenant_id", profile.tenant_id).single();
+      .from("jobs").select("assigned_workers").eq("id", id).eq("tenant_id", profile.tenant_id).single();
     if (!job?.assigned_workers?.includes(profile.id)) return badRequest("Not assigned to this job.");
   }
 
@@ -82,7 +84,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       done_at: validation.data.done ? new Date().toISOString() : null,
     })
     .eq("id", validation.data.itemId)
-    .eq("job_id", params.id)
+    .eq("job_id", id)
     .eq("tenant_id", profile.tenant_id);
 
   if (error) { logError("Checklist toggle failed", error); return errorResponse("Failed to update item.", 500); }
@@ -90,7 +92,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 // DELETE — remove an item (owner only)
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const profile = await getProfile();
   if (!profile || profile.role !== "owner") return badRequest("Owner access required.");
 
@@ -104,7 +107,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
     .from("job_checklist_items")
     .delete()
     .eq("id", validation.data.itemId)
-    .eq("job_id", params.id)
+    .eq("job_id", id)
     .eq("tenant_id", profile.tenant_id);
 
   if (error) { logError("Checklist delete failed", error); return errorResponse("Failed to delete item.", 500); }

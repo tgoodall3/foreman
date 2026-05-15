@@ -10,7 +10,8 @@ const schema = z.object({
   status: z.enum(["draft", "sent", "approved", "declined"]),
 });
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const profile = await requireOwner();
   const body = await req.json();
   const validation = validateInput(schema, body);
@@ -21,7 +22,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const { data: estimate } = await supabase
     .from("estimates")
     .select("id, status")
-    .eq("id", params.id)
+    .eq("id", id)
     .eq("tenant_id", profile.tenant_id)
     .single();
 
@@ -31,7 +32,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const { error } = await supabase
     .from("estimates")
     .update({ status: validation.data.status })
-    .eq("id", params.id);
+    .eq("id", id);
 
   if (error) {
     logError("Estimate status update failed", error);

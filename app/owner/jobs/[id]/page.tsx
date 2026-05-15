@@ -9,14 +9,15 @@ import QuickAssign from "@/components/owner/QuickAssign";
 import JobPhotoGrid from "@/components/owner/JobPhotoGrid";
 import JobCostingTab from "@/components/owner/JobCostingTab";
 
-export default async function JobDetailPage({ params }: { params: { id: string } }) {
+export default async function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const profile = await requireOwner();
   const supabase = await createServerSideClient();
 
   const { data: job } = await supabase
     .from("jobs")
     .select("*, properties(name, address, city, state), work_orders(title, description)")
-    .eq("id", params.id)
+    .eq("id", id)
     .eq("tenant_id", profile.tenant_id)
     .single();
 

@@ -14,7 +14,8 @@ function escHtml(str: string) {
   return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const profile = await requireOwner();
   if (!(await checkRateLimit(`email-send:${profile.id}`, 20, 60 * 60 * 1000))) {
     return errorResponse("Too many emails sent. Please wait before sending more.", 429);
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     supabase
       .from("change_orders")
       .select("*, property_managers(full_name, email), jobs(title)")
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("tenant_id", profile.tenant_id)
       .single(),
     serviceClient.from("tenants").select("name").eq("id", profile.tenant_id).single(),
@@ -147,7 +148,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     await supabase
       .from("change_orders")
       .update({ status: "sent", updated_at: new Date().toISOString() })
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("tenant_id", profile.tenant_id);
 
     return jsonResponse({ success: true });

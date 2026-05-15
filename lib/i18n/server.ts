@@ -15,7 +15,7 @@ function interpolate(str: string, vars?: Record<string, string | number>): strin
 }
 
 export async function getServerT() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const locale = (cookieStore.get("foreman_locale")?.value ?? "en") as Locale;
   const dict = translations[locale] ?? en;
   return function t(path: string, vars?: Record<string, string | number>): string {
