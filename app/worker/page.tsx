@@ -4,9 +4,10 @@ import { formatDate, JOB_STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/utils";
 import Link from "next/link";
 import ClockWidget from "@/components/worker/ClockWidget";
 import { getServerT } from "@/lib/i18n/server";
+import { CheckCircle } from "lucide-react";
 
 export default async function WorkerDashboard() {
-  const profile = await requireWorker();
+  const profile  = await requireWorker();
   const supabase = await createServerSideClient();
   const t = await getServerT();
 
@@ -24,17 +25,25 @@ export default async function WorkerDashboard() {
   const unscheduled  = jobs?.filter((j) => !j.scheduled_date) ?? [];
 
   return (
-    <div className="page-shell page-shell-standard lg:p-8">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-mist font-700">{t("nav.myJobs")}</p>
-          <h1 className="font-display font-800 text-3xl text-forge leading-tight">{formatDate(new Date())}</h1>
-        </div>
-        <div className="grid grid-cols-3 sm:flex sm:items-center gap-2">
-          <Kpi label={t("dashboard.todayLabel")} value={todayJobs.length} tone={todayJobs.length ? "amber" : "steel"} />
-          <Kpi label={t("dashboard.upcoming")}   value={upcomingJobs.length} tone="forge" />
-          <Kpi label={t("dashboard.unscheduled")} value={unscheduled.length} tone="steel" />
+    <div className="page-shell page-shell-standard">
+
+      {/* Hero header */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-forge via-forge-light to-[#1e2f42] px-5 py-6">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.04]"
+          style={{ backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)", backgroundSize: "24px 24px" }}
+          aria-hidden="true"
+        />
+        <div className="relative">
+          <p className="text-[11px] uppercase tracking-[0.25em] text-amber font-600 mb-1">{t("nav.myJobs")}</p>
+          <h1 className="font-display font-800 text-3xl text-white leading-tight">
+            {formatDate(new Date())}
+          </h1>
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            <WorkerKpi label={t("dashboard.todayLabel")} value={todayJobs.length}    tone={todayJobs.length ? "amber" : "neutral"} />
+            <WorkerKpi label={t("dashboard.upcoming")}   value={upcomingJobs.length} tone="neutral" />
+            <WorkerKpi label={t("dashboard.unscheduled")} value={unscheduled.length} tone="neutral" />
+          </div>
         </div>
       </div>
 
@@ -43,65 +52,67 @@ export default async function WorkerDashboard() {
       {jobs?.length ? (
         <>
           {todayJobs.length > 0 && (
-            <section className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-              <header className="flex items-center justify-between px-3 py-3 sm:px-4 border-b border-gray-100">
-                <p className="text-xs text-mist uppercase tracking-wide font-700">{t("dashboard.todayLabel")}</p>
-                <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber text-forge text-[11px] font-700">
-                  {todayJobs.length}
-                </span>
-              </header>
-              <div className="divide-y divide-gray-100">
-                {todayJobs.map((job: any) => (
-                  <div key={job.id} className="px-2 py-2 sm:px-3">
-                    <WorkerJobRow job={job} highlight t={t} />
-                  </div>
-                ))}
-              </div>
-            </section>
+            <JobSection
+              label={t("dashboard.todayLabel")}
+              count={todayJobs.length}
+              accent
+            >
+              {todayJobs.map((job: any) => (
+                <WorkerJobRow key={job.id} job={job} highlight t={t} />
+              ))}
+            </JobSection>
           )}
 
           {upcomingJobs.length > 0 && (
-            <section className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-              <header className="px-3 py-3 sm:px-4 border-b border-gray-100">
-                <p className="text-xs text-mist uppercase tracking-wide font-700">{t("dashboard.upcoming")}</p>
-              </header>
-              <div className="divide-y divide-gray-100">
-                {upcomingJobs.map((job: any) => (
-                  <div key={job.id} className="px-2 py-2 sm:px-3">
-                    <WorkerJobRow job={job} t={t} />
-                  </div>
-                ))}
-              </div>
-            </section>
+            <JobSection label={t("dashboard.upcoming")}>
+              {upcomingJobs.map((job: any) => (
+                <WorkerJobRow key={job.id} job={job} t={t} />
+              ))}
+            </JobSection>
           )}
 
           {unscheduled.length > 0 && (
-            <section className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-              <header className="px-3 py-3 sm:px-4 border-b border-gray-100">
-                <p className="text-xs text-mist uppercase tracking-wide font-700">{t("dashboard.unscheduled")}</p>
-              </header>
-              <div className="divide-y divide-gray-100">
-                {unscheduled.map((job: any) => (
-                  <div key={job.id} className="px-2 py-2 sm:px-3">
-                    <WorkerJobRow job={job} t={t} />
-                  </div>
-                ))}
-              </div>
-            </section>
+            <JobSection label={t("dashboard.unscheduled")}>
+              {unscheduled.map((job: any) => (
+                <WorkerJobRow key={job.id} job={job} t={t} />
+              ))}
+            </JobSection>
           )}
         </>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-12 text-center">
-          <div className="w-12 h-12 bg-amber/10 rounded-full flex items-center justify-center mx-auto mb-3">
-            <svg className="w-6 h-6 text-amber" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+        <div className="surface-card flex flex-col items-center justify-center py-16 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 mb-5">
+            <CheckCircle className="h-7 w-7 text-emerald-500" />
           </div>
-          <p className="font-display font-700 text-lg text-forge">{t("dashboard.allCaughtUp")}</p>
-          <p className="text-mist text-sm mt-1">{t("dashboard.noJobsAssigned")}</p>
+          <p className="font-display font-700 text-xl text-forge tracking-wide">{t("dashboard.allCaughtUp")}</p>
+          <p className="text-mist text-sm mt-1.5 max-w-[220px]">{t("dashboard.noJobsAssigned")}</p>
         </div>
       )}
     </div>
+  );
+}
+
+function JobSection({
+  label, count, accent = false, children,
+}: {
+  label: string; count?: number; accent?: boolean; children: React.ReactNode;
+}) {
+  return (
+    <section className="surface-card overflow-hidden">
+      <div className={`flex items-center justify-between px-5 py-3 border-b ${accent ? "bg-amber/5 border-amber/15" : "border-gray-100"}`}>
+        <p className={`text-[11px] uppercase tracking-[0.2em] font-600 ${accent ? "text-amber-dark" : "text-mist"}`}>
+          {label}
+        </p>
+        {count !== undefined && (
+          <span className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-700 ${accent ? "bg-amber text-forge" : "bg-gray-200 text-gray-600"}`}>
+            {count}
+          </span>
+        )}
+      </div>
+      <div className="divide-y divide-gray-100/80 px-3 py-2 space-y-1.5">
+        {children}
+      </div>
+    </section>
   );
 }
 
@@ -121,15 +132,18 @@ function WorkerJobRow({ job, highlight, t }: { job: any; highlight?: boolean; t:
   return (
     <Link
       href={`/worker/jobs/${job.id}`}
-      className={`flex min-h-[60px] items-center justify-between gap-3 rounded-xl border px-3 py-3 transition-colors hover:bg-gray-50 ${
-        highlight ? "bg-amber/5 border-amber/30" : "bg-white border-gray-200/80"
-      }`}
+      className={[
+        "flex items-center justify-between gap-3 rounded-xl border px-4 py-3.5 transition-all hover:shadow-card",
+        highlight
+          ? "bg-amber/5 border-amber/30 hover:bg-amber/8"
+          : "bg-white border-gray-200/70 hover:bg-gray-50",
+      ].join(" ")}
     >
-      <div className="min-w-0">
-        <p className="line-clamp-1 text-sm font-700 text-forge">{job.title}</p>
-        <p className="mt-0.5 line-clamp-1 text-xs text-mist">{meta}</p>
+      <div className="min-w-0 space-y-0.5">
+        <p className="text-sm font-600 text-forge line-clamp-1">{job.title}</p>
+        <p className="text-xs text-mist line-clamp-1">{meta}</p>
       </div>
-      <div className="ml-2 flex shrink-0 flex-wrap justify-end gap-2">
+      <div className="ml-2 flex shrink-0 flex-wrap justify-end gap-1.5">
         <span className={`badge ${priorityCfg.bg} ${priorityCfg.color}`}>{priorityCfg.label}</span>
         <span className={`badge ${statusCfg.bg} ${statusCfg.color}`}>{statusCfg.label}</span>
       </div>
@@ -137,18 +151,18 @@ function WorkerJobRow({ job, highlight, t }: { job: any; highlight?: boolean; t:
   );
 }
 
-function Kpi({ label, value, tone }: { label: string; value: number | string; tone: "forge" | "amber" | "green" | "red" | "steel" }) {
+function WorkerKpi({ label, value, tone }: {
+  label: string; value: number;
+  tone: "neutral" | "amber";
+}) {
   const styles = {
-    forge: "bg-forge text-white",
-    amber: "bg-amber text-forge",
-    green: "bg-green-100 text-green-800",
-    red:   "bg-red-100 text-red-700",
-    steel: "bg-steel text-white",
+    neutral: "bg-white/10 text-white border-white/10",
+    amber:   "bg-amber text-forge border-amber/80",
   } as const;
   return (
-    <div className={`rounded-xl px-3 py-2 border border-transparent text-left ${styles[tone]}`}>
-      <p className="text-[11px] uppercase tracking-wider font-700 opacity-80">{label}</p>
-      <p className="font-display font-800 text-xl leading-tight">{value}</p>
+    <div className={`rounded-xl border px-3 py-2.5 ${styles[tone]}`}>
+      <p className="text-[10px] uppercase tracking-widest font-600 opacity-60 leading-none mb-1">{label}</p>
+      <p className="font-display font-800 text-2xl leading-none">{value}</p>
     </div>
   );
 }
