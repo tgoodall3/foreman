@@ -4,6 +4,8 @@ import { formatDate, JOB_STATUS_CONFIG, PRIORITY_CONFIG } from "@/lib/utils";
 import Link from "next/link";
 import { getServerT } from "@/lib/i18n/server";
 import JobsSearchBar from "@/components/owner/JobsSearchBar";
+import EmptyState from "@/components/ui/EmptyState";
+import { Briefcase, ChevronLeft, ChevronRight } from "lucide-react";
 
 const ACTIVE_STATUSES = ["pending", "scheduled", "in_progress"] as const;
 
@@ -129,14 +131,12 @@ export default async function JobsPage({
       {/* List */}
       <div className="surface-card overflow-hidden">
         {!jobs.length ? (
-          <div className="p-12 text-center">
-            <p className="text-mist text-sm mb-3">{t("jobs.noJobsFound")}</p>
-            {!showPast && (
-              <Link href="/owner/jobs/new" className="text-amber hover:underline text-sm">
-                {t("jobs.createJob")} →
-              </Link>
-            )}
-          </div>
+          <EmptyState
+            icon={<Briefcase className="h-6 w-6" />}
+            title={t("jobs.noJobsFound")}
+            description={showPast ? "No past jobs match your filters." : "Create your first job to get started."}
+            action={!showPast ? { label: t("jobs.createJob"), href: "/owner/jobs/new" } : undefined}
+          />
         ) : (
           <>
             {/* Mobile cards */}
@@ -235,19 +235,21 @@ export default async function JobsPage({
             </div>
 
             {pageCount > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-t border-gray-100">
+              <div className="flex items-center justify-between px-5 py-3 bg-gray-50/80 border-t border-gray-100">
                 <Link
                   href={`/owner/jobs?${new URLSearchParams({ ...(showPast ? { past: "1" } : {}), ...(status ? { status } : {}), ...(search ? { search } : {}), sort, sortDir, page: String(Math.max(1, page - 1)) })}`}
-                  className={`text-sm font-600 ${page === 1 ? "text-gray-400 pointer-events-none" : "text-forge hover:text-amber"}`}
+                  className={`inline-flex items-center gap-1.5 text-sm font-600 transition-colors ${page === 1 ? "text-gray-300 pointer-events-none" : "text-forge hover:text-amber"}`}
+                  aria-disabled={page === 1}
                 >
-                  ← {t("common.previous")}
+                  <ChevronLeft className="h-4 w-4" /> {t("common.previous")}
                 </Link>
                 <p className="text-xs text-mist">{t("common.pageOf", { page, pageCount })}</p>
                 <Link
                   href={`/owner/jobs?${new URLSearchParams({ ...(showPast ? { past: "1" } : {}), ...(status ? { status } : {}), ...(search ? { search } : {}), sort, sortDir, page: String(Math.min(pageCount, page + 1)) })}`}
-                  className={`text-sm font-600 ${page === pageCount ? "text-gray-400 pointer-events-none" : "text-forge hover:text-amber"}`}
+                  className={`inline-flex items-center gap-1.5 text-sm font-600 transition-colors ${page === pageCount ? "text-gray-300 pointer-events-none" : "text-forge hover:text-amber"}`}
+                  aria-disabled={page === pageCount}
                 >
-                  {t("common.next")} →
+                  {t("common.next")} <ChevronRight className="h-4 w-4" />
                 </Link>
               </div>
             )}

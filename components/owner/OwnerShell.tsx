@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, type JSX } from "react";
 import Image from "next/image";
@@ -6,112 +6,47 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import NotificationBell from "@/components/owner/NotificationBell";
 import { useLanguage } from "@/lib/i18n";
-
-const ICONS: Record<string, JSX.Element> = {
-  today: (
-    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <rect x="4" y="5" width="16" height="15" rx="2" />
-      <path d="M9 3v4M15 3v4M4 10h16" />
-    </svg>
-  ),
-  tasks: (
-    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01" />
-    </svg>
-  ),
-  briefcase: (
-    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <rect x="4" y="7" width="16" height="12" rx="2" />
-      <path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
-    </svg>
-  ),
-  schedule: (
-    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <circle cx="12" cy="12" r="8" />
-      <path d="M12 8v5l3 2" />
-    </svg>
-  ),
-  clock: (
-    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 3" />
-    </svg>
-  ),
-  invoice: (
-    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M7 3h10l2 4v12H5V3h2z" />
-      <path d="M9 9h6M9 13h4" />
-    </svg>
-  ),
-  doc: (
-    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M6 4h9l3 3v13H6V4z" />
-      <path d="M14 4v4h4" />
-      <path d="M9 12h6M9 16h4" />
-    </svg>
-  ),
-  report: (
-    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M4 20h16V4H4z" />
-      <path d="M9 15v-5M13 15v-3M17 15v-7" />
-    </svg>
-  ),
-  home: (
-    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M4 12 12 5l8 7" />
-      <path d="M5 11v9h14v-9" />
-    </svg>
-  ),
-  users: (
-    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <circle cx="9" cy="9" r="3" />
-      <circle cx="17" cy="9" r="3" />
-      <path d="M4 19c0-2.5 2-4.5 5-4.5s5 2 5 4.5M13 16.5c.6-.3 1.3-.5 2-.5 3 0 5 2 5 4.5" />
-    </svg>
-  ),
-  billing: (
-    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <rect x="4" y="6" width="16" height="12" rx="2" />
-      <path d="M4 10h16M8 14h2" />
-    </svg>
-  ),
-  settings: (
-    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V22a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H2a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.09a1.65 1.65 0 0 0 1-1.51V2a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.09a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.09a1.65 1.65 0 0 0 1.51 1H22a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-    </svg>
-  ),
-};
+import {
+  LayoutDashboard, ClipboardList, Briefcase, CalendarDays,
+  Clock, FileText, Receipt, BarChart2, RefreshCcw, Building2,
+  Users, Settings, LogOut, Menu, X,
+} from "lucide-react";
 
 const NAV_CONFIG = [
   {
     labelKey: "nav.operations",
     items: [
-      { href: "/owner", labelKey: "nav.overview", icon: ICONS.today },
-      { href: "/owner/work-orders", labelKey: "nav.workOrders", icon: ICONS.tasks },
-      { href: "/owner/jobs", labelKey: "nav.jobs", icon: ICONS.briefcase },
-      { href: "/owner/schedule", labelKey: "nav.schedule", icon: ICONS.schedule },
-      { href: "/owner/timesheets", labelKey: "nav.timesheets", icon: ICONS.clock },
+      { href: "/owner",            labelKey: "nav.overview",   icon: LayoutDashboard },
+      { href: "/owner/work-orders",labelKey: "nav.workOrders", icon: ClipboardList   },
+      { href: "/owner/jobs",       labelKey: "nav.jobs",       icon: Briefcase       },
+      { href: "/owner/schedule",   labelKey: "nav.schedule",   icon: CalendarDays    },
+      { href: "/owner/timesheets", labelKey: "nav.timesheets", icon: Clock           },
     ],
   },
   {
     labelKey: "nav.revenue",
     items: [
-      { href: "/owner/invoices", labelKey: "nav.invoices", icon: ICONS.invoice },
-      { href: "/owner/estimates", labelKey: "nav.estimates", icon: ICONS.doc },
-      { href: "/owner/reports", labelKey: "nav.reports", icon: ICONS.report },
+      { href: "/owner/invoices",  labelKey: "nav.invoices",  icon: Receipt  },
+      { href: "/owner/estimates", labelKey: "nav.estimates", icon: FileText },
+      { href: "/owner/reports",   labelKey: "nav.reports",   icon: BarChart2 },
     ],
   },
   {
     labelKey: "nav.admin",
     items: [
-      { href: "/owner/reports/recurring-health", labelKey: "nav.recurring", icon: ICONS.report },
-      { href: "/owner/properties", labelKey: "nav.properties", icon: ICONS.home },
-      { href: "/owner/workers", labelKey: "nav.workers", icon: ICONS.users },
-      { href: "/owner/settings/account", labelKey: "nav.settings", icon: ICONS.settings },
+      { href: "/owner/reports/recurring-health", labelKey: "nav.recurring",  icon: RefreshCcw  },
+      { href: "/owner/properties",               labelKey: "nav.properties", icon: Building2   },
+      { href: "/owner/workers",                  labelKey: "nav.workers",    icon: Users       },
+      { href: "/owner/settings/account",         labelKey: "nav.settings",   icon: Settings    },
     ],
   },
 ];
+
+interface NavItem {
+  href: string;
+  label: string;
+  icon: React.ElementType;
+}
 
 interface OwnerShellProps {
   profile: { full_name: string };
@@ -126,88 +61,113 @@ export default function OwnerShell({ profile, tenantName, children }: OwnerShell
 
   const NAV_SECTIONS = NAV_CONFIG.map((section) => ({
     label: t(section.labelKey),
-    items: section.items.map((item) => ({ href: item.href, label: t(item.labelKey), icon: item.icon })),
+    items: section.items.map((item) => ({
+      href:  item.href,
+      label: t(item.labelKey),
+      icon:  item.icon,
+    })),
   }));
 
   const isActive = (href: string) => {
     if (href === "/owner") return pathname === "/owner";
-    if (href === "/owner/reports") return pathname.startsWith("/owner/reports/") && pathname !== "/owner/reports/recurring-health";
+    if (href === "/owner/reports")
+      return pathname.startsWith("/owner/reports/") && pathname !== "/owner/reports/recurring-health";
     return pathname === href || pathname.startsWith(href + "/");
   };
 
-  const NavLink = ({ href, label, icon }: { href: string; label: string; icon: JSX.Element }) => (
-    <Link
-      key={href}
-      href={href}
-      className={`flex items-center gap-2.5 px-3 py-3 rounded-xl text-sm font-500 transition-colors ${
-        isActive(href)
-          ? "bg-amber text-forge font-600"
-          : "text-mist hover:text-white hover:bg-forge-light"
-      }`}
-      onClick={() => setMobileOpen(false)}
-    >
-      <span className="text-base w-5 text-center" aria-hidden="true">{icon}</span>
-      <span>{label}</span>
-      {isActive(href) && <span className="ml-auto text-xs">✓</span>}
-    </Link>
-  );
+  const initial = profile.full_name?.[0]?.toUpperCase() ?? "?";
+
+  const NavLink = ({ href, label, icon: Icon }: NavItem) => {
+    const active = isActive(href);
+    return (
+      <Link
+        href={href}
+        onClick={() => setMobileOpen(false)}
+        className={[
+          "group flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition-all duration-150",
+          active
+            ? "bg-amber text-forge font-600 shadow-sm"
+            : "text-mist font-500 hover:text-white hover:bg-white/8",
+        ].join(" ")}
+      >
+        <Icon
+          className={[
+            "h-4 w-4 shrink-0 transition-colors",
+            active ? "text-forge/80" : "text-mist group-hover:text-white/70",
+          ].join(" ")}
+          aria-hidden="true"
+        />
+        <span className="leading-none">{label}</span>
+      </Link>
+    );
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-surface">
-      <header className="lg:hidden bg-forge px-4 py-3 flex items-center justify-between border-b border-steel">
-        <div className="flex items-center gap-2">
-          <div className="rounded overflow-hidden h-8 w-8 shrink-0">
-            <Image src="/logo_inverse.png" alt="Foreman" width={32} height={32} className="h-8 w-auto" />
+
+      {/* Mobile top bar */}
+      <header className="lg:hidden bg-forge border-b border-white/8 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber shrink-0">
+            <span className="font-display font-800 text-forge text-base leading-none">F</span>
           </div>
           <div className="min-w-0">
-            <p className="font-display font-800 text-white text-lg leading-none tracking-wide">FOREMAN</p>
-            <p className="text-mist text-xs truncate">{tenantName || t("nav.yourBusiness")}</p>
+            <p className="font-display font-800 text-white text-lg leading-none tracking-widest">FOREMAN</p>
+            {tenantName && (
+              <p className="text-mist text-[11px] truncate mt-0.5 leading-none">{tenantName}</p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-1">
           <NotificationBell />
           <button
-          type="button"
-          onClick={() => setMobileOpen((open) => !open)}
-          className="text-white p-2 hover:bg-forge-light rounded-lg transition-colors"
-          aria-label={mobileOpen ? t("nav.closeMenu") : t("nav.openMenu")}
-          aria-expanded={mobileOpen}
-        >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            {mobileOpen ? (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            ) : (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            )}
-          </svg>
-        </button>
+            type="button"
+            onClick={() => setMobileOpen((o) => !o)}
+            className="ml-1 flex h-9 w-9 items-center justify-center rounded-lg text-white hover:bg-white/10 transition-colors"
+            aria-label={mobileOpen ? t("nav.closeMenu") : t("nav.openMenu")}
+            aria-expanded={mobileOpen}
+          >
+            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
         </div>
       </header>
 
+      {/* Mobile drawer */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} aria-hidden="true" />
-          <div className="absolute left-0 top-0 h-full w-full max-w-[320px] bg-forge shadow-2xl p-4 overflow-y-auto z-10">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <p className="font-display font-800 text-white text-lg">{t("nav.menu")}</p>
-                <p className="text-mist text-xs">{tenantName || t("nav.yourBusiness")}</p>
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setMobileOpen(false)}
+            aria-hidden="true"
+          />
+          <div className="absolute left-0 top-0 h-full w-72 bg-forge shadow-card-lg flex flex-col z-10">
+            {/* Drawer header */}
+            <div className="flex items-center justify-between px-4 py-4 border-b border-white/8">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber shrink-0">
+                  <span className="font-display font-800 text-forge text-base leading-none">F</span>
+                </div>
+                <div>
+                  <p className="font-display font-800 text-white text-lg leading-none tracking-widest">FOREMAN</p>
+                  {tenantName && (
+                    <p className="text-mist text-[11px] mt-0.5 leading-none truncate">{tenantName}</p>
+                  )}
+                </div>
               </div>
               <button
                 onClick={() => setMobileOpen(false)}
-                className="text-white p-2 hover:bg-forge-light rounded-lg transition-colors"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors"
                 aria-label={t("nav.closeMenu")}
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <X className="h-4 w-4" />
               </button>
             </div>
 
-            <nav className="space-y-4">
+            {/* Drawer nav */}
+            <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
               {NAV_SECTIONS.map((section) => (
-                <div key={section.label} className="space-y-1">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-mist font-700 px-1">{section.label}</p>
+                <div key={section.label} className="space-y-0.5">
+                  <p className="section-label px-3 mb-2">{section.label}</p>
                   {section.items.map((item) => (
                     <NavLink key={item.href} {...item} />
                   ))}
@@ -215,19 +175,24 @@ export default function OwnerShell({ profile, tenantName, children }: OwnerShell
               ))}
             </nav>
 
-            <div className="mt-6 border-t border-steel pt-4">
+            {/* Drawer footer */}
+            <div className="border-t border-white/8 px-4 py-4">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 bg-steel rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm font-700">{profile.full_name[0]}</span>
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-steel text-white text-sm font-700">
+                  {initial}
                 </div>
-                <div>
-                  <p className="text-white text-sm font-600 truncate">{profile.full_name}</p>
-                  <p className="text-mist text-xs">{t("nav.owner")}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-white text-sm font-600 truncate leading-tight">{profile.full_name}</p>
+                  <p className="text-mist text-xs mt-0.5">{t("nav.owner")}</p>
                 </div>
               </div>
-              <form action="/api/auth/signout" method="POST" className="mt-4">
-                <button type="submit" className="w-full text-left text-sm text-mist hover:text-white px-3 py-2 rounded-lg transition-colors">
-                  {t("nav.signOut")} →
+              <form action="/api/auth/signout" method="POST" className="mt-3">
+                <button
+                  type="submit"
+                  className="flex items-center gap-2 text-sm text-mist hover:text-white transition-colors px-1 py-1.5 rounded-lg"
+                >
+                  <LogOut className="h-4 w-4" />
+                  {t("nav.signOut")}
                 </button>
               </form>
             </div>
@@ -235,25 +200,34 @@ export default function OwnerShell({ profile, tenantName, children }: OwnerShell
         </div>
       )}
 
-      <div className="flex flex-1">
-        <aside className="hidden lg:flex lg:w-72 bg-forge flex-col shrink-0" aria-label="Main navigation">
-          <div className="px-4 py-5 border-b border-steel">
-            <div className="flex items-center gap-2">
-              <div className="rounded overflow-hidden h-8 w-8 shrink-0">
-                <Image src="/logo_inverse.png" alt="Foreman" width={32} height={32} className="h-8 w-auto" />
+      <div className="flex flex-1 overflow-hidden">
+
+        {/* Desktop sidebar */}
+        <aside
+          className="hidden lg:flex lg:w-64 xl:w-72 bg-forge flex-col shrink-0 sticky top-0 h-screen overflow-y-auto"
+          aria-label="Main navigation"
+        >
+          {/* Sidebar header */}
+          <div className="px-4 py-5 border-b border-white/8">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber shrink-0">
+                <span className="font-display font-800 text-forge text-lg leading-none">F</span>
               </div>
               <div className="min-w-0 flex-1">
-                <p className="font-display font-800 text-white text-lg leading-none tracking-wide">FOREMAN</p>
-                <p className="text-mist text-xs truncate mt-0.5">{tenantName || "Your Business"}</p>
+                <p className="font-display font-800 text-white text-xl leading-none tracking-widest">FOREMAN</p>
+                {tenantName && (
+                  <p className="text-mist text-[11px] mt-0.5 truncate leading-none">{tenantName}</p>
+                )}
               </div>
               <NotificationBell />
             </div>
           </div>
 
-          <nav className="flex-1 px-3 py-4 space-y-4">
+          {/* Sidebar nav */}
+          <nav className="flex-1 px-3 py-5 space-y-5">
             {NAV_SECTIONS.map((section) => (
-              <div key={section.label} className="space-y-1">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-mist font-700 px-2">{section.label}</p>
+              <div key={section.label} className="space-y-0.5">
+                <p className="section-label px-3 mb-2">{section.label}</p>
                 {section.items.map((item) => (
                   <NavLink key={item.href} {...item} />
                 ))}
@@ -261,27 +235,40 @@ export default function OwnerShell({ profile, tenantName, children }: OwnerShell
             ))}
           </nav>
 
-          <div className="px-4 py-4 border-t border-steel">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-steel rounded-full flex items-center justify-center shrink-0">
-                <span className="text-white text-sm font-700">{profile.full_name[0]}</span>
+          {/* Sidebar footer */}
+          <div className="border-t border-white/8 px-4 py-4">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-steel text-white text-xs font-700">
+                {initial}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-white text-xs font-600 truncate">{profile.full_name}</p>
-                <p className="text-mist text-xs">{t("nav.owner")}</p>
+                <p className="text-white text-xs font-600 truncate leading-tight">{profile.full_name}</p>
+                <p className="text-mist text-[11px] mt-0.5">{t("nav.owner")}</p>
               </div>
               <form action="/api/auth/signout" method="POST">
-                <button type="submit" className="text-mist hover:text-white text-xs transition-colors" aria-label={t("nav.signOut")}>
-                  →
+                <button
+                  type="submit"
+                  title={t("nav.signOut")}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-mist hover:text-white hover:bg-white/10 transition-colors"
+                  aria-label={t("nav.signOut")}
+                >
+                  <LogOut className="h-3.5 w-3.5" />
                 </button>
               </form>
             </div>
           </div>
         </aside>
 
-        <main id="main-content" className="flex-1 overflow-auto flex flex-col min-h-0 px-4 py-4 sm:px-6 lg:px-8">
-          <div className="w-full max-w-7xl mx-auto flex-1">{children}</div>
+        {/* Main content */}
+        <main
+          id="main-content"
+          className="flex-1 overflow-auto"
+        >
+          <div className="w-full max-w-7xl mx-auto">
+            {children}
+          </div>
         </main>
+
       </div>
     </div>
   );

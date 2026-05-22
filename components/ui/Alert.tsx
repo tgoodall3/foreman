@@ -1,5 +1,7 @@
 'use client';
 
+import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react';
+
 interface AlertProps {
   type: 'success' | 'error' | 'warning' | 'info';
   title?: string;
@@ -8,49 +10,64 @@ interface AlertProps {
   action?: { label: string; onClick: () => void };
 }
 
-export default function Alert({
-  type,
-  title,
-  message,
-  onDismiss,
-  action,
-}: AlertProps) {
-  const styles = {
-    success: {
-      bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-800', title: 'text-green-900',
-      icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>,
-    },
-    error: {
-      bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-800', title: 'text-red-900',
-      icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>,
-    },
-    warning: {
-      bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-800', title: 'text-yellow-900',
-      icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>,
-    },
-    info: {
-      bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-800', title: 'text-blue-900',
-      icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>,
-    },
-  };
+const CONFIG = {
+  success: {
+    icon:      CheckCircle,
+    container: 'bg-emerald-50 border-emerald-200 border-l-emerald-500',
+    iconColor: 'text-emerald-500',
+    title:     'text-emerald-900',
+    body:      'text-emerald-800',
+    action:    'text-emerald-700 hover:text-emerald-900',
+    dismiss:   'text-emerald-400 hover:text-emerald-600',
+  },
+  error: {
+    icon:      XCircle,
+    container: 'bg-red-50 border-red-200 border-l-red-500',
+    iconColor: 'text-red-500',
+    title:     'text-red-900',
+    body:      'text-red-800',
+    action:    'text-red-700 hover:text-red-900',
+    dismiss:   'text-red-400 hover:text-red-600',
+  },
+  warning: {
+    icon:      AlertTriangle,
+    container: 'bg-amber-50 border-amber-200 border-l-amber-500',
+    iconColor: 'text-amber-500',
+    title:     'text-amber-900',
+    body:      'text-amber-800',
+    action:    'text-amber-700 hover:text-amber-900',
+    dismiss:   'text-amber-400 hover:text-amber-600',
+  },
+  info: {
+    icon:      Info,
+    container: 'bg-blue-50 border-blue-200 border-l-blue-500',
+    iconColor: 'text-blue-500',
+    title:     'text-blue-900',
+    body:      'text-blue-800',
+    action:    'text-blue-700 hover:text-blue-900',
+    dismiss:   'text-blue-400 hover:text-blue-600',
+  },
+} as const;
 
-  const style = styles[type];
+export default function Alert({ type, title, message, onDismiss, action }: AlertProps) {
+  const cfg = CONFIG[type];
+  const Icon = cfg.icon;
 
   return (
     <div
       role={type === 'error' ? 'alert' : 'status'}
       aria-live={type === 'error' ? 'assertive' : 'polite'}
-      className={`${style.bg} border ${style.border} ${style.text} rounded-lg p-4`}
+      className={`rounded-xl border border-l-4 ${cfg.container} p-4 animate-fade-up`}
     >
       <div className="flex gap-3">
-        <span className="mt-0.5 shrink-0" aria-hidden="true">{style.icon}</span>
-        <div className="flex-1">
-          {title && <p className={`font-600 ${style.title} mb-1`}>{title}</p>}
-          <p className="text-sm">{message}</p>
+        <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${cfg.iconColor}`} aria-hidden="true" />
+        <div className="flex-1 min-w-0">
+          {title && <p className={`text-sm font-600 mb-0.5 ${cfg.title}`}>{title}</p>}
+          <p className={`text-sm leading-relaxed ${cfg.body}`}>{message}</p>
           {action && (
             <button
               onClick={action.onClick}
-              className={`mt-2 text-sm font-600 underline hover:opacity-80`}
+              className={`mt-2 text-sm font-600 underline underline-offset-2 transition-colors ${cfg.action}`}
             >
               {action.label}
             </button>
@@ -59,10 +76,10 @@ export default function Alert({
         {onDismiss && (
           <button
             onClick={onDismiss}
-            aria-label="Dismiss alert"
-            className="flex-shrink-0 opacity-70 hover:opacity-100"
+            aria-label="Dismiss"
+            className={`shrink-0 transition-colors ${cfg.dismiss}`}
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+            <X className="h-4 w-4" />
           </button>
         )}
       </div>
