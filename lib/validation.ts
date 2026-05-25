@@ -80,14 +80,19 @@ export const invoiceLineItemSchema = z.object({
 
 export const createInvoiceSchema = z.object({
   jobId: uuidSchema,
-  propertyManagerId: uuidSchema,
+  propertyManagerId: uuidSchema.optional(),
+  clientName: z.string().min(1).max(100).trim().optional(),
+  clientEmail: emailSchema.optional(),
   status: z.enum(["draft", "sent", "paid", "overdue"]).default("draft"),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   notes: notesSchema,
   emailOverride: emailSchema.optional(),
   taxRate: z.number().min(0).max(100).optional(),
   lineItems: z.array(invoiceLineItemSchema).min(1),
-});
+}).refine(
+  (d) => d.propertyManagerId || (d.clientName && d.clientName.length > 0),
+  { message: "Either a property manager or a client name is required." }
+);
 
 export const updateAccountSchema = z.object({
   name: z.string().max(100).trim().optional().or(z.literal("")),

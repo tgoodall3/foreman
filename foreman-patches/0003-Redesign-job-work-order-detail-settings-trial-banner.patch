@@ -1,0 +1,1152 @@
+From 262da2bdb74d11b9e38863ef55949371cd18c5d5 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 16 May 2026 12:50:34 +0000
+Subject: [PATCH 3/8] Redesign job + work order detail, settings, trial banner
+
+- Job detail: breadcrumb header with pill row, quick-assign card,
+  ready-to-invoice orange-soft callout, .grid-2 layout with checklist /
+  photos / change orders / billing table / costing on the left and
+  status actions / property / assigned workers / time / WO origin in
+  the right rail.
+- Work order detail: pill row + breadcrumb, two-column layout with
+  description, photos, PM comments threaded under cards, decision and
+  PM contact cards.
+- Settings layout: v1 page-h with kicker, sidebar nav as a
+  .card with active-state highlight.
+- TrialBanner: paper banner with orange-soft / red-soft tones and
+  v1 buttons (dark ink CTA), replacing the old solid amber bar.
+---
+ app/owner/jobs/[id]/page.tsx        | 539 +++++++++++++++-------------
+ app/owner/settings/layout.tsx       |  49 ++-
+ app/owner/work-orders/[id]/page.tsx | 324 +++++++++--------
+ components/ui/TrialBanner.tsx       |  43 ++-
+ 4 files changed, 528 insertions(+), 427 deletions(-)
+
+diff --git a/app/owner/jobs/[id]/page.tsx b/app/owner/jobs/[id]/page.tsx
+index 73a7e54..7a09d8d 100644
+--- a/app/owner/jobs/[id]/page.tsx
++++ b/app/owner/jobs/[id]/page.tsx
+@@ -1,6 +1,6 @@
+ import { requireOwner } from "@/lib/auth";
+ import { createServerSideClient } from "@/lib/supabase-server";
+-import { formatDate, formatDateTime, JOB_STATUS_CONFIG, PRIORITY_CONFIG, formatCurrency, CHANGE_ORDER_STATUS_CONFIG } from "@/lib/utils";
++import { formatDate, formatDateTime, formatCurrency } from "@/lib/utils";
+ import Link from "next/link";
+ import { notFound } from "next/navigation";
+ import JobChecklist from "@/components/jobs/JobChecklist";
+@@ -9,6 +9,44 @@ import QuickAssign from "@/components/owner/QuickAssign";
+ import JobPhotoGrid from "@/components/owner/JobPhotoGrid";
+ import JobCostingTab from "@/components/owner/JobCostingTab";
+ 
++const AVATAR_TONES = ["avatar--orange", "avatar--blue", "avatar--green"];
++
++function jobStatusPill(status: string) {
++  switch (status) {
++    case "in_progress": return { cls: "pill--inprog",    label: "In progress" };
++    case "completed":   return { cls: "pill--done",      label: "Completed" };
++    case "invoiced":    return { cls: "pill--paid",      label: "Invoiced" };
++    case "cancelled":   return { cls: "pill--draft",     label: "Cancelled" };
++    case "pending":     return { cls: "pill--unassigned",label: "Pending" };
++    default:            return { cls: "pill--scheduled", label: "Scheduled" };
++  }
++}
++
++function priorityPill(p?: string | null) {
++  switch (p) {
++    case "emergency":
++    case "urgent":   return { cls: "pill--high", label: p === "emergency" ? "Emergency" : "Urgent" };
++    case "high":     return { cls: "pill--high", label: "High" };
++    case "normal":   return { cls: "pill--med",  label: "Normal" };
++    case "low":      return { cls: "pill--low",  label: "Low" };
++    default:         return null;
++  }
++}
++
++function changeOrderPill(status: string) {
++  switch (status) {
++    case "approved": return { cls: "pill--done", label: "Approved" };
++    case "declined": return { cls: "pill--late", label: "Declined" };
++    case "sent":     return { cls: "pill--sent", label: "Sent" };
++    case "draft":    return { cls: "pill--draft", label: "Draft" };
++    default:         return { cls: "pill--draft", label: status };
++  }
++}
++
++function initials(name: string) {
++  return name.trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase() || "—";
++}
++
+ export default async function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
+   const { id } = await params;
+   const profile = await requireOwner();
+@@ -33,8 +71,8 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id:
+   ]);
+ 
+   const assignedWorkers = workers?.filter((w) => job.assigned_workers?.includes(w.id)) || [];
+-  const statusCfg = JOB_STATUS_CONFIG[job.status as keyof typeof JOB_STATUS_CONFIG];
+-  const priorityCfg = PRIORITY_CONFIG[job.priority as keyof typeof PRIORITY_CONFIG];
++  const stPill = jobStatusPill(job.status);
++  const priPill = priorityPill(job.priority);
+   const lineItems = job.line_items || [];
+   const total = lineItems.reduce((s: number, i: any) => s + i.total, 0);
+ 
+@@ -45,279 +83,288 @@ export default async function JobDetailPage({ params }: { params: Promise<{ id:
+   }, 0);
+ 
+   return (
+-    <div className="page-shell page-shell-standard">
+-      {/* Header */}
+-      <div className="page-header">
+-        <div className="page-header-copy">
+-          <div className="flex items-center gap-2 mb-1">
+-            <Link href="/owner/jobs" className="text-mist hover:text-forge text-sm transition-colors">Jobs</Link>
+-            <span className="text-mist">/</span>
+-            <span className="text-sm text-forge">{job.title}</span>
+-          </div>
+-          <h1 className="page-title">{job.title}</h1>
+-          <div className="flex items-center gap-2 mt-2 flex-wrap">
+-            <span className={`badge ${statusCfg.bg} ${statusCfg.color}`}>{statusCfg.label}</span>
+-            <span className={`badge ${priorityCfg.bg} ${priorityCfg.color}`}>{priorityCfg.label}</span>
+-            {job.scheduled_date && (
+-              <span className="text-xs text-mist">Scheduled: {formatDate(job.scheduled_date)}</span>
+-            )}
+-            {job.recurrence && job.recurrence !== "none" && (
+-              <span className="badge bg-blue-50 text-blue-700 inline-flex items-center gap-1">
+-                <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+-                {{ weekly: "Weekly", biweekly: "Every 2 weeks", monthly: "Monthly", daily: "Daily" }[job.recurrence as string] ?? job.recurrence}
+-              </span>
+-            )}
+-          </div>
+-        </div>
+-      <Link
+-        href={`/owner/jobs/${job.id}/edit`}
+-        className="action-button-dark"
+-      >
+-        Edit Job
+-      </Link>
+-    </div>
+-    <div className="mb-4">
+-      <QuickAssign
+-        jobId={job.id}
+-        scheduledDate={job.scheduled_date}
+-        scheduledTime={job.scheduled_time}
+-        assignedWorkers={job.assigned_workers}
+-        workers={workers ?? []}
+-      />
+-    </div>
+-
+-    {job.status === "completed" && !job.invoice_id && (
+-      <div className="mb-4 bg-amber/10 border border-amber/30 text-forge rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+-        <div>
+-          <p className="text-sm font-700">Job completed — ready to invoice</p>
+-          <p className="text-xs text-mist">Generate an invoice now to collect payment.</p>
++    <div className="fm">
++      <div className="page">
++        {/* Breadcrumb */}
++        <div className="row gap-2" style={{ marginBottom: 16 }}>
++          <Link href="/owner/jobs" className="kicker" style={{ color: "var(--muted)", textDecoration: "none" }}>Jobs</Link>
++          <span style={{ color: "var(--muted-2)" }}>/</span>
++          <span className="kicker" style={{ color: "var(--ink)" }}>{job.title}</span>
+         </div>
+-        <Link
+-          href={`/owner/invoices/new?job=${job.id}`}
+-          className="bg-forge text-white text-xs font-700 px-3 py-2 rounded-lg hover:bg-forge-light transition-colors"
+-        >
+-          Create Invoice
+-        </Link>
+-      </div>
+-    )}
+-
+-    <div className="grid lg:grid-cols-3 gap-6">
+-        {/* Left: main details */}
+-        <div className="lg:col-span-2 space-y-6">
+-          {/* Description */}
+-          {job.description && (
+-            <section aria-labelledby="desc-heading" className="bg-white rounded-xl border border-gray-200 p-5">
+-              <h2 id="desc-heading" className="font-display font-700 text-lg text-forge mb-3">Description</h2>
+-              <p className="text-sm text-steel leading-relaxed">{job.description}</p>
+-            </section>
+-          )}
+ 
+-          {/* Checklist */}
+-          <section aria-labelledby="checklist-heading" className="bg-white rounded-xl border border-gray-200 p-5">
+-            <h2 id="checklist-heading" className="font-display font-700 text-lg text-forge mb-4">
+-              Checklist
+-              {(checklist?.length ?? 0) > 0 && (
+-                <span className="ml-2 text-sm font-500 text-mist">
+-                  ({checklist!.filter((i: any) => i.done).length}/{checklist!.length})
++        {/* Header */}
++        <div className="between" style={{ alignItems: "flex-start", marginBottom: 20, gap: 24, flexWrap: "wrap" }}>
++          <div style={{ minWidth: 0 }}>
++            <div className="row gap-2" style={{ flexWrap: "wrap" }}>
++              <span className={`pill ${stPill.cls}`}><span className="dot"></span>{stPill.label}</span>
++              {priPill && <span className={`pill ${priPill.cls}`}><span className="dot"></span>{priPill.label}</span>}
++              {job.scheduled_date && (
++                <span className="mono" style={{ fontSize: 11.5, color: "var(--muted)" }}>
++                  scheduled {formatDate(job.scheduled_date)}{job.scheduled_time ? ` · ${job.scheduled_time}` : ""}
++                </span>
++              )}
++              {job.recurrence && job.recurrence !== "none" && (
++                <span className="pill" style={{ background: "var(--blue-soft)", color: "#1A4FA0", borderColor: "#CCDBF1" }}>
++                  <span className="dot" style={{ background: "var(--blue)" }}></span>
++                  {{ weekly: "Weekly", biweekly: "Every 2 weeks", monthly: "Monthly", daily: "Daily" }[job.recurrence as string] ?? job.recurrence}
+                 </span>
+               )}
+-            </h2>
+-            <JobChecklist jobId={job.id} items={(checklist ?? []) as any} canManage={true} />
+-          </section>
++            </div>
++            <h1 style={{ marginTop: 8, fontSize: 26, fontWeight: 500, letterSpacing: "-0.02em" }}>{job.title}</h1>
++            {job.properties && (
++              <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
++                {job.properties.name} · {job.properties.address}, {job.properties.city}, {job.properties.state}
++              </div>
++            )}
++          </div>
++          <Link href={`/owner/jobs/${job.id}/edit`} className="btn btn--primary">Edit job</Link>
++        </div>
+ 
+-          {/* Photos */}
+-          <section aria-labelledby="photos-heading" className="bg-white rounded-xl border border-gray-200 p-5">
+-            <h2 id="photos-heading" className="font-display font-700 text-lg text-forge mb-4">
+-              Photos ({photos?.length || 0})
+-            </h2>
+-            <JobPhotoGrid photos={(photos ?? []) as any} />
+-          </section>
++        {/* Quick assign */}
++        <div className="card" style={{ padding: 14, marginBottom: 16 }}>
++          <QuickAssign
++            jobId={job.id}
++            scheduledDate={job.scheduled_date}
++            scheduledTime={job.scheduled_time}
++            assignedWorkers={job.assigned_workers}
++            workers={workers ?? []}
++          />
++        </div>
+ 
+-          {/* Change Orders */}
+-          <section aria-labelledby="co-heading" className="bg-white rounded-xl border border-gray-200 p-5">
+-            <div className="flex items-center justify-between mb-4">
+-              <h2 id="co-heading" className="font-display font-700 text-lg text-forge">
+-                Change Orders
+-                {(changeOrders?.length ?? 0) > 0 && (
+-                  <span className="ml-2 text-sm font-500 text-mist">({changeOrders!.length})</span>
+-                )}
+-              </h2>
+-              <Link
+-                href={`/owner/jobs/${job.id}/change-orders/new`}
+-                className="text-sm text-amber hover:underline font-600"
+-              >
+-                + New
+-              </Link>
++        {/* Ready-to-invoice banner */}
++        {job.status === "completed" && !job.invoice_id && (
++          <div className="card" style={{ padding: "12px 16px", marginBottom: 16, background: "var(--orange-soft)", borderColor: "#F4D9A8" }}>
++            <div className="between">
++              <div>
++                <div className="kicker kicker--orange">Ready to invoice</div>
++                <div style={{ fontSize: 14, fontWeight: 500, marginTop: 4 }}>Job completed — generate an invoice to collect payment.</div>
++              </div>
++              <Link href={`/owner/invoices/new?job=${job.id}`} className="btn btn--orange btn--sm">Create invoice →</Link>
+             </div>
+-            {!changeOrders?.length ? (
+-              <p className="text-sm text-mist">No change orders yet.</p>
+-            ) : (
+-              <div className="divide-y divide-gray-100">
+-                {changeOrders.map((co: any) => {
+-                  const cfg = CHANGE_ORDER_STATUS_CONFIG[co.status] ?? CHANGE_ORDER_STATUS_CONFIG.draft;
+-                  return (
+-                    <Link key={co.id} href={`/owner/change-orders/${co.id}`} className="flex items-center justify-between py-3 hover:bg-gray-50 -mx-1 px-1 rounded-lg transition-colors">
+-                      <div>
+-                        <p className="text-sm font-600 text-forge">{co.title}</p>
+-                        <p className="text-xs text-mist font-mono">{co.change_order_number}</p>
+-                      </div>
+-                      <div className="flex items-center gap-3">
+-                        <span className={`badge ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
+-                        <span className="text-sm font-700 text-forge">{formatCurrency(co.total)}</span>
+-                      </div>
+-                    </Link>
+-                  );
+-                })}
++          </div>
++        )}
++
++        <div className="grid-2">
++          {/* LEFT */}
++          <div className="col" style={{ gap: 16 }}>
++            {job.description && (
++              <div className="card">
++                <div className="card-head"><h3>Description</h3></div>
++                <div style={{ padding: "12px 18px 16px", fontSize: 13, color: "var(--ink-2)", lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{job.description}</div>
+               </div>
+             )}
+-          </section>
+ 
+-          {/* Notes */}
+-          <section aria-labelledby="notes-heading" className="bg-white rounded-xl border border-gray-200 p-5">
+-            <h2 id="notes-heading" className="font-display font-700 text-lg text-forge mb-4">
+-              Notes ({notes?.length || 0})
+-            </h2>
+-            {!notes?.length ? (
+-              <p className="text-sm text-mist">No notes yet</p>
+-            ) : (
+-              <div className="space-y-3">
+-                {notes.map((note: any) => (
+-                  <div key={note.id} className="bg-gray-50 rounded-lg p-3">
+-                    <div className="flex items-center justify-between mb-1">
+-                      <span className="text-xs font-600 text-forge">{note.profiles?.full_name || "Unknown"}</span>
+-                      <span className="text-xs text-mist">{formatDateTime(note.created_at)}</span>
+-                    </div>
+-                    <p className="text-sm text-steel">{note.text}</p>
+-                  </div>
+-                ))}
++            <div className="card">
++              <div className="card-head">
++                <h3>Checklist {(checklist?.length ?? 0) > 0 && <span style={{ color: "var(--muted)", fontWeight: 400 }}>· {checklist!.filter((i: any) => i.done).length} / {checklist!.length}</span>}</h3>
+               </div>
+-            )}
+-          </section>
++              <div style={{ padding: "12px 18px 14px" }}>
++                <JobChecklist jobId={job.id} items={(checklist ?? []) as any} canManage={true} />
++              </div>
++            </div>
+ 
+-          {/* Job Costing */}
+-          <section aria-labelledby="costing-heading" className="bg-white rounded-xl border border-gray-200 p-5">
+-            <h2 id="costing-heading" className="font-display font-700 text-lg text-forge mb-4">Job Costing</h2>
+-            <JobCostingTab jobId={job.id} revenue={total} laborCostEstimate={laborCostEstimate} />
+-          </section>
++            <div className="card">
++              <div className="card-head">
++                <h3>Photos <span style={{ color: "var(--muted)", fontWeight: 400 }}>· {photos?.length || 0}</span></h3>
++              </div>
++              <div style={{ padding: 14 }}>
++                <JobPhotoGrid photos={(photos ?? []) as any} />
++              </div>
++            </div>
+ 
+-          {/* Line Items */}
+-          {lineItems.length > 0 && (
+-            <section aria-labelledby="billing-heading" className="bg-white rounded-xl border border-gray-200 p-5">
+-              <h2 id="billing-heading" className="font-display font-700 text-lg text-forge mb-4">Billing</h2>
+-              <table className="w-full text-sm" aria-label="Job line items">
+-                <thead>
+-                  <tr className="border-b border-gray-100">
+-                    <th scope="col" className="text-left pb-2 font-600 text-mist text-xs uppercase">Description</th>
+-                    <th scope="col" className="text-right pb-2 font-600 text-mist text-xs uppercase">Qty</th>
+-                    <th scope="col" className="text-right pb-2 font-600 text-mist text-xs uppercase">Unit Price</th>
+-                    <th scope="col" className="text-right pb-2 font-600 text-mist text-xs uppercase">Total</th>
+-                  </tr>
+-                </thead>
+-                <tbody className="divide-y divide-gray-50">
+-                  {lineItems.map((item: any) => (
+-                    <tr key={item.id}>
+-                      <td className="py-2 text-forge">{item.description}</td>
+-                      <td className="py-2 text-right text-mist">{item.quantity}</td>
+-                      <td className="py-2 text-right text-mist">{formatCurrency(item.unit_price)}</td>
+-                      <td className="py-2 text-right font-600">{formatCurrency(item.total)}</td>
+-                    </tr>
+-                  ))}
+-                </tbody>
+-                <tfoot>
+-                  <tr className="border-t border-gray-200">
+-                    <td colSpan={3} className="pt-3 text-right font-700 text-forge">Total</td>
+-                    <td className="pt-3 text-right font-800 text-forge">{formatCurrency(total)}</td>
+-                  </tr>
+-                </tfoot>
+-              </table>
+-              {job.status === "completed" && !job.invoice_id && (
+-                <div className="mt-4">
+-                  <Link
+-                    href={`/owner/invoices/new?job=${job.id}`}
+-                    className="inline-flex bg-amber hover:bg-amber-dark text-forge font-display font-700 px-4 py-2 rounded-lg text-sm transition-colors"
+-                  >
+-                    Generate Invoice
+-                  </Link>
++            <div className="card">
++              <div className="card-head">
++                <h3>Change orders {(changeOrders?.length ?? 0) > 0 && <span style={{ color: "var(--muted)", fontWeight: 400 }}>· {changeOrders!.length}</span>}</h3>
++                <Link href={`/owner/jobs/${job.id}/change-orders/new`} className="btn btn--sm">+ New</Link>
++              </div>
++              {!changeOrders?.length ? (
++                <div style={{ padding: 16 }}>
++                  <p className="muted" style={{ fontSize: 13, margin: 0 }}>No change orders yet.</p>
++                </div>
++              ) : (
++                <div>
++                  {changeOrders.map((co: any) => {
++                    const cp = changeOrderPill(co.status);
++                    return (
++                      <Link
++                        key={co.id}
++                        href={`/owner/change-orders/${co.id}`}
++                        style={{
++                          display: "flex",
++                          alignItems: "center",
++                          justifyContent: "space-between",
++                          padding: "12px 18px",
++                          borderBottom: "1px solid var(--line)",
++                          textDecoration: "none",
++                          color: "inherit",
++                        }}
++                      >
++                        <div>
++                          <div style={{ fontSize: 13.5, fontWeight: 500 }}>{co.title}</div>
++                          <div className="mono" style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{co.change_order_number}</div>
++                        </div>
++                        <div className="row gap-2">
++                          <span className={`pill ${cp.cls}`}><span className="dot"></span>{cp.label}</span>
++                          <span className="mono num" style={{ fontWeight: 500 }}>{formatCurrency(co.total)}</span>
++                        </div>
++                      </Link>
++                    );
++                  })}
+                 </div>
+               )}
+-            </section>
+-          )}
+-        </div>
++            </div>
+ 
+-        {/* Right: sidebar */}
+-        <div className="space-y-4">
+-          <JobStatusActions jobId={job.id} status={job.status} hasInvoice={!!job.invoice_id} />
++            <div className="card">
++              <div className="card-head">
++                <h3>Notes <span style={{ color: "var(--muted)", fontWeight: 400 }}>· {notes?.length || 0}</span></h3>
++              </div>
++              <div style={{ padding: "12px 18px 16px" }}>
++                {!notes?.length ? (
++                  <p className="muted" style={{ fontSize: 13, margin: 0 }}>No notes yet.</p>
++                ) : (
++                  <div className="col" style={{ gap: 10 }}>
++                    {notes.map((note: any) => (
++                      <div key={note.id} style={{ background: "var(--surface-2)", borderRadius: 8, padding: "10px 12px" }}>
++                        <div className="between" style={{ marginBottom: 4 }}>
++                          <span style={{ fontSize: 12.5, fontWeight: 500 }}>{note.profiles?.full_name || "Unknown"}</span>
++                          <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>{formatDateTime(note.created_at)}</span>
++                        </div>
++                        <p style={{ margin: 0, fontSize: 13, color: "var(--ink-2)", lineHeight: 1.5 }}>{note.text}</p>
++                      </div>
++                    ))}
++                  </div>
++                )}
++              </div>
++            </div>
+ 
+-          {/* Property */}
+-          {job.properties && (
+-            <div className="bg-white rounded-xl border border-gray-200 p-4">
+-              <p className="text-xs text-mist uppercase tracking-wider font-600 mb-2">Property</p>
+-              <p className="font-600 text-forge text-sm">{job.properties.name}</p>
+-              <p className="text-xs text-mist mt-1">{job.properties.address}</p>
+-              <p className="text-xs text-mist">{job.properties.city}, {job.properties.state}</p>
++            <div className="card">
++              <div className="card-head"><h3>Job costing</h3></div>
++              <div style={{ padding: "12px 18px 16px" }}>
++                <JobCostingTab jobId={job.id} revenue={total} laborCostEstimate={laborCostEstimate} />
++              </div>
+             </div>
+-          )}
+ 
+-          {/* Assigned Workers */}
+-          <div className="bg-white rounded-xl border border-gray-200 p-4">
+-            <p className="text-xs text-mist uppercase tracking-wider font-600 mb-2">Assigned Workers</p>
+-            {assignedWorkers.length === 0 ? (
+-              <p className="text-xs text-mist">No workers assigned</p>
+-            ) : (
+-              <ul className="space-y-2">
+-                {assignedWorkers.map((w) => (
+-                  <li key={w.id} className="flex items-center gap-2">
+-                    <div className="w-7 h-7 bg-steel rounded-full flex items-center justify-center shrink-0">
+-                      <span className="text-white text-xs font-700">{w.full_name[0]}</span>
++            {lineItems.length > 0 && (
++              <div className="card">
++                <div className="card-head"><h3>Billing</h3></div>
++                <div style={{ padding: 18 }}>
++                  <table className="tbl" style={{ marginTop: -8 }}>
++                    <thead>
++                      <tr>
++                        <th>Description</th>
++                        <th style={{ width: 70, textAlign: "right" }}>Qty</th>
++                        <th style={{ width: 100, textAlign: "right" }}>Unit</th>
++                        <th style={{ width: 110, textAlign: "right" }}>Total</th>
++                      </tr>
++                    </thead>
++                    <tbody>
++                      {lineItems.map((item: any) => (
++                        <tr key={item.id}>
++                          <td>{item.description}</td>
++                          <td className="mono num" style={{ textAlign: "right", color: "var(--muted)" }}>{item.quantity}</td>
++                          <td className="mono num" style={{ textAlign: "right", color: "var(--muted)" }}>{formatCurrency(item.unit_price)}</td>
++                          <td className="mono num" style={{ textAlign: "right", fontWeight: 500 }}>{formatCurrency(item.total)}</td>
++                        </tr>
++                      ))}
++                    </tbody>
++                    <tfoot>
++                      <tr>
++                        <td colSpan={3} style={{ textAlign: "right", paddingTop: 12, fontWeight: 500, borderTop: "1px solid var(--line-2)" }}>Total</td>
++                        <td className="mono num" style={{ textAlign: "right", paddingTop: 12, fontWeight: 600, fontSize: 15, borderTop: "1px solid var(--line-2)" }}>{formatCurrency(total)}</td>
++                      </tr>
++                    </tfoot>
++                  </table>
++                  {job.status === "completed" && !job.invoice_id && (
++                    <div style={{ marginTop: 14 }}>
++                      <Link href={`/owner/invoices/new?job=${job.id}`} className="btn btn--orange">Generate invoice</Link>
+                     </div>
+-                    <span className="text-sm font-500 text-forge">{w.full_name}</span>
+-                  </li>
+-                ))}
+-              </ul>
++                  )}
++                </div>
++              </div>
+             )}
+           </div>
+ 
+-          {/* Time */}
+-          <div className="bg-white rounded-xl border border-gray-200 p-4">
+-            <p className="text-xs text-mist uppercase tracking-wider font-600 mb-3">Time</p>
+-            <div className="space-y-2">
+-              {job.estimated_hours != null && (
+-                <div className="flex justify-between items-center text-sm">
+-                  <span className="text-mist">Estimated</span>
+-                  <span className="font-600 text-forge">{job.estimated_hours}h</span>
+-                </div>
+-              )}
+-              <div className="flex justify-between items-center text-sm">
+-                <span className="text-mist">Actual</span>
+-                <span className={`font-600 ${job.actual_hours != null ? "text-forge" : "text-mist"}`}>
+-                  {job.actual_hours != null ? `${job.actual_hours}h` : "—"}
+-                </span>
++          {/* RIGHT */}
++          <div className="col" style={{ gap: 16 }}>
++            <div className="card">
++              <div className="card-head"><h3>Actions</h3></div>
++              <div style={{ padding: 16 }}>
++                <JobStatusActions jobId={job.id} status={job.status} hasInvoice={!!job.invoice_id} />
+               </div>
+-              {job.estimated_hours != null && job.actual_hours != null && (
+-                <div className="flex justify-between items-center text-sm">
+-                  <span className="text-mist">Variance</span>
+-                  <span className={`font-600 ${job.actual_hours > job.estimated_hours ? "text-red-600" : "text-green-600"}`}>
+-                    {job.actual_hours > job.estimated_hours ? "+" : ""}
+-                    {(job.actual_hours - job.estimated_hours).toFixed(1)}h
+-                  </span>
++            </div>
++
++            {job.properties && (
++              <div className="card">
++                <div className="card-head"><h3>Property</h3></div>
++                <div style={{ padding: "12px 18px 16px", fontSize: 13 }}>
++                  <p style={{ margin: 0, fontWeight: 500 }}>{job.properties.name}</p>
++                  <p className="muted" style={{ margin: "2px 0 0", fontSize: 12 }}>{job.properties.address}</p>
++                  <p className="muted" style={{ margin: 0, fontSize: 12 }}>{job.properties.city}, {job.properties.state}</p>
+                 </div>
+-              )}
++              </div>
++            )}
++
++            <div className="card">
++              <div className="card-head"><h3>Assigned workers</h3></div>
++              <div style={{ padding: "12px 18px 16px" }}>
++                {assignedWorkers.length === 0 ? (
++                  <p className="muted" style={{ fontSize: 13, margin: 0 }}>No workers assigned.</p>
++                ) : (
++                  <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 8 }}>
++                    {assignedWorkers.map((w, i) => (
++                      <li key={w.id} className="row gap-2">
++                        <div className={`avatar ${AVATAR_TONES[i % AVATAR_TONES.length]}`}>{initials(w.full_name)}</div>
++                        <span style={{ fontSize: 13, fontWeight: 500 }}>{w.full_name}</span>
++                      </li>
++                    ))}
++                  </ul>
++                )}
++              </div>
+             </div>
+-          </div>
+ 
+-          {/* From Work Order */}
+-          {job.work_orders && (
+-            <div className="bg-amber/10 border border-amber/30 rounded-xl p-4">
+-              <p className="text-xs font-600 text-amber-dark uppercase tracking-wider mb-2">From Work Order</p>
+-              <p className="font-600 text-sm text-forge">{job.work_orders.title}</p>
+-              <p className="text-xs text-steel mt-1 line-clamp-3">{job.work_orders.description}</p>
+-              <Link href={`/owner/work-orders/${job.work_order_id}`} className="text-xs text-amber hover:underline mt-2 inline-block">
+-                View work order →
+-              </Link>
++            <div className="card">
++              <div className="card-head"><h3>Time</h3></div>
++              <div style={{ padding: "4px 0" }}>
++                {job.estimated_hours != null && (
++                  <Row label="Estimated" value={`${job.estimated_hours}h`} />
++                )}
++                <Row label="Actual" value={job.actual_hours != null ? `${job.actual_hours}h` : "—"} />
++                {job.estimated_hours != null && job.actual_hours != null && (
++                  <Row
++                    label="Variance"
++                    value={`${job.actual_hours > job.estimated_hours ? "+" : ""}${(job.actual_hours - job.estimated_hours).toFixed(1)}h`}
++                    valueColor={job.actual_hours > job.estimated_hours ? "var(--red)" : "var(--green)"}
++                  />
++                )}
++              </div>
+             </div>
+-          )}
++
++            {job.work_orders && (
++              <div className="card" style={{ background: "var(--orange-soft)", borderColor: "#F4D9A8" }}>
++                <div style={{ padding: 14 }}>
++                  <div className="kicker kicker--orange">From work order</div>
++                  <p style={{ margin: "6px 0 0", fontSize: 13.5, fontWeight: 500 }}>{job.work_orders.title}</p>
++                  {job.work_orders.description && (
++                    <p style={{ margin: "6px 0 0", fontSize: 12.5, color: "var(--ink-2)", lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{job.work_orders.description}</p>
++                  )}
++                  <Link href={`/owner/work-orders/${job.work_order_id}`} className="btn btn--sm" style={{ marginTop: 10 }}>
++                    View work order →
++                  </Link>
++                </div>
++              </div>
++            )}
++          </div>
+         </div>
+       </div>
+     </div>
+   );
+ }
++
++function Row({ label, value, valueColor }: { label: string; value: string; valueColor?: string }) {
++  return (
++    <div style={{ display: "flex", padding: "9px 18px", fontSize: 13, justifyContent: "space-between" }}>
++      <div className="kicker">{label}</div>
++      <div className="mono num" style={{ color: valueColor, fontWeight: 500 }}>{value}</div>
++    </div>
++  );
++}
+diff --git a/app/owner/settings/layout.tsx b/app/owner/settings/layout.tsx
+index af5a056..d66d30a 100644
+--- a/app/owner/settings/layout.tsx
++++ b/app/owner/settings/layout.tsx
+@@ -1,32 +1,53 @@
+ "use client";
+ 
+ import Link from "next/link";
++import { usePathname } from "next/navigation";
+ import { useLanguage } from "@/lib/i18n";
+ 
+ export default function SettingsLayout({ children }: { children: React.ReactNode }) {
+   const { t } = useLanguage();
++  const pathname = usePathname();
+ 
+-  const SETTINGS_NAV = [
++  const nav = [
+     { href: "/owner/settings/billing", label: t("billing.title") },
+     { href: "/owner/settings/account", label: t("settings.account") },
+   ];
+ 
+   return (
+-    <div className="page-shell page-shell-standard lg:px-8">
+-      <div className="mx-auto max-w-5xl">
+-        <h1 className="page-title">{t("settings.settingsTitle")}</h1>
+-        <div className="flex flex-col gap-8 lg:flex-row">
+-          <nav className="w-full lg:w-40 shrink-0 surface-card p-4" aria-label="Settings navigation">
+-            <ul className="space-y-1">
+-              {SETTINGS_NAV.map((item) => (
+-                <li key={item.href}>
+-                  <Link href={item.href}
+-                    className="block rounded-2xl px-3 py-3 text-sm font-500 text-steel hover:text-forge hover:bg-gray-100 transition-colors">
++    <div className="fm">
++      <div className="page">
++        <div className="page-h">
++          <div>
++            <div className="kicker">Workspace</div>
++            <h1 style={{ marginTop: 6 }}>{t("settings.settingsTitle")}</h1>
++          </div>
++        </div>
++
++        <div className="flex flex-col gap-6 lg:flex-row">
++          <nav className="lg:w-48 shrink-0" aria-label="Settings navigation">
++            <div className="card" style={{ padding: 6 }}>
++              {nav.map((item) => {
++                const active = pathname === item.href || pathname.startsWith(item.href + "/");
++                return (
++                  <Link
++                    key={item.href}
++                    href={item.href}
++                    style={{
++                      display: "block",
++                      padding: "10px 12px",
++                      borderRadius: 8,
++                      fontSize: 13,
++                      fontWeight: active ? 500 : 450,
++                      color: active ? "var(--ink)" : "var(--ink-2)",
++                      background: active ? "var(--surface-2)" : "transparent",
++                      textDecoration: "none",
++                    }}
++                  >
+                     {item.label}
+                   </Link>
+-                </li>
+-              ))}
+-            </ul>
++                );
++              })}
++            </div>
+           </nav>
+           <div className="flex-1 min-w-0">{children}</div>
+         </div>
+diff --git a/app/owner/work-orders/[id]/page.tsx b/app/owner/work-orders/[id]/page.tsx
+index e00973d..aee22ee 100644
+--- a/app/owner/work-orders/[id]/page.tsx
++++ b/app/owner/work-orders/[id]/page.tsx
+@@ -1,7 +1,7 @@
+ import Link from "next/link";
+ import { requireOwner } from "@/lib/auth";
+ import { createServerSideClient } from "@/lib/supabase-server";
+-import { formatDate, PRIORITY_CONFIG } from "@/lib/utils";
++import { formatDate } from "@/lib/utils";
+ import WorkOrderActions from "./WorkOrderActions";
+ import MessagePM from "@/components/owner/MessagePM";
+ import PhotoGrid from "@/components/ui/PhotoGrid";
+@@ -17,6 +17,26 @@ type WorkOrderPhoto = {
+   comment_id?: string;
+ };
+ 
++function priorityPill(p?: string | null) {
++  switch (p) {
++    case "emergency":
++    case "urgent":   return { cls: "pill--high", label: p === "emergency" ? "Emergency" : "Urgent" };
++    case "high":     return { cls: "pill--high", label: "High" };
++    case "normal":   return { cls: "pill--med",  label: "Normal" };
++    case "low":      return { cls: "pill--low",  label: "Low" };
++    default:         return null;
++  }
++}
++
++function statusPill(s: string) {
++  switch (s) {
++    case "pending":  return { cls: "pill--unassigned", label: "Pending" };
++    case "accepted": return { cls: "pill--done",       label: "Accepted" };
++    case "declined": return { cls: "pill--draft",      label: "Declined" };
++    default:         return { cls: "pill--scheduled",  label: s };
++  }
++}
++
+ export default async function WorkOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
+   const { id } = await params;
+   const profile = await requireOwner();
+@@ -29,188 +49,186 @@ export default async function WorkOrderDetailPage({ params }: { params: Promise<
+     .eq("tenant_id", profile.tenant_id)
+     .maybeSingle();
+ 
+-  // If the record isn't found, render a friendly message instead of 404
+   if (!wo) {
+-    const reason = "not found in database";
+     return (
+-      <div className="page-shell max-w-3xl">
+-        <h1 className="font-display font-800 text-2xl text-forge mb-2">Work Order Unavailable</h1>
+-        <p className="text-mist text-sm mb-2">ID: {id}</p>
+-        <p className="text-mist text-sm">Reason: {reason}.</p>
+-        {process.env.NODE_ENV !== "production" && (
+-          <pre className="mt-3 bg-gray-100 border border-gray-200 rounded-lg p-3 text-xs text-steel">
+-            {JSON.stringify({ error }, null, 2)}
+-          </pre>
+-        )}
++      <div className="fm">
++        <div className="page">
++          <div className="card empty">
++            <div className="ti">Work order unavailable</div>
++            <div className="ds">ID: {id}</div>
++            {process.env.NODE_ENV !== "production" && (
++              <pre style={{ marginTop: 12, background: "var(--surface-2)", border: "1px solid var(--line)", borderRadius: 8, padding: 10, fontSize: 11, textAlign: "left" }}>
++                {JSON.stringify({ error }, null, 2)}
++              </pre>
++            )}
++          </div>
++        </div>
+       </div>
+     );
+   }
+ 
+-  const priorityCfg = PRIORITY_CONFIG[wo.priority as keyof typeof PRIORITY_CONFIG];
+-  const statusColors: Record<string, string> = {
+-    pending:  "bg-yellow-100 text-yellow-700",
+-    accepted: "bg-green-100 text-green-700",
+-    declined: "bg-gray-100 text-gray-500",
+-  };
+-
++  const pri = priorityPill(wo.priority);
++  const st  = statusPill(wo.status);
+   const pm = Array.isArray(wo.property_managers) ? wo.property_managers[0] : (wo as any).property_managers;
+   const prop = Array.isArray(wo.properties) ? wo.properties[0] : (wo as any).properties;
+   const job = Array.isArray(wo.jobs) ? wo.jobs[0] : (wo as any).jobs;
++
+   const { data: comments } = await supabase
+     .from("work_order_comments")
+     .select("id, message, created_at, property_manager:property_managers!work_order_comments_created_by_pm_fkey(full_name, email)")
+     .eq("tenant_id", profile.tenant_id)
+     .eq("work_order_id", wo.id)
+     .order("created_at", { ascending: true });
++
+   const allPhotos = Array.isArray((wo as any).photos) ? ((wo as any).photos as WorkOrderPhoto[]) : [];
+   const submissionPhotos = allPhotos.filter((photo) => !photo.comment_id && photo.source !== "comment");
+ 
+   return (
+-    <div className="page-shell page-shell-tight w-full">
+-      <div className="page-header gap-3 sm:gap-4">
+-        <div className="page-header-copy space-y-2">
+-          <div className="flex flex-wrap items-center gap-1 text-[11px] text-mist">
+-            <Link href="/owner/work-orders" className="text-mist hover:text-forge underline underline-offset-2 decoration-black">Work Orders</Link>
+-            <span className="text-mist">/</span>
+-            <span className="text-forge truncate">{wo.title}</span>
+-          </div>
+-          <div className="space-y-2">
+-            <h1 className="page-title break-words text-2xl sm:text-3xl">{wo.title}</h1>
+-            <div className="flex items-center gap-2 flex-wrap">
+-              <span className={`badge ${priorityCfg.bg} ${priorityCfg.color}`}>{priorityCfg.label}</span>
+-              <span className={`badge ${statusColors[wo.status] ?? "bg-gray-100 text-gray-600"}`}>{wo.status}</span>
+-              <span className="text-xs text-mist">Opened {formatDate(wo.created_at.split("T")[0])}</span>
++    <div className="fm">
++      <div className="page">
++        <div className="row gap-2" style={{ marginBottom: 16 }}>
++          <Link href="/owner/work-orders" className="kicker" style={{ color: "var(--muted)", textDecoration: "none" }}>Work orders</Link>
++          <span style={{ color: "var(--muted-2)" }}>/</span>
++          <span className="kicker" style={{ color: "var(--ink)" }}>{wo.title}</span>
++        </div>
++
++        <div className="between" style={{ alignItems: "flex-start", marginBottom: 20, gap: 24, flexWrap: "wrap" }}>
++          <div style={{ minWidth: 0 }}>
++            <div className="row gap-2" style={{ flexWrap: "wrap" }}>
++              {pri && <span className={`pill ${pri.cls}`}><span className="dot"></span>{pri.label}</span>}
++              <span className={`pill ${st.cls}`}><span className="dot"></span>{st.label}</span>
++              <span className="mono" style={{ fontSize: 11.5, color: "var(--muted)" }}>opened {formatDate(wo.created_at.split("T")[0])}</span>
+             </div>
++            <h1 style={{ marginTop: 8, fontSize: 26, fontWeight: 500, letterSpacing: "-0.02em", wordBreak: "break-word" }}>{wo.title}</h1>
++          </div>
++          <div className="row gap-2">
++            {job && <Link href={`/owner/jobs/${job.id}`} className="btn btn--primary">Open job →</Link>}
++            <Link href="/owner/jobs/new" className="btn">+ New job</Link>
+           </div>
+         </div>
+-        <div className="flex w-full sm:w-auto items-stretch sm:items-center gap-2 sm:gap-3">
+-          {job && (
+-            <Link
+-              href={`/owner/jobs/${job.id}`}
+-              className="action-button-primary flex-1 sm:flex-none gap-1 px-3 py-2 text-xs sm:text-sm"
+-            >
+-              Open Job →
+-            </Link>
+-          )}
+-          <Link
+-            href="/owner/jobs/new"
+-            className="action-button-secondary flex-1 sm:flex-none px-3 py-2 text-xs sm:text-sm"
+-          >
+-            + New Job
+-          </Link>
+-        </div>
+-      </div>
+ 
+-      <div className="grid md:grid-cols-3 gap-5 sm:gap-6">
+-        <div className="md:col-span-2 space-y-4">
+-          <section className="surface-card p-4 sm:p-5">
+-            <h2 className="font-display font-700 text-lg text-forge mb-2">Description</h2>
+-            <p className="text-sm text-steel leading-relaxed">{wo.description || "No description provided."}</p>
+-          </section>
+-          <section className="surface-card p-4 sm:p-5">
+-            <div className="flex items-center justify-between gap-3 mb-3">
+-              <h2 className="font-display font-700 text-lg text-forge">Photos</h2>
+-              <p className="text-xs text-mist">{allPhotos.length} total</p>
++        <div className="grid-2">
++          <div className="col" style={{ gap: 16 }}>
++            <div className="card">
++              <div className="card-head"><h3>Description</h3></div>
++              <div style={{ padding: "12px 18px 16px", fontSize: 13, color: "var(--ink-2)", lineHeight: 1.55, whiteSpace: "pre-wrap" }}>
++                {wo.description || "No description provided."}
++              </div>
+             </div>
+-            {submissionPhotos.length > 0 ? (
+-              <PhotoGrid photos={submissionPhotos} imgClassName="h-32 w-full object-cover" />
+-            ) : (
+-              <p className="text-sm text-mist">No submission photos yet.</p>
+-            )}
+-          </section>
+-          <section className="surface-card p-4 sm:p-5">
+-            <div className="flex items-center justify-between gap-3 mb-3">
+-              <h2 className="font-display font-700 text-lg text-forge">PM Comments</h2>
+-              <p className="text-xs text-mist">{comments?.length ?? 0} messages</p>
++
++            <div className="card">
++              <div className="card-head">
++                <h3>Photos <span style={{ color: "var(--muted)", fontWeight: 400 }}>· {allPhotos.length}</span></h3>
++              </div>
++              <div style={{ padding: 16 }}>
++                {submissionPhotos.length > 0 ? (
++                  <PhotoGrid photos={submissionPhotos} imgClassName="h-32 w-full object-cover" />
++                ) : (
++                  <p className="muted" style={{ fontSize: 13, margin: 0 }}>No submission photos yet.</p>
++                )}
++              </div>
+             </div>
+-            {!comments?.length ? (
+-              <p className="text-sm text-mist">No comments yet.</p>
+-            ) : (
+-              <div className="space-y-3">
+-                {comments.map((comment: any) => {
+-                  const commentPhotos = allPhotos.filter((photo) => photo.comment_id === comment.id);
+-                  return (
+-                    <div key={comment.id} className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+-                      <div className="flex items-start justify-between gap-3">
+-                        <div>
+-                          <p className="text-sm font-700 text-forge">{comment.property_manager?.full_name || "Property Manager"}</p>
+-                          <p className="text-[11px] text-mist">{formatDate(comment.created_at.split("T")[0])}</p>
+-                        </div>
+-                        {comment.property_manager?.email && (
+-                          <a href={`mailto:${comment.property_manager.email}`} className="text-xs text-amber hover:underline">
+-                            {comment.property_manager.email}
+-                          </a>
+-                        )}
+-                      </div>
+-                      <p className="mt-2 text-sm leading-relaxed text-steel">{comment.message}</p>
+-                      {commentPhotos.length > 0 && (
+-                        <div className="mt-3">
+-                          <PhotoGrid photos={commentPhotos} imgClassName="h-28 w-full object-cover" />
++
++            <div className="card">
++              <div className="card-head">
++                <h3>PM comments <span style={{ color: "var(--muted)", fontWeight: 400 }}>· {comments?.length ?? 0}</span></h3>
++              </div>
++              <div style={{ padding: 16 }}>
++                {!comments?.length ? (
++                  <p className="muted" style={{ fontSize: 13, margin: 0 }}>No comments yet.</p>
++                ) : (
++                  <div className="col" style={{ gap: 12 }}>
++                    {comments.map((comment: any) => {
++                      const commentPhotos = allPhotos.filter((photo) => photo.comment_id === comment.id);
++                      const cpm = Array.isArray(comment.property_manager) ? comment.property_manager[0] : comment.property_manager;
++                      return (
++                        <div key={comment.id} style={{ background: "var(--surface-2)", border: "1px solid var(--line)", borderRadius: 8, padding: 12 }}>
++                          <div className="between" style={{ alignItems: "flex-start", gap: 12 }}>
++                            <div>
++                              <p style={{ margin: 0, fontSize: 13, fontWeight: 500 }}>{cpm?.full_name || "Property manager"}</p>
++                              <p className="mono" style={{ margin: 0, fontSize: 11, color: "var(--muted)" }}>{formatDate(comment.created_at.split("T")[0])}</p>
++                            </div>
++                            {cpm?.email && (
++                              <a href={`mailto:${cpm.email}`} className="mono" style={{ fontSize: 11, color: "var(--ink-2)" }}>
++                                {cpm.email}
++                              </a>
++                            )}
++                          </div>
++                          <p style={{ marginTop: 8, fontSize: 13, lineHeight: 1.55, color: "var(--ink-2)" }}>{comment.message}</p>
++                          {commentPhotos.length > 0 && (
++                            <div style={{ marginTop: 10 }}>
++                              <PhotoGrid photos={commentPhotos} imgClassName="h-28 w-full object-cover" />
++                            </div>
++                          )}
+                         </div>
+-                      )}
+-                    </div>
+-                  );
+-                })}
++                      );
++                    })}
++                  </div>
++                )}
+               </div>
+-            )}
+-          </section>
+-          {job && (
+-            <section className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
+-              <h2 className="font-display font-700 text-lg text-forge mb-2">Linked Job</h2>
+-              <Link href={`/owner/jobs/${job.id}`} className="text-sm text-forge underline underline-offset-2 decoration-black font-600">
+-                {job.title} ({job.status})
+-              </Link>
+-            </section>
+-          )}
+-        </div>
+-
+-        <div className="space-y-4">
+-          {wo.status === "pending" && (
+-            <WorkOrderActions
+-              workOrderId={wo.id}
+-              tenantId={wo.tenant_id}
+-              workOrderTitle={wo.title}
+-              workOrderDescription={wo.description || ""}
+-              propertyId={prop?.id || (wo as any).property_id || ""}
+-            />
+-          )}
+-          {wo.status === "accepted" && job && (
+-            <div className="bg-white rounded-xl border border-green-200 p-4">
+-              <p className="text-sm text-green-700 font-600 mb-2">Job created from this work order.</p>
+-              <Link
+-                href={`/owner/jobs/${job.id}/edit`}
+-                className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white text-xs font-700 px-3 py-2 rounded-lg transition-colors"
+-              >
+-                Schedule / Assign →
+-              </Link>
+             </div>
+-          )}
+-          <section className="bg-white rounded-xl border border-gray-200 p-4">
+-            <h3 className="font-display font-700 text-base text-forge mb-2">Property</h3>
+-            {prop ? (
+-              <>
+-                <p className="text-sm font-600 text-forge">{prop.name}</p>
+-                <p className="text-xs text-mist">{prop.address}{prop.city ? `, ${prop.city}` : ""}{prop.state ? `, ${prop.state}` : ""}</p>
+-              </>
+-            ) : (
+-              <p className="text-sm text-mist">No property linked.</p>
++          </div>
++
++          <div className="col" style={{ gap: 16 }}>
++            {wo.status === "pending" && (
++              <div className="card">
++                <div className="card-head"><h3>Decision</h3></div>
++                <div style={{ padding: 16 }}>
++                  <WorkOrderActions
++                    workOrderId={wo.id}
++                    tenantId={wo.tenant_id}
++                    workOrderTitle={wo.title}
++                    workOrderDescription={wo.description || ""}
++                    propertyId={prop?.id || (wo as any).property_id || ""}
++                  />
++                </div>
++              </div>
+             )}
+-          </section>
+-
+-          <section className="bg-white rounded-xl border border-gray-200 p-4">
+-            <h3 className="font-display font-700 text-base text-forge mb-2">Property Manager</h3>
+-            {pm ? (
+-              <>
+-                <p className="text-sm font-600 text-forge">{pm.full_name}</p>
+-                {pm.company && <p className="text-xs text-mist">{pm.company}</p>}
+-                {pm.email && <a className="text-xs text-amber hover:underline" href={`mailto:${pm.email}`}>{pm.email}</a>}
+-                {pm.phone && <p className="text-xs text-mist mt-1">{pm.phone}</p>}
+-                <MessagePM workOrderId={wo.id} pmName={pm.full_name} />
+-              </>
+-            ) : (
+-              <p className="text-sm text-mist">No manager linked.</p>
++
++            {wo.status === "accepted" && job && (
++              <div className="card" style={{ background: "var(--green-soft)", borderColor: "#CFE5D9" }}>
++                <div style={{ padding: 14 }}>
++                  <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: "#135E3F" }}>Job created from this work order.</p>
++                  <Link href={`/owner/jobs/${job.id}/edit`} className="btn btn--sm btn--primary" style={{ marginTop: 10 }}>
++                    Schedule / assign →
++                  </Link>
++                </div>
++              </div>
+             )}
+-          </section>
++
++            <div className="card">
++              <div className="card-head"><h3>Property</h3></div>
++              <div style={{ padding: "12px 18px 16px", fontSize: 13 }}>
++                {prop ? (
++                  <>
++                    <p style={{ margin: 0, fontWeight: 500 }}>{prop.name}</p>
++                    <p className="muted" style={{ margin: "2px 0 0", fontSize: 12 }}>{prop.address}{prop.city ? `, ${prop.city}` : ""}{prop.state ? `, ${prop.state}` : ""}</p>
++                  </>
++                ) : (
++                  <p className="muted" style={{ margin: 0 }}>No property linked.</p>
++                )}
++              </div>
++            </div>
++
++            <div className="card">
++              <div className="card-head"><h3>Property manager</h3></div>
++              <div style={{ padding: "12px 18px 16px", fontSize: 13 }}>
++                {pm ? (
++                  <>
++                    <p style={{ margin: 0, fontWeight: 500 }}>{pm.full_name}</p>
++                    {pm.company && <p className="muted" style={{ margin: "2px 0 0", fontSize: 12 }}>{pm.company}</p>}
++                    {pm.email && <a className="mono" href={`mailto:${pm.email}`} style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginTop: 6 }}>{pm.email}</a>}
++                    {pm.phone && <p className="mono" style={{ margin: "2px 0 0", fontSize: 12, color: "var(--muted)" }}>{pm.phone}</p>}
++                    <div style={{ marginTop: 10 }}>
++                      <MessagePM workOrderId={wo.id} pmName={pm.full_name} />
++                    </div>
++                  </>
++                ) : (
++                  <p className="muted" style={{ margin: 0 }}>No manager linked.</p>
++                )}
++              </div>
++            </div>
++          </div>
+         </div>
+       </div>
+     </div>
+diff --git a/components/ui/TrialBanner.tsx b/components/ui/TrialBanner.tsx
+index 439598b..c7bebb7 100644
+--- a/components/ui/TrialBanner.tsx
++++ b/components/ui/TrialBanner.tsx
+@@ -1,4 +1,4 @@
+-﻿import { createServerSideClient } from "@/lib/supabase-server";
++import { createServerSideClient } from "@/lib/supabase-server";
+ import { getProfile } from "@/lib/auth";
+ import { differenceInDays, parseISO } from "date-fns";
+ import Link from "next/link";
+@@ -7,7 +7,6 @@ import { getServerT } from "@/lib/i18n/server";
+ export default async function TrialBanner() {
+   const profile = await getProfile();
+   if (!profile) return null;
+-  // Profile already upgraded — skip the DB round-trip
+   if ((profile as any).plan === "pro") return null;
+   const t = await getServerT();
+ 
+@@ -21,27 +20,43 @@ export default async function TrialBanner() {
+   if (!tenant || tenant.plan === "pro" || !tenant.trial_ends_at) return null;
+ 
+   const daysLeft = differenceInDays(parseISO(tenant.trial_ends_at), new Date());
+-
+-  if (daysLeft > 10) return null; // Show banner starting 10 days before end
++  if (daysLeft > 10) return null;
+ 
+   const isExpired = daysLeft < 0;
+ 
+   return (
+-    <div className={`px-6 py-2 text-sm flex items-center justify-between ${isExpired ? "bg-red-600" : "bg-amber"}`}>
+-      <p className={`font-600 ${isExpired ? "text-white" : "text-forge"}`}>
+-        {isExpired
+-          ? t("trial.expired")
+-          : t("trial.daysLeft", { days: daysLeft, plural: daysLeft === 1 ? "" : "s" })}
+-      </p>
++    <div
++      className="flex items-center justify-between gap-3 px-6 py-2"
++      style={{
++        background: isExpired ? "var(--red-soft)" : "var(--orange-soft)",
++        borderBottom: `1px solid ${isExpired ? "#ECC7C2" : "#F4D9A8"}`,
++        fontSize: 13,
++      }}
++    >
++      <div className="row gap-2" style={{ minWidth: 0 }}>
++        <span
++          className="kicker"
++          style={{ color: isExpired ? "#8C291D" : "var(--orange-ink)" }}
++        >
++          {isExpired ? "Trial expired" : "Trial"}
++        </span>
++        <span style={{ color: isExpired ? "#8C291D" : "var(--orange-ink)", fontWeight: 500 }}>
++          {isExpired
++            ? t("trial.expired")
++            : t("trial.daysLeft", { days: daysLeft, plural: daysLeft === 1 ? "" : "s" })}
++        </span>
++      </div>
+       <Link
+         href="/owner/settings/billing"
+-        className={`font-display font-700 text-xs px-3 py-1.5 rounded-lg transition-colors ${
+-          isExpired ? "bg-white text-red-600 hover:bg-red-50" : "bg-forge text-white hover:bg-forge-light"
+-        }`}
++        className="btn btn--sm"
++        style={{
++          background: isExpired ? "#8C291D" : "var(--ink)",
++          color: "#fff",
++          borderColor: isExpired ? "#8C291D" : "var(--ink)",
++        }}
+       >
+         {t("trial.upgradeNow")}
+       </Link>
+     </div>
+   );
+ }
+-
+-- 
+2.43.0
+

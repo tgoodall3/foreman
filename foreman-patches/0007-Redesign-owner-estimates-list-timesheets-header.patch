@@ -1,0 +1,485 @@
+From c0e82711e4efa972a23bbb303f41f9505cf3e811 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 16 May 2026 12:55:46 +0000
+Subject: [PATCH 7/8] Redesign owner estimates list + timesheets header
+
+- Estimates list: v1 stat tabs, .tbl columns with pills, inline
+  expiry badge using orange-soft / red-soft.
+- Timesheets: fm page wrapper with kicker + h1, week navigator built
+  from bordered button group; empty state uses .card.
+---
+ app/owner/estimates/page.tsx  | 329 ++++++++++++++--------------------
+ app/owner/timesheets/page.tsx |  61 +++----
+ 2 files changed, 156 insertions(+), 234 deletions(-)
+
+diff --git a/app/owner/estimates/page.tsx b/app/owner/estimates/page.tsx
+index 3265206..6cecb57 100644
+--- a/app/owner/estimates/page.tsx
++++ b/app/owner/estimates/page.tsx
+@@ -1,11 +1,22 @@
+ import { requireOwner } from "@/lib/auth";
+ import { createServerSideClient } from "@/lib/supabase-server";
+-import { formatCurrency, formatDate, ESTIMATE_STATUS_CONFIG } from "@/lib/utils";
++import { formatCurrency, formatDate } from "@/lib/utils";
+ import Link from "next/link";
+ import { getServerT } from "@/lib/i18n/server";
+ 
+ const PAGE_SIZE = 8;
+ 
++function estimatePill(status: string) {
++  switch (status) {
++    case "approved":  return { cls: "pill--done",  label: "Approved" };
++    case "converted": return { cls: "pill--paid",  label: "Converted" };
++    case "declined":  return { cls: "pill--late",  label: "Declined" };
++    case "sent":      return { cls: "pill--sent",  label: "Sent" };
++    case "draft":     return { cls: "pill--draft", label: "Draft" };
++    default:          return { cls: "pill--draft", label: status };
++  }
++}
++
+ function daysUntilExpiry(validUntil: string | null): number | null {
+   if (!validUntil) return null;
+   const diff = new Date(validUntil + "T00:00:00Z").getTime() - Date.now();
+@@ -22,6 +33,8 @@ function isArchived(est: { status: string; updated_at: string }) {
+   return new Date(est.updated_at) < cutoff;
+ }
+ 
++const STATUS_FILTERS = ["draft", "sent", "approved", "declined", "converted"];
++
+ export default async function EstimatesPage({
+   searchParams,
+ }: {
+@@ -45,222 +58,150 @@ export default async function EstimatesPage({
+ 
+   const { data: allEstimates } = await query;
+ 
+-  // Split active vs archived (client-side — small dataset)
+   const allActive   = (allEstimates ?? []).filter((e) => !isArchived(e));
+   const allArchived = (allEstimates ?? []).filter((e) => isArchived(e));
+ 
+-  // Paginate the relevant set
+   const fullList = showPast ? allArchived : allActive;
+   const estimates = fullList.slice(start, start + PAGE_SIZE);
+   const pageCount = Math.ceil(fullList.length / PAGE_SIZE);
+ 
+-  const statuses = Object.keys(ESTIMATE_STATUS_CONFIG);
+-
+-  // Count by status (active only for badges)
+   const counts: Record<string, number> = {};
+   for (const e of allActive) counts[e.status] = (counts[e.status] ?? 0) + 1;
+ 
+-  const paginationBase = `/owner/estimates?${showPast ? "past=1" : ""}${statusParam ? `${showPast ? "" : ""}&status=${statusParam}` : ""}`;
++  const paginationBase = `/owner/estimates?${showPast ? "past=1" : ""}${statusParam ? `&status=${statusParam}` : ""}`;
+ 
+   return (
+-    <div className="page-shell page-shell-wide">
+-      <div className="page-header">
+-        <div className="page-header-copy">
+-          <h1 className="page-title">{t("estimates.title")}</h1>
+-          <p className="page-subtitle">
+-            {allActive.length} {t("estimates.activeTab").toLowerCase()}
+-            {allArchived.length > 0 ? ` · ${allArchived.length} ${t("estimates.pastTab").toLowerCase()}` : ""}
+-          </p>
++    <div className="fm">
++      <div className="page">
++        <div className="page-h">
++          <div>
++            <div className="kicker">All estimates</div>
++            <h1 style={{ marginTop: 6 }}>{t("estimates.title")}</h1>
++            <div className="sub">
++              {allActive.length} {t("estimates.activeTab").toLowerCase()}
++              {allArchived.length > 0 ? ` · ${allArchived.length} ${t("estimates.pastTab").toLowerCase()}` : ""}
++            </div>
++          </div>
++          <Link href="/owner/estimates/new" className="btn btn--primary">+ {t("estimates.newEstimate")}</Link>
+         </div>
+-        <Link href="/owner/estimates/new" className="action-button-primary">
+-          {t("estimates.newEstimate")}
+-        </Link>
+-      </div>
+ 
+-      {/* Active / Past toggle */}
+-      <div className="flex items-center gap-3 mb-5">
+-        <Link
+-          href="/owner/estimates"
+-          className={`px-4 py-1.5 rounded-full text-sm font-600 transition-colors ${
+-            !showPast ? "bg-forge text-white" : "text-mist hover:text-forge"
+-          }`}
+-        >
+-          {t("estimates.activeTab")}
+-          {allActive.length > 0 && (
+-            <span className={`ml-1.5 text-xs ${!showPast ? "opacity-70" : "opacity-50"}`}>
+-              {allActive.length}
+-            </span>
+-          )}
+-        </Link>
+-        <Link
+-          href="/owner/estimates?past=1"
+-          className={`px-4 py-1.5 rounded-full text-sm font-600 transition-colors ${
+-            showPast ? "bg-forge text-white" : "text-mist hover:text-forge"
+-          }`}
+-        >
+-          {t("estimates.pastTab")}
+-          {allArchived.length > 0 && (
+-            <span className={`ml-1.5 text-xs ${showPast ? "opacity-70" : "opacity-50"}`}>
+-              {allArchived.length}
+-            </span>
+-          )}
+-        </Link>
+-      </div>
+-
+-      {/* Status filter (only on active tab) */}
+-      {!showPast && (
+-        <div className="flex gap-2 flex-wrap mb-6" role="group" aria-label="Filter estimates by status">
+-          <Link
+-            href="/owner/estimates"
+-            className={`px-3 py-1.5 rounded-full text-xs font-600 border transition-colors ${
+-              !statusParam
+-                ? "bg-forge text-white border-forge"
+-                : "border-gray-300 text-mist hover:border-forge"
+-            }`}
+-          >
+-            {t("common.all")}
+-          </Link>
+-          {statuses.map((s) => {
+-            const cfg = ESTIMATE_STATUS_CONFIG[s];
+-            return (
+-              <Link
+-                key={s}
+-                href={`/owner/estimates?status=${s}`}
+-                className={`px-3 py-1.5 rounded-full text-xs font-600 border transition-colors ${
+-                  statusParam === s
+-                    ? `${cfg.bg} ${cfg.color} border-current`
+-                    : "border-gray-300 text-mist hover:border-gray-400"
+-                }`}
+-              >
+-                {cfg.label}
+-                {counts[s] ? <span className="ml-1 opacity-70">({counts[s]})</span> : null}
+-              </Link>
+-            );
+-          })}
++        {/* Tabs */}
++        <div className="row" style={{ gap: 0, borderBottom: "1px solid var(--line)", marginBottom: 16 }}>
++          {[
++            { href: "/owner/estimates",        label: t("estimates.activeTab"), active: !showPast, n: allActive.length },
++            { href: "/owner/estimates?past=1", label: t("estimates.pastTab"),   active: showPast,  n: allArchived.length },
++          ].map((tab) => (
++            <Link
++              key={tab.href}
++              href={tab.href}
++              style={{
++                padding: "10px 14px",
++                fontSize: 13,
++                color: tab.active ? "var(--ink)" : "var(--muted)",
++                borderBottom: tab.active ? "2px solid var(--orange)" : "2px solid transparent",
++                marginBottom: -1,
++                fontWeight: tab.active ? 500 : 450,
++                textDecoration: "none",
++                display: "flex",
++                alignItems: "center",
++                gap: 6,
++              }}
++            >
++              {tab.label}
++              {tab.n > 0 && <span className="mono" style={{ fontSize: 10.5, color: "var(--muted)" }}>{tab.n}</span>}
++            </Link>
++          ))}
+         </div>
+-      )}
+ 
+-      {/* Table / Cards */}
+-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
++        {/* Status filter */}
++        {!showPast && (
++          <div className="row" style={{ gap: 6, flexWrap: "wrap", marginBottom: 14 }} role="group" aria-label="Filter estimates by status">
++            <Link href="/owner/estimates" className={"btn btn--sm" + (!statusParam ? " btn--primary" : "")}>{t("common.all")}</Link>
++            {STATUS_FILTERS.map((s) => {
++              const pill = estimatePill(s);
++              const active = statusParam === s;
++              return (
++                <Link key={s} href={`/owner/estimates?status=${s}`} className={"btn btn--sm" + (active ? " btn--primary" : "")}>
++                  {pill.label}{counts[s] ? ` · ${counts[s]}` : ""}
++                </Link>
++              );
++            })}
++          </div>
++        )}
++
+         {!estimates.length ? (
+-          <div className="p-12 text-center">
+-            <p className="text-mist text-sm mb-3">
+-              {showPast ? t("estimates.noPastEstimates") : t("estimates.noEstimates")}
+-            </p>
++          <div className="card empty">
++            <div className="ic">
++              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 4h11l3 3v13H5z"/><path d="M9 9h6M9 13h4"/></svg>
++            </div>
++            <div className="ti">{showPast ? t("estimates.noPastEstimates") : t("estimates.noEstimates")}</div>
+             {!showPast && (
+-              <Link href="/owner/estimates/new" className="text-amber hover:underline text-sm">
+-                {t("estimates.createEstimate")} →
+-              </Link>
++              <div style={{ marginTop: 12 }}>
++                <Link href="/owner/estimates/new" className="btn btn--primary btn--sm">{t("estimates.createEstimate")} →</Link>
++              </div>
+             )}
+           </div>
+         ) : (
+-          <>
+-            {/* Desktop table */}
+-            <div className="hidden sm:block">
+-              <table className="w-full text-sm" role="grid" aria-label="Estimates list">
+-                <thead>
+-                  <tr className="border-b border-gray-100 bg-gray-50">
+-                    <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">{t("estimates.numberColumn")}</th>
+-                    <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">{t("estimates.titleColumn")}</th>
+-                    <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">{t("estimates.clientColumn")}</th>
+-                    <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">{t("estimates.createdColumn")}</th>
+-                    <th scope="col" className="text-right px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">{t("estimates.totalColumn")}</th>
+-                    <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">{t("jobs.statusColumn")}</th>
+-                  </tr>
+-                </thead>
+-                <tbody className="divide-y divide-gray-100">
+-                  {estimates.map((est: any) => {
+-                    const cfg = ESTIMATE_STATUS_CONFIG[est.status] ?? ESTIMATE_STATUS_CONFIG.draft;
+-                    const expDays = ["draft","sent"].includes(est.status) ? daysUntilExpiry(est.valid_until) : null;
+-                    return (
+-                      <tr key={est.id} className="relative hover:bg-gray-50 transition-colors cursor-pointer">
+-                        <td className="px-4 py-3">
+-                          <span className="font-600 text-mist font-mono text-xs">{est.estimate_number}</span>
+-                        </td>
+-                        <td className="px-4 py-3">
+-                          {/* Full-row click overlay */}
+-                          <Link
+-                            href={`/owner/estimates/${est.id}`}
+-                            className="font-600 text-forge line-clamp-1 after:absolute after:inset-0 after:content-['']"
+-                          >
+-                            {est.title}
+-                          </Link>
+-                          {est.properties?.name && (
+-                            <p className="text-xs text-mist mt-0.5">{est.properties.name}</p>
++          <div className="card" style={{ overflow: "hidden" }}>
++            <table className="tbl">
++              <thead>
++                <tr>
++                  <th style={{ width: 110 }}>{t("estimates.numberColumn")}</th>
++                  <th>{t("estimates.titleColumn")}</th>
++                  <th style={{ width: 160 }}>{t("estimates.clientColumn")}</th>
++                  <th style={{ width: 120 }}>{t("estimates.createdColumn")}</th>
++                  <th style={{ width: 110, textAlign: "right" }}>{t("estimates.totalColumn")}</th>
++                  <th style={{ width: 140 }}>{t("jobs.statusColumn")}</th>
++                </tr>
++              </thead>
++              <tbody>
++                {estimates.map((est: any) => {
++                  const pill = estimatePill(est.status);
++                  const expDays = ["draft", "sent"].includes(est.status) ? daysUntilExpiry(est.valid_until) : null;
++                  return (
++                    <tr key={est.id}>
++                      <td><span className="mono" style={{ color: "var(--muted)", fontSize: 12 }}>{est.estimate_number}</span></td>
++                      <td>
++                        <Link href={`/owner/estimates/${est.id}`} style={{ color: "var(--ink)", textDecoration: "none", fontWeight: 500 }}>{est.title}</Link>
++                        {est.properties?.name && <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>{est.properties.name}</div>}
++                      </td>
++                      <td><span className="tag">{(est.property_managers as any)?.full_name || "—"}</span></td>
++                      <td className="mono" style={{ fontSize: 12.5, color: "var(--ink-2)" }}>{formatDate(est.created_at)}</td>
++                      <td className="mono num" style={{ textAlign: "right", fontWeight: 500 }}>{formatCurrency(est.total)}</td>
++                      <td>
++                        <div className="col" style={{ gap: 4, alignItems: "flex-start" }}>
++                          <span className={`pill ${pill.cls}`}><span className="dot"></span>{pill.label}</span>
++                          {expDays !== null && expDays <= 7 && (
++                            <span
++                              className="mono"
++                              style={{
++                                fontSize: 10,
++                                padding: "1px 6px",
++                                borderRadius: 4,
++                                background: expDays <= 0 ? "var(--red-soft)" : "var(--orange-soft)",
++                                color: expDays <= 0 ? "#8C291D" : "var(--orange-ink)",
++                                border: `1px solid ${expDays <= 0 ? "#ECC7C2" : "#F4D9A8"}`,
++                              }}
++                            >
++                              {expDays <= 0 ? t("estimates.expired") : t("estimates.expiresIn", { days: expDays })}
++                            </span>
+                           )}
+-                        </td>
+-                        <td className="px-4 py-3 text-mist text-sm">
+-                          {(est.property_managers as any)?.full_name || "—"}
+-                        </td>
+-                        <td className="px-4 py-3 text-mist text-sm">
+-                          {formatDate(est.created_at)}
+-                        </td>
+-                        <td className="px-4 py-3 text-right font-600 text-forge">
+-                          {formatCurrency(est.total)}
+-                        </td>
+-                        <td className="px-4 py-3">
+-                          <div className="flex flex-col gap-1 items-start">
+-                            <span className={`badge ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
+-                            {expDays !== null && expDays <= 7 && (
+-                              <span className={`text-[10px] font-700 px-1.5 py-0.5 rounded ${expDays <= 0 ? "bg-red-100 text-red-700" : "bg-amber/20 text-amber-dark"}`}>
+-                                {expDays <= 0 ? t("estimates.expired") : t("estimates.expiresIn", { days: expDays })}
+-                              </span>
+-                            )}
+-                          </div>
+-                        </td>
+-                      </tr>
+-                    );
+-                  })}
+-                </tbody>
+-              </table>
+-            </div>
+-
+-            {/* Mobile cards */}
+-            <div className="sm:hidden divide-y divide-gray-100">
+-              {estimates.map((est: any) => {
+-                const cfg = ESTIMATE_STATUS_CONFIG[est.status] ?? ESTIMATE_STATUS_CONFIG.draft;
+-                const expDays = ["draft","sent"].includes(est.status) ? daysUntilExpiry(est.valid_until) : null;
+-                return (
+-                  <Link key={est.id} href={`/owner/estimates/${est.id}`} className="block px-4 py-3 space-y-2 hover:bg-gray-50 transition-colors">
+-                    <div className="flex items-start justify-between gap-2">
+-                      <p className="font-600 text-forge text-sm leading-snug line-clamp-1">{est.title}</p>
+-                      <div className="flex flex-col items-end gap-1 shrink-0">
+-                        <span className={`badge ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
+-                        {expDays !== null && expDays <= 7 && (
+-                          <span className={`text-[10px] font-700 px-1.5 py-0.5 rounded ${expDays <= 0 ? "bg-red-100 text-red-700" : "bg-amber/20 text-amber-dark"}`}>
+-                            {expDays <= 0 ? t("estimates.expired") : t("estimates.expiresIn", { days: expDays })}
+-                          </span>
+-                        )}
+-                      </div>
+-                    </div>
+-                    <p className="text-xs text-mist">
+-                      {(est.property_managers as any)?.full_name || "—"}
+-                      {est.properties?.name ? ` · ${est.properties.name}` : ""}
+-                    </p>
+-                    <span className="font-600 text-forge text-sm">{formatCurrency(est.total)}</span>
+-                  </Link>
+-                );
+-              })}
+-            </div>
++                        </div>
++                      </td>
++                    </tr>
++                  );
++                })}
++              </tbody>
++            </table>
++          </div>
++        )}
+ 
+-            {pageCount > 1 && (
+-              <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-t border-gray-100">
+-                <Link
+-                  href={`${paginationBase}&page=${Math.max(1, page - 1)}`}
+-                  className={`text-sm font-600 ${page === 1 ? "text-gray-400 pointer-events-none" : "text-forge hover:text-amber"}`}
+-                >
+-                  ← {t("common.previous")}
+-                </Link>
+-                <p className="text-xs text-mist">{t("common.pageOf", { page, pageCount })}</p>
+-                <Link
+-                  href={`${paginationBase}&page=${Math.min(pageCount, page + 1)}`}
+-                  className={`text-sm font-600 ${page === pageCount ? "text-gray-400 pointer-events-none" : "text-forge hover:text-amber"}`}
+-                >
+-                  {t("common.next")} →
+-                </Link>
+-              </div>
+-            )}
+-          </>
++        {pageCount > 1 && (
++          <div className="between" style={{ marginTop: 12, fontSize: 13 }}>
++            <Link href={`${paginationBase}&page=${Math.max(1, page - 1)}`} className={"btn btn--sm" + (page === 1 ? " btn--ghost" : "")} aria-disabled={page === 1}>← {t("common.previous")}</Link>
++            <span className="mono" style={{ color: "var(--muted)", fontSize: 12 }}>{t("common.pageOf", { page, pageCount })}</span>
++            <Link href={`${paginationBase}&page=${Math.min(pageCount, page + 1)}`} className={"btn btn--sm" + (page === pageCount ? " btn--ghost" : "")} aria-disabled={page === pageCount}>{t("common.next")} →</Link>
++          </div>
+         )}
+       </div>
+     </div>
+diff --git a/app/owner/timesheets/page.tsx b/app/owner/timesheets/page.tsx
+index 24914d0..ef02ce8 100644
+--- a/app/owner/timesheets/page.tsx
++++ b/app/owner/timesheets/page.tsx
+@@ -130,44 +130,26 @@ export default async function TimesheetsPage({
+   }
+ 
+   return (
+-    <div className="page-shell page-shell-wide">
+-      {/* Header */}
+-      <div className="page-header gap-4 flex-wrap">
+-        <h1 className="page-title">{t("timesheets.title")}</h1>
+-
+-        {/* Week nav */}
+-        <div className="flex items-center gap-2">
+-          <a
+-            href={`/owner/timesheets?week=${prevWeek}`}
+-            className="p-2 rounded-lg border border-gray-200 hover:border-forge transition-colors"
+-            aria-label={t("timesheets.previousWeek")}
+-          >
+-            <svg className="w-4 h-4 text-forge" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+-            </svg>
+-          </a>
+-          <span className="font-display font-700 text-forge text-base min-w-[140px] text-center">
+-            {fmtWeekRange(weekStart)}
+-          </span>
+-          <a
+-            href={`/owner/timesheets?week=${nextWeek}`}
+-            className="p-2 rounded-lg border border-gray-200 hover:border-forge transition-colors"
+-            aria-label={t("timesheets.nextWeek")}
+-          >
+-            <svg className="w-4 h-4 text-forge" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+-            </svg>
+-          </a>
+-          {weekStart !== getMondayOf(new Date()) && (
+-            <a
+-              href="/owner/timesheets"
+-              className="px-3 py-2 rounded-lg border border-gray-200 text-sm font-600 text-mist hover:text-forge hover:border-forge transition-colors"
+-            >
+-              {t("timesheets.thisWeek")}
+-            </a>
+-          )}
++    <div className="fm">
++      <div className="page">
++        <div className="page-h">
++          <div>
++            <div className="kicker">{fmtWeekRange(weekStart)}</div>
++            <h1 style={{ marginTop: 6 }}>{t("timesheets.title")}</h1>
++          </div>
++          <div className="row gap-2">
++            <div className="row" style={{ gap: 0, border: "1px solid var(--line-2)", borderRadius: 8, overflow: "hidden" }}>
++              <a href={`/owner/timesheets?week=${prevWeek}`} className="btn btn--sm" style={{ borderRadius: 0, border: 0 }} aria-label={t("timesheets.previousWeek")}>‹</a>
++              <div style={{ padding: "0 12px", fontSize: 13, borderLeft: "1px solid var(--line-2)", borderRight: "1px solid var(--line-2)", height: 32, display: "flex", alignItems: "center" }} className="mono">
++                {fmtWeekRange(weekStart)}
++              </div>
++              <a href={`/owner/timesheets?week=${nextWeek}`} className="btn btn--sm" style={{ borderRadius: 0, border: 0 }} aria-label={t("timesheets.nextWeek")}>›</a>
++            </div>
++            {weekStart !== getMondayOf(new Date()) && (
++              <a href="/owner/timesheets" className="btn btn--sm">{t("timesheets.thisWeek")}</a>
++            )}
++          </div>
+         </div>
+-      </div>
+ 
+       <div className="mb-6">
+         <TimeChangeRequests
+@@ -179,9 +161,7 @@ export default async function TimesheetsPage({
+       </div>
+ 
+       {!workers?.length ? (
+-        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+-          <p className="text-mist text-sm">{t("timesheets.noActiveWorkers")}</p>
+-        </div>
++        <div className="card empty"><div className="ti">{t("timesheets.noActiveWorkers")}</div></div>
+       ) : (
+         <>
+           {/* Desktop: utilization summary + grid table */}
+@@ -362,6 +342,7 @@ export default async function TimesheetsPage({
+           </div>
+         </>
+       )}
++      </div>
+     </div>
+   );
+ }
+-- 
+2.43.0
+

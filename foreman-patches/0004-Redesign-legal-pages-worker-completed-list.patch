@@ -1,0 +1,625 @@
+From 78bd1ab89129aaf3b2221eb1a7f813ca91c3808b Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 16 May 2026 12:52:03 +0000
+Subject: [PATCH 4/8] Redesign legal pages + worker completed list
+
+- Privacy / Terms: light paper background with ink content, kicker +
+  serif-tone H1, hairline divider footer, shared Section helper.
+- Worker completed jobs: mw mobile shell with section headers and
+  pill statuses on job cards.
+---
+ app/legal/privacy/page.tsx    | 224 ++++++++++++++++++----------------
+ app/legal/terms/page.tsx      | 216 ++++++++++++++++----------------
+ app/worker/completed/page.tsx |  80 ++++++------
+ 3 files changed, 259 insertions(+), 261 deletions(-)
+
+diff --git a/app/legal/privacy/page.tsx b/app/legal/privacy/page.tsx
+index 1efb783..1f51404 100644
+--- a/app/legal/privacy/page.tsx
++++ b/app/legal/privacy/page.tsx
+@@ -1,4 +1,5 @@
+ import Link from "next/link";
++import Image from "next/image";
+ import type { Metadata } from "next";
+ 
+ export const metadata: Metadata = {
+@@ -10,127 +11,138 @@ export default function PrivacyPolicyPage() {
+   const updated = "April 14, 2025";
+ 
+   return (
+-    <main className="min-h-screen bg-forge text-chalk">
+-      <div className="max-w-2xl mx-auto px-4 py-12">
+-        <div className="mb-10">
+-          <Link href="/" className="inline-flex items-center gap-2 mb-8">
+-            <div className="w-8 h-8 bg-amber rounded flex items-center justify-center">
+-              <span className="font-display font-800 text-forge text-lg">F</span>
+-            </div>
+-            <span className="font-display font-800 text-white text-xl tracking-wide">FOREMAN</span>
+-          </Link>
+-          <h1 className="font-display font-800 text-white text-3xl mt-6 mb-2">Privacy Policy</h1>
+-          <p className="text-mist text-sm">Last updated: {updated}</p>
+-        </div>
++    <main className="min-h-screen" style={{ background: "var(--paper)" }}>
++      <div style={{ maxWidth: 720, margin: "0 auto", padding: "48px 24px 80px" }}>
++        <Link href="/" className="row gap-2" style={{ textDecoration: "none", color: "inherit", marginBottom: 32 }}>
++          <div style={{ width: 28, height: 28, background: "var(--orange)", borderRadius: 7, display: "grid", placeItems: "center", overflow: "hidden" }}>
++            <Image src="/foreman_mark.png" alt="Foreman" width={28} height={28} />
++          </div>
++          <span style={{ fontWeight: 600, letterSpacing: "0.04em" }}>FOREMAN</span>
++        </Link>
+ 
+-        <div className="prose prose-invert prose-sm max-w-none space-y-8 text-mist leading-relaxed">
+-          <section>
+-            <h2 className="text-white font-700 text-lg mb-3">1. Who we are</h2>
+-            <p>
+-              Foreman is a field service management platform for general contractors. References to
+-              &quot;Foreman&quot;, &quot;we&quot;, &quot;us&quot;, or &quot;our&quot; refer to the operator of this
+-              service. References to &quot;you&quot; refer to contractors, workers, or property managers
+-              using the platform.
+-            </p>
+-          </section>
++        <div className="kicker">Legal</div>
++        <h1 style={{ fontSize: 32, fontWeight: 500, letterSpacing: "-0.025em", margin: "8px 0 6px" }}>Privacy Policy</h1>
++        <p className="muted mono" style={{ fontSize: 12 }}>Last updated: {updated}</p>
+ 
+-          <section>
+-            <h2 className="text-white font-700 text-lg mb-3">2. Information we collect</h2>
++        <div style={{ marginTop: 32, color: "var(--ink-2)", lineHeight: 1.65, fontSize: 14 }}>
++          <Section title="1. Who we are">
++            Foreman is a field service management platform for general contractors. References to
++            &quot;Foreman&quot;, &quot;we&quot;, &quot;us&quot;, or &quot;our&quot; refer to the operator of this
++            service. References to &quot;you&quot; refer to contractors, workers, or property managers
++            using the platform.
++          </Section>
++
++          <Section title="2. Information we collect">
+             <p>We collect information you provide directly:</p>
+-            <ul className="list-disc pl-5 space-y-1 mt-2">
+-              <li>Account information: name, email address, phone number</li>
+-              <li>Business information: company name, job details, work orders</li>
+-              <li>Payment information: processed by Stripe — we never store card numbers</li>
+-              <li>Communications: messages, work order notes, comments</li>
+-              <li>Photos: images uploaded to jobs or work orders</li>
+-            </ul>
+-            <p className="mt-3">We also collect information automatically:</p>
+-            <ul className="list-disc pl-5 space-y-1 mt-2">
+-              <li>Log data: IP addresses, browser type, pages visited</li>
+-              <li>Error reports: sent to Sentry, which may include device and session information</li>
+-            </ul>
+-          </section>
+-
+-          <section>
+-            <h2 className="text-white font-700 text-lg mb-3">3. How we use your information</h2>
+-            <ul className="list-disc pl-5 space-y-1">
+-              <li>Provide and operate the Foreman service</li>
+-              <li>Send transactional emails (work order updates, invoices, estimates)</li>
+-              <li>Process payments through Stripe</li>
+-              <li>Monitor and fix errors through Sentry</li>
+-              <li>Respond to support requests</li>
+-            </ul>
+-            <p className="mt-3">We do not sell your data to third parties.</p>
+-          </section>
++            <List items={[
++              "Account information: name, email address, phone number",
++              "Business information: company name, job details, work orders",
++              "Payment information: processed by Stripe — we never store card numbers",
++              "Communications: messages, work order notes, comments",
++              "Photos: images uploaded to jobs or work orders",
++            ]} />
++            <p style={{ marginTop: 12 }}>We also collect information automatically:</p>
++            <List items={[
++              "Log data: IP addresses, browser type, pages visited",
++              "Error reports: sent to Sentry, which may include device and session information",
++            ]} />
++          </Section>
++
++          <Section title="3. How we use your information">
++            <List items={[
++              "Provide and operate the Foreman service",
++              "Send transactional emails (work order updates, invoices, estimates)",
++              "Process payments through Stripe",
++              "Monitor and fix errors through Sentry",
++              "Respond to support requests",
++            ]} />
++            <p style={{ marginTop: 12 }}>We do not sell your data to third parties.</p>
++          </Section>
+ 
+-          <section>
+-            <h2 className="text-white font-700 text-lg mb-3">4. Third-party services</h2>
++          <Section title="4. Third-party services">
+             <p>We use the following third-party processors:</p>
+-            <ul className="list-disc pl-5 space-y-1 mt-2">
+-              <li><span className="text-chalk">Supabase</span> — database and authentication</li>
+-              <li><span className="text-chalk">Stripe</span> — payment processing</li>
+-              <li><span className="text-chalk">Resend</span> — transactional email delivery</li>
+-              <li><span className="text-chalk">Sentry</span> — error monitoring (may collect IP addresses and session data)</li>
+-              <li><span className="text-chalk">Vercel</span> — hosting and infrastructure</li>
++            <ul style={listStyle}>
++              {[
++                ["Supabase", "database and authentication"],
++                ["Stripe", "payment processing"],
++                ["Resend", "transactional email delivery"],
++                ["Sentry", "error monitoring (may collect IP addresses and session data)"],
++                ["Vercel", "hosting and infrastructure"],
++              ].map(([name, desc]) => (
++                <li key={name}><span style={{ color: "var(--ink)", fontWeight: 500 }}>{name}</span> — {desc}</li>
++              ))}
+             </ul>
+-          </section>
+-
+-          <section>
+-            <h2 className="text-white font-700 text-lg mb-3">5. Data retention</h2>
+-            <p>
+-              We retain your data for as long as your account is active. If you close your account,
+-              we will delete your personal data within 30 days, except where we are required to
+-              retain it by law (e.g. billing records).
+-            </p>
+-          </section>
++          </Section>
++
++          <Section title="5. Data retention">
++            We retain your data for as long as your account is active. If you close your account,
++            we will delete your personal data within 30 days, except where we are required to
++            retain it by law (e.g. billing records).
++          </Section>
+ 
+-          <section>
+-            <h2 className="text-white font-700 text-lg mb-3">6. Your rights</h2>
++          <Section title="6. Your rights">
+             <p>You have the right to:</p>
+-            <ul className="list-disc pl-5 space-y-1 mt-2">
+-              <li>Access the personal data we hold about you</li>
+-              <li>Request correction of inaccurate data</li>
+-              <li>Request deletion of your data</li>
+-              <li>Export your data in a portable format</li>
+-            </ul>
+-            <p className="mt-3">
++            <List items={[
++              "Access the personal data we hold about you",
++              "Request correction of inaccurate data",
++              "Request deletion of your data",
++              "Export your data in a portable format",
++            ]} />
++            <p style={{ marginTop: 12 }}>
+               To exercise any of these rights, contact us at the email address on file for your account.
+             </p>
+-          </section>
+-
+-          <section>
+-            <h2 className="text-white font-700 text-lg mb-3">7. Security</h2>
+-            <p>
+-              We use industry-standard security practices including encrypted connections (TLS),
+-              row-level security on our database, and access controls that limit which personnel
+-              can access your data. No method of transmission over the internet is 100% secure,
+-              and we cannot guarantee absolute security.
+-            </p>
+-          </section>
+-
+-          <section>
+-            <h2 className="text-white font-700 text-lg mb-3">8. Changes to this policy</h2>
+-            <p>
+-              We may update this policy from time to time. We will notify active users of material
+-              changes by email. Continued use of Foreman after changes take effect constitutes
+-              acceptance of the updated policy.
+-            </p>
+-          </section>
++          </Section>
+ 
+-          <section>
+-            <h2 className="text-white font-700 text-lg mb-3">9. Contact</h2>
+-            <p>
+-              Questions about this policy? Contact us through your account settings or reach out
+-              directly at the email address associated with your Foreman account.
+-            </p>
+-          </section>
++          <Section title="7. Security">
++            We use industry-standard security practices including encrypted connections (TLS),
++            row-level security on our database, and access controls that limit which personnel
++            can access your data. No method of transmission over the internet is 100% secure,
++            and we cannot guarantee absolute security.
++          </Section>
++
++          <Section title="8. Changes to this policy">
++            We may update this policy from time to time. We will notify active users of material
++            changes by email. Continued use of Foreman after changes take effect constitutes
++            acceptance of the updated policy.
++          </Section>
++
++          <Section title="9. Contact">
++            Questions about this policy? Contact us through your account settings or reach out
++            directly at the email address associated with your Foreman account.
++          </Section>
+         </div>
+ 
+-        <div className="mt-12 pt-8 border-t border-steel flex gap-6 text-sm">
+-          <Link href="/legal/terms" className="text-amber hover:underline">Terms of Service</Link>
+-          <Link href="/login" className="text-mist hover:text-chalk">Sign in</Link>
++        <div className="row gap-4" style={{ marginTop: 48, paddingTop: 24, borderTop: "1px solid var(--line)", fontSize: 13 }}>
++          <Link href="/legal/terms" style={{ color: "var(--ink)", textDecoration: "underline", textUnderlineOffset: 3, textDecorationColor: "var(--line-strong)" }}>Terms of Service</Link>
++          <Link href="/login" style={{ color: "var(--muted)", textDecoration: "none" }}>Sign in →</Link>
+         </div>
+       </div>
+     </main>
+   );
+ }
++
++const listStyle: React.CSSProperties = {
++  listStyle: "disc",
++  paddingLeft: 20,
++  margin: "8px 0 0",
++  display: "flex",
++  flexDirection: "column",
++  gap: 4,
++};
++
++function Section({ title, children }: { title: string; children: React.ReactNode }) {
++  return (
++    <section style={{ marginBottom: 32 }}>
++      <h2 style={{ color: "var(--ink)", fontSize: 16, fontWeight: 500, margin: "0 0 10px", letterSpacing: "-0.01em" }}>{title}</h2>
++      {typeof children === "string" ? <p style={{ margin: 0 }}>{children}</p> : children}
++    </section>
++  );
++}
++
++function List({ items }: { items: string[] }) {
++  return (
++    <ul style={listStyle}>
++      {items.map((t) => <li key={t}>{t}</li>)}
++    </ul>
++  );
++}
+diff --git a/app/legal/terms/page.tsx b/app/legal/terms/page.tsx
+index f56ecfd..163c86e 100644
+--- a/app/legal/terms/page.tsx
++++ b/app/legal/terms/page.tsx
+@@ -1,4 +1,5 @@
+ import Link from "next/link";
++import Image from "next/image";
+ import type { Metadata } from "next";
+ 
+ export const metadata: Metadata = {
+@@ -10,132 +11,119 @@ export default function TermsOfServicePage() {
+   const updated = "April 14, 2025";
+ 
+   return (
+-    <main className="min-h-screen bg-forge text-chalk">
+-      <div className="max-w-2xl mx-auto px-4 py-12">
+-        <div className="mb-10">
+-          <Link href="/" className="inline-flex items-center gap-2 mb-8">
+-            <div className="w-8 h-8 bg-amber rounded flex items-center justify-center">
+-              <span className="font-display font-800 text-forge text-lg">F</span>
+-            </div>
+-            <span className="font-display font-800 text-white text-xl tracking-wide">FOREMAN</span>
+-          </Link>
+-          <h1 className="font-display font-800 text-white text-3xl mt-6 mb-2">Terms of Service</h1>
+-          <p className="text-mist text-sm">Last updated: {updated}</p>
+-        </div>
++    <main className="min-h-screen" style={{ background: "var(--paper)" }}>
++      <div style={{ maxWidth: 720, margin: "0 auto", padding: "48px 24px 80px" }}>
++        <Link href="/" className="row gap-2" style={{ textDecoration: "none", color: "inherit", marginBottom: 32 }}>
++          <div style={{ width: 28, height: 28, background: "var(--orange)", borderRadius: 7, display: "grid", placeItems: "center", overflow: "hidden" }}>
++            <Image src="/foreman_mark.png" alt="Foreman" width={28} height={28} />
++          </div>
++          <span style={{ fontWeight: 600, letterSpacing: "0.04em" }}>FOREMAN</span>
++        </Link>
++
++        <div className="kicker">Legal</div>
++        <h1 style={{ fontSize: 32, fontWeight: 500, letterSpacing: "-0.025em", margin: "8px 0 6px" }}>Terms of Service</h1>
++        <p className="muted mono" style={{ fontSize: 12 }}>Last updated: {updated}</p>
++
++        <div style={{ marginTop: 32, color: "var(--ink-2)", lineHeight: 1.65, fontSize: 14 }}>
++          <Section title="1. Acceptance of terms">
++            By creating an account or using Foreman, you agree to these Terms of Service. If you
++            do not agree, do not use the service. These terms apply to all users including
++            contractors (owners), workers, and property managers.
++          </Section>
++
++          <Section title="2. Description of service">
++            Foreman provides field service management software for general contractors, including
++            tools for job management, invoicing, estimates, worker coordination, and property
++            manager communication.
++          </Section>
++
++          <Section title="3. Accounts">
++            You are responsible for maintaining the confidentiality of your account credentials.
++            You are responsible for all activity that occurs under your account. Notify us
++            immediately of any unauthorized use. You must be at least 18 years old to create
++            an account.
++          </Section>
+ 
+-        <div className="prose prose-invert prose-sm max-w-none space-y-8 text-mist leading-relaxed">
+-          <section>
+-            <h2 className="text-white font-700 text-lg mb-3">1. Acceptance of terms</h2>
+-            <p>
+-              By creating an account or using Foreman, you agree to these Terms of Service. If you
+-              do not agree, do not use the service. These terms apply to all users including
+-              contractors (owners), workers, and property managers.
+-            </p>
+-          </section>
+-
+-          <section>
+-            <h2 className="text-white font-700 text-lg mb-3">2. Description of service</h2>
+-            <p>
+-              Foreman provides field service management software for general contractors, including
+-              tools for job management, invoicing, estimates, worker coordination, and property
+-              manager communication.
+-            </p>
+-          </section>
+-
+-          <section>
+-            <h2 className="text-white font-700 text-lg mb-3">3. Accounts</h2>
+-            <p>
+-              You are responsible for maintaining the confidentiality of your account credentials.
+-              You are responsible for all activity that occurs under your account. Notify us
+-              immediately of any unauthorized use. You must be at least 18 years old to create
+-              an account.
+-            </p>
+-          </section>
+-
+-          <section>
+-            <h2 className="text-white font-700 text-lg mb-3">4. Subscription and billing</h2>
+-            <p>
+-              Foreman offers a free trial period followed by a paid subscription. Billing is
+-              processed through Stripe. Subscriptions renew automatically unless cancelled.
+-              You may cancel at any time through your account settings. Refunds are handled
+-              on a case-by-case basis — contact us within 7 days of a charge if you believe
+-              it was in error.
+-            </p>
+-          </section>
+-
+-          <section>
+-            <h2 className="text-white font-700 text-lg mb-3">5. Acceptable use</h2>
++          <Section title="4. Subscription and billing">
++            Foreman offers a free trial period followed by a paid subscription. Billing is
++            processed through Stripe. Subscriptions renew automatically unless cancelled.
++            You may cancel at any time through your account settings. Refunds are handled
++            on a case-by-case basis — contact us within 7 days of a charge if you believe
++            it was in error.
++          </Section>
++
++          <Section title="5. Acceptable use">
+             <p>You agree not to:</p>
+-            <ul className="list-disc pl-5 space-y-1 mt-2">
++            <ul style={listStyle}>
+               <li>Use Foreman for any unlawful purpose</li>
+               <li>Upload malicious files, spam, or harmful content</li>
+               <li>Attempt to gain unauthorized access to other accounts or systems</li>
+               <li>Resell or sublicense access to Foreman without written permission</li>
+               <li>Scrape or extract data from the platform in bulk</li>
+             </ul>
+-          </section>
+-
+-          <section>
+-            <h2 className="text-white font-700 text-lg mb-3">6. Your content</h2>
+-            <p>
+-              You retain ownership of content you upload (photos, documents, notes). By uploading
+-              content, you grant us a limited license to store and display it as necessary to
+-              provide the service. We do not claim ownership of your business data.
+-            </p>
+-          </section>
+-
+-          <section>
+-            <h2 className="text-white font-700 text-lg mb-3">7. Availability and changes</h2>
+-            <p>
+-              We aim for high availability but do not guarantee uninterrupted service. We reserve
+-              the right to modify, suspend, or discontinue features with reasonable notice. We
+-              will not be liable for any downtime or data loss caused by circumstances outside
+-              our reasonable control.
+-            </p>
+-          </section>
+-
+-          <section>
+-            <h2 className="text-white font-700 text-lg mb-3">8. Limitation of liability</h2>
+-            <p>
+-              To the fullest extent permitted by law, Foreman is provided &quot;as is&quot; without
+-              warranty. We are not liable for indirect, incidental, or consequential damages arising from
+-              your use of the service. Our total liability for any claim shall not exceed the
+-              amount you paid us in the 3 months preceding the claim.
+-            </p>
+-          </section>
+-
+-          <section>
+-            <h2 className="text-white font-700 text-lg mb-3">9. Termination</h2>
+-            <p>
+-              We may suspend or terminate accounts that violate these terms, without prior notice
+-              in serious cases. You may terminate your account at any time through account settings.
+-              Upon termination, your data will be deleted within 30 days.
+-            </p>
+-          </section>
+-
+-          <section>
+-            <h2 className="text-white font-700 text-lg mb-3">10. Changes to terms</h2>
+-            <p>
+-              We may update these terms from time to time. We will notify active users of material
+-              changes by email at least 14 days before they take effect. Continued use after that
+-              date constitutes acceptance of the new terms.
+-            </p>
+-          </section>
+-
+-          <section>
+-            <h2 className="text-white font-700 text-lg mb-3">11. Governing law</h2>
+-            <p>
+-              These terms are governed by the laws of the jurisdiction in which the operator is
+-              registered, without regard to conflict of law principles.
+-            </p>
+-          </section>
++          </Section>
++
++          <Section title="6. Your content">
++            You retain ownership of content you upload (photos, documents, notes). By uploading
++            content, you grant us a limited license to store and display it as necessary to
++            provide the service. We do not claim ownership of your business data.
++          </Section>
++
++          <Section title="7. Availability and changes">
++            We aim for high availability but do not guarantee uninterrupted service. We reserve
++            the right to modify, suspend, or discontinue features with reasonable notice. We
++            will not be liable for any downtime or data loss caused by circumstances outside
++            our reasonable control.
++          </Section>
++
++          <Section title="8. Limitation of liability">
++            To the fullest extent permitted by law, Foreman is provided &quot;as is&quot; without
++            warranty. We are not liable for indirect, incidental, or consequential damages arising from
++            your use of the service. Our total liability for any claim shall not exceed the
++            amount you paid us in the 3 months preceding the claim.
++          </Section>
++
++          <Section title="9. Termination">
++            We may suspend or terminate accounts that violate these terms, without prior notice
++            in serious cases. You may terminate your account at any time through account settings.
++            Upon termination, your data will be deleted within 30 days.
++          </Section>
++
++          <Section title="10. Changes to terms">
++            We may update these terms from time to time. We will notify active users of material
++            changes by email at least 14 days before they take effect. Continued use after that
++            date constitutes acceptance of the new terms.
++          </Section>
++
++          <Section title="11. Governing law">
++            These terms are governed by the laws of the jurisdiction in which the operator is
++            registered, without regard to conflict of law principles.
++          </Section>
+         </div>
+ 
+-        <div className="mt-12 pt-8 border-t border-steel flex gap-6 text-sm">
+-          <Link href="/legal/privacy" className="text-amber hover:underline">Privacy Policy</Link>
+-          <Link href="/login" className="text-mist hover:text-chalk">Sign in</Link>
++        <div className="row gap-4" style={{ marginTop: 48, paddingTop: 24, borderTop: "1px solid var(--line)", fontSize: 13 }}>
++          <Link href="/legal/privacy" style={{ color: "var(--ink)", textDecoration: "underline", textUnderlineOffset: 3, textDecorationColor: "var(--line-strong)" }}>Privacy Policy</Link>
++          <Link href="/login" style={{ color: "var(--muted)", textDecoration: "none" }}>Sign in →</Link>
+         </div>
+       </div>
+     </main>
+   );
+ }
++
++const listStyle: React.CSSProperties = {
++  listStyle: "disc",
++  paddingLeft: 20,
++  margin: "8px 0 0",
++  display: "flex",
++  flexDirection: "column",
++  gap: 4,
++};
++
++function Section({ title, children }: { title: string; children: React.ReactNode }) {
++  return (
++    <section style={{ marginBottom: 32 }}>
++      <h2 style={{ color: "var(--ink)", fontSize: 16, fontWeight: 500, margin: "0 0 10px", letterSpacing: "-0.01em" }}>{title}</h2>
++      {typeof children === "string" ? <p style={{ margin: 0 }}>{children}</p> : children}
++    </section>
++  );
++}
+diff --git a/app/worker/completed/page.tsx b/app/worker/completed/page.tsx
+index 4c5576f..4175575 100644
+--- a/app/worker/completed/page.tsx
++++ b/app/worker/completed/page.tsx
+@@ -23,7 +23,6 @@ export default async function CompletedJobsPage() {
+     .in("status", ["completed", "invoiced", "cancelled"])
+     .order("updated_at", { ascending: false });
+ 
+-  // Group by biweekly period
+   const groups: Record<string, typeof jobs> = {};
+   for (const job of jobs ?? []) {
+     const label = biweeklyLabel(job.updated_at ?? job.created_at);
+@@ -34,56 +33,55 @@ export default async function CompletedJobsPage() {
+   const totalCount = jobs?.length ?? 0;
+ 
+   return (
+-    <div className="p-4 max-w-lg mx-auto">
+-      <div className="flex items-center justify-between mb-5">
++    <>
++      <div className="mw-top">
+         <div>
+-          <h1 className="font-display font-800 text-2xl text-forge">{t("jobs.pastTab")}</h1>
+-          {totalCount > 0 && <p className="text-mist text-xs mt-0.5">{t("common.total", { count: totalCount })}</p>}
++          <div className="hello">Past jobs</div>
++          <div style={{ fontSize: 18, fontWeight: 500, letterSpacing: "-0.01em", marginTop: 2 }}>{t("jobs.pastTab")}</div>
+         </div>
++        {totalCount > 0 && <div className="kicker">{t("common.total", { count: totalCount })}</div>}
+       </div>
+ 
+       {totalCount === 0 ? (
+-        <div className="text-center py-16">
+-          <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+-            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+-            </svg>
++        <div style={{ padding: "16px 16px 0" }}>
++          <div className="card empty">
++            <div className="ic">
++              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/></svg>
++            </div>
++            <div className="ti">{t("jobs.noPastJobs")}</div>
+           </div>
+-          <p className="text-mist text-sm">{t("jobs.noPastJobs")}</p>
+         </div>
+       ) : (
+-        <div className="space-y-6">
+-          {Object.entries(groups).map(([label, items]) => (
+-            <div key={label}>
+-              <p className="text-xs font-700 uppercase tracking-widest text-mist mb-2 px-1">{label}</p>
+-              <div className="space-y-2">
+-                {(items ?? []).map((job: any) => (
+-                  <Link
+-                    key={job.id}
+-                    href={`/worker/jobs/${job.id}`}
+-                    className="block bg-white rounded-xl border border-gray-200 p-4 hover:shadow-sm transition-all"
+-                  >
+-                    <div className="flex items-start justify-between gap-2">
+-                      <div>
+-                        <p className="font-600 text-forge">{job.title}</p>
+-                        {job.properties && (
+-                          <p className="text-xs text-mist mt-0.5">
+-                            {job.properties.name}{job.properties.city ? ` · ${job.properties.city}` : ""}
+-                          </p>
+-                        )}
+-                      </div>
+-                      <span className={`badge shrink-0 ${job.status === "cancelled" ? "bg-gray-100 text-gray-500" : "bg-green-100 text-green-700"}`}>
+-                        {job.status === "cancelled" ? t("jobs.statusCancelled") : t("jobs.statusDone")}
+-                      </span>
++        Object.entries(groups).map(([label, items]) => (
++          <div key={label}>
++            <div className="section-h">
++              <span className="k">{label}</span>
++              <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>{items?.length ?? 0}</span>
++            </div>
++            <div className="jobs">
++              {(items ?? []).map((job: any) => (
++                <Link key={job.id} href={`/worker/jobs/${job.id}`} className="jc">
++                  <div className="t">
++                    <div style={{ minWidth: 0 }}>
++                      <div className="ti">{job.title}</div>
++                      {job.properties && (
++                        <div className="ad">{job.properties.name}{job.properties.city ? ` · ${job.properties.city}` : ""}</div>
++                      )}
+                     </div>
+-                    <p className="text-xs text-mist mt-2">{formatDate(job.updated_at ?? job.created_at)}</p>
+-                  </Link>
+-                ))}
+-              </div>
++                    <span className={`pill ${job.status === "cancelled" ? "pill--draft" : "pill--done"}`}>
++                      <span className="dot"></span>
++                      {job.status === "cancelled" ? t("jobs.statusCancelled") : t("jobs.statusDone")}
++                    </span>
++                  </div>
++                  <div className="row">
++                    <span className="mono" style={{ fontSize: 11.5, color: "var(--muted)" }}>{formatDate(job.updated_at ?? job.created_at)}</span>
++                  </div>
++                </Link>
++              ))}
+             </div>
+-          ))}
+-        </div>
++          </div>
++        ))
+       )}
+-    </div>
++    </>
+   );
+ }
+-- 
+2.43.0
+

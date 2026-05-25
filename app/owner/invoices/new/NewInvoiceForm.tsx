@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -34,10 +34,17 @@ const blankLineItem = (): LineItemInput => ({ description: "", quantity: 1, unit
 
 export default function NewInvoiceForm({ jobs, propertyManagers, selectedJob }: NewInvoiceFormProps) {
   const router = useRouter();
+
+  // Bill-to mode: "pm" = property manager, "client" = one-time direct client
+  const [billTo, setBillTo] = useState<"pm" | "client">("pm");
+
   const [jobId, setJobId] = useState(selectedJob?.id || jobs[0]?.id || "");
   const [propertyManagerId, setPropertyManagerId] = useState(
     selectedJob?.property_manager_id || jobs[0]?.property_manager_id || propertyManagers[0]?.id || ""
   );
+  const [clientName, setClientName] = useState("");
+  const [clientEmail, setClientEmail] = useState("");
+
   const [status, setStatus] = useState("draft");
   const [dueDate, setDueDate] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
@@ -72,33 +79,33 @@ export default function NewInvoiceForm({ jobs, propertyManagers, selectedJob }: 
   }, [subtotal, taxRate]);
 
   const total = useMemo(() => Math.round((subtotal + taxAmount) * 100) / 100, [subtotal, taxAmount]);
-
   const lineItemsAreValid = lineItems.every((item) => item.description.trim() && Number(item.quantity) > 0);
 
   useEffect(() => {
     const nextPmId = selectedJobOption?.property_manager_id || "";
-    if (nextPmId && nextPmId !== propertyManagerId) {
-      setPropertyManagerId(nextPmId);
-    }
+    if (nextPmId && nextPmId !== propertyManagerId) setPropertyManagerId(nextPmId);
   }, [selectedJobOption?.property_manager_id, propertyManagerId]);
 
   useEffect(() => {
-    setSendTo(selectedManager?.email || "");
-  }, [selectedManager?.email]);
+    if (billTo === "pm") setSendTo(selectedManager?.email || "");
+  }, [selectedManager?.email, billTo]);
 
   const updateLineItem = (index: number, field: keyof LineItemInput, value: string) => {
     setLineItems((items) =>
-      items.map((item, idx) => (idx === index ? { ...item, [field]: field === "description" ? value : value } : item))
+      items.map((item, idx) => (idx === index ? { ...item, [field]: value } : item))
     );
   };
 
   const addLineItem = () => setLineItems((items) => [...items, blankLineItem()]);
   const removeLineItem = (index: number) => setLineItems((items) => items.filter((_, idx) => idx !== index));
 
+  const fmt = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!jobId) { setError("Select a completed job before creating an invoice."); return; }
-    if (!propertyManagerId) { setError("Choose a property manager."); return; }
+    if (billTo === "pm" && !propertyManagerId) { setError("Choose a property manager."); return; }
+    if (billTo === "client" && !clientName.trim()) { setError("Enter the client name."); return; }
     if (!dueDate) { setError("A due date is required."); return; }
     if (!lineItemsAreValid) { setError("Please add at least one valid line item."); return; }
 
@@ -111,12 +118,13 @@ export default function NewInvoiceForm({ jobs, propertyManagers, selectedJob }: 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           jobId,
-          propertyManagerId,
+          ...(billTo === "pm"
+            ? { propertyManagerId, emailOverride: sendTo?.trim() || undefined }
+            : { clientName: clientName.trim(), clientEmail: clientEmail.trim() || undefined }),
           status,
           dueDate,
           notes: notes.trim(),
           taxRate: Number(taxRate),
-          emailOverride: sendTo?.trim() || undefined,
           lineItems: lineItems.map((item) => ({
             description: item.description.trim(),
             quantity: Number(item.quantity),
@@ -133,150 +141,277 @@ export default function NewInvoiceForm({ jobs, propertyManagers, selectedJob }: 
       }
 
       router.push(`/owner/invoices/${data.invoiceId}`);
-    } catch (submitError) {
+    } catch {
       setError("Unable to create invoice. Please try again.");
       setLoading(false);
     }
   };
 
+  const inpStyle = {
+    width: "100%",
+    border: "1px solid var(--line-2)",
+    borderRadius: "var(--r)",
+    padding: "0 10px",
+    height: 36,
+    background: "var(--surface)",
+    color: "var(--ink)",
+    fontFamily: "var(--sans)",
+    fontSize: 13.5,
+  } as React.CSSProperties;
+
+  const toggleBtnStyle = (active: boolean): React.CSSProperties => ({
+    padding: "4px 12px",
+    fontSize: 12.5,
+    border: "none",
+    cursor: "pointer",
+    background: active ? "var(--ink)" : "transparent",
+    color: active ? "var(--paper)" : "var(--muted)",
+    fontFamily: "var(--sans)",
+  });
+
   return (
-    <form onSubmit={handleSubmit} noValidate className="space-y-6">
-      <div className="bg-white rounded-xl border border-gray-200 p-5 grid gap-5 md:grid-cols-2">
-        <div>
-          <label htmlFor="job" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Completed Job</label>
-          <select id="job" value={jobId} onChange={(event) => setJobId(event.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-amber" aria-describedby="job-help">
-            <option value="">— Choose a completed job —</option>
-            {jobs.map((job) => (
-              <option key={job.id} value={job.id}>{job.title}</option>
-            ))}
-          </select>
-          <p id="job-help" className="sr-only">Select the job to generate an invoice for</p>
-        </div>
-
-        <div>
-          <label htmlFor="manager" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Property Manager</label>
-          <select id="manager" value={propertyManagerId} onChange={(event) => setPropertyManagerId(event.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-amber">
-            <option value="">— Choose property manager —</option>
-            {propertyManagers.map((manager) => (
-              <option key={manager.id} value={manager.id}>{manager.full_name}{manager.company ? ` · ${manager.company}` : ""}</option>
-            ))}
-          </select>
-          {selectedManager && (
-            <p className="text-xs text-mist mt-2">Billing contact: {selectedManager.full_name}</p>
-          )}
-        </div>
-
-        <div className="md:col-span-2">
-          <label htmlFor="send-to" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Send to (optional)</label>
-          <input
-            id="send-to"
-            type="email"
-            value={sendTo}
-            onChange={(e) => setSendTo(e.target.value)}
-            placeholder="customer@example.com"
-            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-amber"
-          />
-          <p className="text-[11px] text-mist mt-1">Overrides the PM email on file when you send.</p>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 p-5 grid gap-5 md:grid-cols-2">
-        <div>
-          <label htmlFor="status" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Invoice Status</label>
-          <select id="status" value={status} onChange={(event) => setStatus(event.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-amber">
-            <option value="draft">Draft</option>
-            <option value="sent">Sent</option>
-            <option value="paid">Paid</option>
-            <option value="overdue">Overdue</option>
-          </select>
-        </div>
-
-        <div>
-          <label htmlFor="due-date" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Due Date</label>
-          <input
-            id="due-date"
-            type="date"
-            value={dueDate}
-            onChange={(event) => setDueDate(event.target.value)}
-            className="w-full min-w-0 max-w-full border border-gray-300 rounded-lg px-3 py-2.5 sm:py-3 text-sm focus:outline-none focus:border-amber"
-          />
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="font-display font-700 text-lg text-forge">Line Items</h2>
-            <p className="text-xs text-mist mt-1">Add the work items and pricing for this invoice.</p>
-          </div>
-          <button type="button" onClick={addLineItem} className="text-amber text-sm font-700 hover:underline">
-            + Add item
-          </button>
-        </div>
-
-        <div className="space-y-5">
-          {lineItems.map((item, index) => (
-            <div
-              key={index}
-              className="grid gap-3 sm:grid-cols-[2fr_1fr_1fr_auto] items-start sm:items-end border border-gray-100 rounded-lg p-3 sm:p-0"
-            >
-              <div>
-                <label className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Description</label>
-                <input type="text" value={item.description} onChange={(event) => updateLineItem(index, "description", event.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-amber" placeholder="Item description" />
-              </div>
-              <div>
-                <label className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Qty</label>
-                <input type="number" min="1" value={item.quantity} onChange={(event) => updateLineItem(index, "quantity", event.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-amber" />
-              </div>
-              <div>
-                <label className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Unit Price</label>
-                <input type="number" min="0" step="0.01" value={item.unit_price} onChange={(event) => updateLineItem(index, "unit_price", event.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-amber" />
-              </div>
-              <div className="flex sm:flex-col items-center sm:items-end gap-2 sm:gap-1">
-                <div className="text-xs text-mist w-full text-right sm:text-left">
-                  ${((Number(item.quantity) || 0) * (Number(item.unit_price) || 0)).toFixed(2)}
+    <form onSubmit={handleSubmit} noValidate>
+      <div className="grid-2">
+        {/* Left: source jobs + line items */}
+        <div className="col" style={{ gap: 16 }}>
+          <div className="card">
+            <div className="card-head">
+              <h3>Source: completed job</h3>
+            </div>
+            <div className="fieldset">
+              <div className="form-grid">
+                <div className="field span-2">
+                  <div className="lbl">Completed Job</div>
+                  <select value={jobId} onChange={(e) => setJobId(e.target.value)} style={inpStyle}>
+                    <option value="">— Choose a completed job —</option>
+                    {jobs.map((job) => (
+                      <option key={job.id} value={job.id}>{job.title}</option>
+                    ))}
+                  </select>
                 </div>
+              </div>
+            </div>
+
+            <div className="card-head" style={{ borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)" }}>
+              <h3>Line items</h3>
+              <button type="button" onClick={addLineItem} className="btn btn--sm">+ Add item</button>
+            </div>
+
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>Description</th>
+                  <th style={{ width: 64 }}>Qty</th>
+                  <th style={{ width: 90 }}>Unit price</th>
+                  <th style={{ width: 90 }}>Amount</th>
+                  <th style={{ width: 24 }} />
+                </tr>
+              </thead>
+              <tbody>
+                {lineItems.map((item, index) => (
+                  <tr key={index}>
+                    <td>
+                      <input
+                        type="text"
+                        value={item.description}
+                        onChange={(e) => updateLineItem(index, "description", e.target.value)}
+                        placeholder="Item description"
+                        style={{ width: "100%", border: "1px solid var(--line-2)", borderRadius: "var(--r-sm)", padding: "4px 8px", fontSize: 13, fontFamily: "var(--sans)", background: "var(--surface)" }}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        min="1"
+                        value={item.quantity}
+                        onChange={(e) => updateLineItem(index, "quantity", e.target.value)}
+                        style={{ width: "100%", border: "1px solid var(--line-2)", borderRadius: "var(--r-sm)", padding: "4px 8px", fontSize: 13, fontFamily: "var(--mono)", background: "var(--surface)" }}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={item.unit_price}
+                        onChange={(e) => updateLineItem(index, "unit_price", e.target.value)}
+                        style={{ width: "100%", border: "1px solid var(--line-2)", borderRadius: "var(--r-sm)", padding: "4px 8px", fontSize: 13, fontFamily: "var(--mono)", background: "var(--surface)" }}
+                      />
+                    </td>
+                    <td className="mono num">
+                      {fmt((Number(item.quantity) || 0) * (Number(item.unit_price) || 0))}
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        onClick={() => removeLineItem(index)}
+                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: 16, lineHeight: 1, padding: "0 4px" }}
+                      >×</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div style={{ padding: "14px 18px", borderTop: "1px solid var(--line)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <button type="button" onClick={addLineItem} className="btn btn--sm">+ Add item</button>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 4 }}>Subtotal</div>
+                <div className="mono num" style={{ fontSize: 20, fontWeight: 500 }}>{fmt(subtotal)}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right: bill-to + totals */}
+        <div className="col" style={{ gap: 16 }}>
+          <div className="card">
+            <div className="card-head">
+              <h3>Bill to</h3>
+              <div style={{ display: "flex", border: "1px solid var(--line-2)", borderRadius: "var(--r-sm)", overflow: "hidden" }}>
+                <button type="button" onClick={() => setBillTo("pm")} style={toggleBtnStyle(billTo === "pm")}>
+                  Property Manager
+                </button>
                 <button
                   type="button"
-                  onClick={() => removeLineItem(index)}
-                  className="text-red-600 text-sm font-600 hover:underline w-full sm:w-auto text-right sm:text-left"
+                  onClick={() => setBillTo("client")}
+                  style={{ ...toggleBtnStyle(billTo === "client"), borderLeft: "1px solid var(--line-2)" }}
                 >
-                  Remove
+                  Direct Client
                 </button>
               </div>
             </div>
-          ))}
-        </div>
-      </div>
+            <div className="fieldset">
+              <div className="form-grid">
+                {billTo === "pm" ? (
+                  <>
+                    <div className="field span-2">
+                      <div className="lbl">Property Manager</div>
+                      <select value={propertyManagerId} onChange={(e) => setPropertyManagerId(e.target.value)} style={inpStyle}>
+                        <option value="">— Choose property manager —</option>
+                        {propertyManagers.map((manager) => (
+                          <option key={manager.id} value={manager.id}>
+                            {manager.full_name}{manager.company ? ` · ${manager.company}` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="field span-2">
+                      <div className="lbl">Send to (optional)</div>
+                      <input
+                        type="email"
+                        value={sendTo}
+                        onChange={(e) => setSendTo(e.target.value)}
+                        placeholder="customer@example.com"
+                        style={inpStyle}
+                      />
+                      <div className="hint">Overrides the PM email on file when you send.</div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="field span-2">
+                      <div className="lbl">Client Name *</div>
+                      <input
+                        type="text"
+                        value={clientName}
+                        onChange={(e) => setClientName(e.target.value)}
+                        placeholder="e.g. Jane Smith"
+                        style={inpStyle}
+                      />
+                    </div>
+                    <div className="field span-2">
+                      <div className="lbl">Client Email</div>
+                      <input
+                        type="email"
+                        value={clientEmail}
+                        onChange={(e) => setClientEmail(e.target.value)}
+                        placeholder="client@example.com"
+                        style={inpStyle}
+                      />
+                    </div>
+                  </>
+                )}
 
-      <div className="bg-white rounded-xl border border-gray-200 p-5 grid gap-3 sm:grid-cols-2 md:grid-cols-3">
-        <div className="p-4 rounded-lg bg-gray-50 border border-gray-200">
-          <p className="text-xs text-mist uppercase tracking-wider font-600">Subtotal</p>
-          <p className="font-800 text-forge text-2xl mt-2">${subtotal.toFixed(2)}</p>
-        </div>
-        <div className="p-4 rounded-lg bg-gray-50 border border-gray-200">
-          <label htmlFor="tax-rate" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Tax Rate</label>
-          <input id="tax-rate" type="number" min="0" max="100" step="0.01" value={taxRate} onChange={(event) => setTaxRate(event.target.value)} className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-amber" />
-          <p className="text-xs text-mist mt-2">Amount: ${taxAmount.toFixed(2)}</p>
-        </div>
-        <div className="p-4 rounded-lg bg-gray-50 border border-gray-200">
-          <p className="text-xs text-mist uppercase tracking-wider font-600">Total</p>
-          <p className="font-800 text-forge text-2xl mt-2">${total.toFixed(2)}</p>
-        </div>
-      </div>
+                <div className="field">
+                  <div className="lbl">Invoice Status</div>
+                  <select value={status} onChange={(e) => setStatus(e.target.value)} style={inpStyle}>
+                    <option value="draft">Draft</option>
+                    <option value="sent">Sent</option>
+                    <option value="paid">Paid</option>
+                    <option value="overdue">Overdue</option>
+                  </select>
+                </div>
+                <div className="field">
+                  <div className="lbl">Due Date</div>
+                  <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} style={inpStyle} />
+                </div>
+                <div className="field span-2">
+                  <div className="lbl">Notes</div>
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={3}
+                    placeholder="Add invoice notes or payment instructions."
+                    style={{ resize: "none" }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <label htmlFor="notes" className="block text-xs font-600 text-mist uppercase tracking-wider mb-1">Notes</label>
-        <textarea id="notes" value={notes} onChange={(event) => setNotes(event.target.value)} rows={4} className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-amber resize-none" placeholder="Add invoice notes or payment instructions." />
-      </div>
-
-      {error && <div role="alert" className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</div>}
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Link href="/owner/invoices" className="text-sm font-semibold text-mist hover:text-forge">Cancel</Link>
-        <button type="submit" disabled={loading || !jobId || !propertyManagerId || !lineItemsAreValid} className="bg-amber hover:bg-amber-dark disabled:opacity-50 text-forge font-display font-700 py-3 px-5 rounded-lg text-sm transition-colors">
-          {loading ? "Saving…" : "Create Invoice"}
-        </button>
+          <div className="card" style={{ padding: 0 }}>
+            <div className="fieldset" style={{ borderBottom: "1px solid var(--line)" }}>
+              <div className="between" style={{ marginBottom: 8 }}>
+                <div className="kicker">Subtotal</div>
+                <div className="mono num">{fmt(subtotal)}</div>
+              </div>
+              <div className="between" style={{ marginBottom: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div className="kicker">Tax rate</div>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={taxRate}
+                    onChange={(e) => setTaxRate(e.target.value)}
+                    style={{ width: 64, border: "1px solid var(--line-2)", borderRadius: "var(--r-sm)", padding: "2px 6px", fontSize: 12, fontFamily: "var(--mono)", background: "var(--surface)" }}
+                  />
+                  <span className="kicker">%</span>
+                </div>
+                <div className="mono num">{fmt(taxAmount)}</div>
+              </div>
+            </div>
+            <div className="fieldset" style={{ borderBottom: "none" }}>
+              <div className="between">
+                <div style={{ fontSize: 14, fontWeight: 500 }}>Total due</div>
+                <div className="mono num" style={{ fontSize: 22, fontWeight: 500 }}>{fmt(total)}</div>
+              </div>
+            </div>
+            {error && (
+              <div style={{ margin: "0 18px 14px", fontSize: 13, color: "var(--red)", padding: "8px 12px", background: "var(--red-soft)", borderRadius: "var(--r)" }}>
+                {error}
+              </div>
+            )}
+            <div style={{ padding: "14px 18px", borderTop: "1px solid var(--line)", display: "flex", gap: 8 }}>
+              <Link href="/owner/invoices" className="btn">Cancel</Link>
+              <button
+                type="submit"
+                disabled={
+                  loading ||
+                  !jobId ||
+                  (billTo === "pm" ? !propertyManagerId : !clientName.trim()) ||
+                  !lineItemsAreValid
+                }
+                className="btn btn--orange"
+                style={{ marginLeft: "auto", opacity: loading ? 0.6 : 1 }}
+              >
+                {loading ? "Saving…" : "Create Invoice"}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </form>
   );

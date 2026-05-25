@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     return badRequest((validation as { error: string }).error);
   }
 
-  const { jobId, propertyManagerId, status, dueDate, notes, lineItems, taxRate } = validation.data;
+  const { jobId, propertyManagerId, clientName, clientEmail, status, dueDate, notes, lineItems, taxRate, emailOverride } = validation.data;
   const supabase = await createServerSideClient();
 
   const { data: job, error: jobError } = await supabase
@@ -38,18 +38,21 @@ export async function POST(req: NextRequest) {
   if (!job) return badRequest("Job not found.");
   if (job.invoice_id) return badRequest("Invoice already exists for this job.");
 
-  const { data: propertyManager, error: pmError } = await supabase
-    .from("property_managers")
-    .select("id")
-    .eq("id", propertyManagerId)
-    .eq("tenant_id", profile.tenant_id)
-    .single();
+  // Validate PM exists if one was provided
+  if (propertyManagerId) {
+    const { data: propertyManager, error: pmError } = await supabase
+      .from("property_managers")
+      .select("id")
+      .eq("id", propertyManagerId)
+      .eq("tenant_id", profile.tenant_id)
+      .single();
 
-  if (pmError) {
-    logError("Invoice create property manager lookup failed", pmError);
-    return errorResponse("Failed to load property manager", 500);
+    if (pmError) {
+      logError("Invoice create property manager lookup failed", pmError);
+      return errorResponse("Failed to load property manager", 500);
+    }
+    if (!propertyManager) return badRequest("Property manager not found.");
   }
-  if (!propertyManager) return badRequest("Property manager not found.");
 
   const { data: tenant, error: tenantError } = await supabase
     .from("tenants")
@@ -96,7 +99,9 @@ export async function POST(req: NextRequest) {
     .insert({
       tenant_id: profile.tenant_id,
       job_id: jobId,
-      property_manager_id: propertyManagerId,
+      property_manager_id: propertyManagerId ?? null,
+      client_name: propertyManagerId ? null : (clientName?.trim() || null),
+      client_email: propertyManagerId ? null : (clientEmail?.trim() || emailOverride?.trim() || null),
       invoice_number: invoiceNumber,
       status,
       line_items: sanitizedLineItems,

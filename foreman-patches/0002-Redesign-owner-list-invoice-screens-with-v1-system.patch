@@ -1,0 +1,1395 @@
+From 61d08e6156d611cb4cc80cd1906d6f61a51f0f49 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 16 May 2026 12:48:21 +0000
+Subject: [PATCH 2/8] Redesign owner list + invoice screens with v1 system
+
+- Invoice detail uses .doc layout: kicker + invoice number, total-due
+  side card, line table, totals stack, activity-style right column.
+- Invoices list switches to the v1 stat-grid + tabbed table with pills,
+  archived past view grouped biweekly.
+- Jobs list adopts .tbl + status/priority pills, orange-soft row for
+  completed-uninvoiced jobs, sort headers with arrows.
+- Work orders list uses .pill statuses, section headers with mono counts,
+  card rows with kicker/tag combos.
+---
+ app/owner/invoices/[id]/page.tsx | 228 +++++++++++---------
+ app/owner/invoices/page.tsx      | 340 +++++++++++++++++------------
+ app/owner/jobs/page.tsx          | 358 ++++++++++++++-----------------
+ app/owner/work-orders/page.tsx   | 269 ++++++++++++-----------
+ 4 files changed, 627 insertions(+), 568 deletions(-)
+
+diff --git a/app/owner/invoices/[id]/page.tsx b/app/owner/invoices/[id]/page.tsx
+index 9ada0c7..0849ee8 100644
+--- a/app/owner/invoices/[id]/page.tsx
++++ b/app/owner/invoices/[id]/page.tsx
+@@ -2,29 +2,36 @@ import { notFound } from "next/navigation";
+ import Link from "next/link";
+ import { requireOwner } from "@/lib/auth";
+ import { getOwnerInvoice } from "@/lib/services/owner";
+-import { formatDate, formatCurrency, INVOICE_STATUS_CONFIG } from "@/lib/utils";
++import { formatDate, formatCurrency } from "@/lib/utils";
+ import { createServiceClient } from "@/lib/supabase";
+ import InvoiceActions from "./InvoiceActions";
+ import SendInvoiceWithEmail from "@/components/owner/SendInvoiceWithEmail";
+ 
++function invoicePill(status: string) {
++  switch (status) {
++    case "paid":    return { cls: "pill--paid",  label: "Paid" };
++    case "overdue": return { cls: "pill--late",  label: "Overdue" };
++    case "sent":    return { cls: "pill--sent",  label: "Sent" };
++    case "draft":   return { cls: "pill--draft", label: "Draft" };
++    default:        return { cls: "pill--draft", label: status };
++  }
++}
++
+ export default async function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
+   const { id } = await params;
+   const profile = await requireOwner();
+   const [invoice, { data: tenant }] = await Promise.all([
+     getOwnerInvoice(profile, id),
+-    createServiceClient().from("tenants").select("stripe_connect_enabled").eq("id", profile.tenant_id).single(),
++    createServiceClient().from("tenants").select("name, stripe_connect_enabled").eq("id", profile.tenant_id).single(),
+   ]);
+   const stripeConnected = !!tenant?.stripe_connect_enabled;
+ 
+-  if (!invoice) {
+-    notFound();
+-  }
++  if (!invoice) notFound();
+ 
+-  const statusCfg = INVOICE_STATUS_CONFIG[invoice.status as keyof typeof INVOICE_STATUS_CONFIG];
++  const pill = invoicePill(invoice.status);
+   const managerName = invoice.property_managers?.full_name || "Unknown";
+   const jobTitle = invoice.jobs?.title || "Unknown job";
+ 
+-  // Compute reminder timeline (cron sends at 3 and 7 days overdue)
+   const today = new Date();
+   const dueDate = new Date(invoice.due_date + "T00:00:00Z");
+   const daysOverdue = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+@@ -39,120 +46,133 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{
+       lastReminder = "3-day overdue reminder sent";
+       const remindAt = new Date(dueDate);
+       remindAt.setUTCDate(remindAt.getUTCDate() + 7);
+-      nextReminder = `Next: 7-day reminder on ${remindAt.toISOString().slice(0,10)}`;
++      nextReminder = `Next: 7-day reminder on ${remindAt.toISOString().slice(0, 10)}`;
+     } else if (daysOverdue >= 0) {
+       const remindAt = new Date(dueDate);
+       remindAt.setUTCDate(remindAt.getUTCDate() + 3);
+-      nextReminder = `Next: 3-day reminder on ${remindAt.toISOString().slice(0,10)}`;
++      nextReminder = `Next: 3-day reminder on ${remindAt.toISOString().slice(0, 10)}`;
+     }
+   }
+ 
+-  return (
+-    <div className="page-shell max-w-3xl">
+-      <div className="flex items-center gap-2 mb-6 justify-center">
+-        <Link href="/owner/invoices" className="text-mist hover:text-forge text-sm transition-colors">Invoices</Link>
+-        <span className="text-mist">/</span>
+-        <span className="text-sm text-forge">{invoice.invoice_number}</span>
+-      </div>
++  const dueLabel = invoice.status === "paid"
++    ? "Paid in full"
++    : daysOverdue > 0
++      ? `${daysOverdue} day${daysOverdue === 1 ? "" : "s"} overdue`
++      : daysOverdue === 0
++        ? "Due today"
++        : `Due in ${-daysOverdue} day${daysOverdue === -1 ? "" : "s"}`;
+ 
+-      <div className="surface-card p-4 sm:p-6 mb-6 space-y-4">
+-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:text-left text-center">
+-          <div className="w-full">
+-            <p className="text-xs uppercase tracking-wider text-mist font-600">Invoice</p>
+-            <h1 className="font-display font-800 text-2xl sm:text-3xl text-forge mt-2">{invoice.invoice_number}</h1>
+-            <p className="text-sm text-mist mt-1">Created {formatDate(invoice.created_at)}</p>
+-          </div>
+-          <div className="flex items-center gap-2 flex-wrap justify-center md:justify-end">
+-            <span className={`badge ${statusCfg.bg} ${statusCfg.color}`}>{statusCfg.label}</span>
+-          </div>
++  return (
++    <div className="fm">
++      <div className="page">
++        <div className="row gap-2" style={{ marginBottom: 16 }}>
++          <Link href="/owner/invoices" className="kicker" style={{ color: "var(--muted)", textDecoration: "none" }}>Invoices</Link>
++          <span style={{ color: "var(--muted-2)" }}>/</span>
++          <span className="kicker" style={{ color: "var(--ink)" }}>{invoice.invoice_number}</span>
+         </div>
+ 
+-        <div className="grid gap-4 sm:grid-cols-3 text-center sm:text-left">
+-          <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+-            <p className="text-xs uppercase tracking-wider text-mist font-600">Due date</p>
+-            <p className="font-600 text-forge mt-1">{formatDate(invoice.due_date)}</p>
+-          </div>
+-          <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+-            <p className="text-xs uppercase tracking-wider text-mist font-600">Property manager</p>
+-            <p className="font-600 text-forge mt-1">{managerName}</p>
+-            {invoice.property_managers?.company && <p className="text-xs text-mist">{invoice.property_managers.company}</p>}
++        <div className="between" style={{ alignItems: "flex-start", marginBottom: 20, gap: 24, flexWrap: "wrap" }}>
++          <div style={{ minWidth: 0 }}>
++            <div className="row gap-2">
++              <span className="mono" style={{ color: "var(--muted)", fontSize: 12 }}>{invoice.invoice_number}</span>
++              <span className={`pill ${pill.cls}`}><span className="dot"></span>{pill.label}</span>
++            </div>
++            <h1 style={{ marginTop: 8, fontSize: 26, fontWeight: 500, letterSpacing: "-0.02em" }}>Invoice to {managerName}</h1>
++            <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
++              {jobTitle} · created {formatDate(invoice.created_at)} · <b style={{ color: "var(--ink)" }}>{dueLabel}</b>
++            </div>
+           </div>
+-          <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+-            <p className="text-xs uppercase tracking-wider text-mist font-600">Job</p>
+-            <Link href={`/owner/jobs/${invoice.job_id}`} className="font-600 text-amber hover:underline mt-1 block">{jobTitle}</Link>
++          <div className="card" style={{ padding: "12px 16px", minWidth: 240 }}>
++            <div className="kicker">Total due</div>
++            <div className="mono num" style={{ fontSize: 28, fontWeight: 500, marginTop: 4, letterSpacing: "-0.02em" }}>{formatCurrency(invoice.total)}</div>
++            <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Due {formatDate(invoice.due_date)}</div>
+           </div>
+         </div>
+-      </div>
+ 
+-      <div className="surface-card p-6 mb-6">
+-        <h2 className="font-display font-700 text-lg text-forge mb-4">Line items</h2>
+-        <div className="overflow-x-auto rounded-xl border border-gray-100">
+-          <table className="min-w-full text-sm text-left md:text-left" aria-label="Invoice line items">
+-            <thead className="bg-gray-50 text-left text-xs uppercase tracking-wider text-mist">
+-              <tr>
+-                <th className="px-4 py-3">Description</th>
+-                <th className="px-4 py-3 text-right">Qty</th>
+-                <th className="px-4 py-3 text-right">Unit</th>
+-                <th className="px-4 py-3 text-right">Total</th>
+-              </tr>
+-            </thead>
+-            <tbody className="bg-white divide-y divide-gray-100">
+-              {(invoice.line_items || []).map((item: any, idx: number) => (
+-                <tr key={idx}>
+-                  <td className="px-4 py-3 text-forge">{item.description}</td>
+-                  <td className="px-4 py-3 text-right text-mist">{item.quantity}</td>
+-                  <td className="px-4 py-3 text-right text-mist">{formatCurrency(item.unit_price)}</td>
+-                  <td className="px-4 py-3 text-right font-600 text-forge">{formatCurrency(item.total)}</td>
+-                </tr>
+-              ))}
+-            </tbody>
+-          </table>
+-        </div>
+-      </div>
++        <div className="grid-2">
++          <div className="doc">
++            <div className="doc-h">
++              <div>
++                <div className="kicker">Invoice</div>
++                <h2 style={{ marginTop: 4 }}>{tenant?.name ?? "Your Business"}</h2>
++              </div>
++              <div style={{ textAlign: "right" }}>
++                <div className="doc-num">{invoice.invoice_number}</div>
++                <div className="kicker" style={{ marginTop: 14 }}>Bill to</div>
++                <div style={{ fontSize: 13, marginTop: 4 }}>{managerName}</div>
++                {invoice.property_managers?.company && (
++                  <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 2 }}>{invoice.property_managers.company}</div>
++                )}
++              </div>
++            </div>
+ 
+-      <div className="grid gap-3 sm:grid-cols-3">
+-        <div className="bg-white rounded-xl border border-gray-200 p-4">
+-          <p className="text-xs uppercase tracking-wider text-mist font-600">Subtotal</p>
+-          <p className="font-800 text-forge text-2xl mt-1">{formatCurrency(invoice.subtotal)}</p>
+-        </div>
+-        <div className="bg-white rounded-xl border border-gray-200 p-4">
+-          <p className="text-xs uppercase tracking-wider text-mist font-600">Tax ({invoice.tax_rate || 0}%)</p>
+-          <p className="font-800 text-forge text-2xl mt-1">{formatCurrency(invoice.tax_amount)}</p>
+-        </div>
+-        <div className="bg-white rounded-xl border border-gray-200 p-4">
+-          <p className="text-xs uppercase tracking-wider text-mist font-600">Total</p>
+-          <p className="font-800 text-forge text-2xl mt-1">{formatCurrency(invoice.total)}</p>
+-        </div>
+-      </div>
++            <div className="doc-meta">
++              <div><div className="k">Issued</div><div className="v">{formatDate(invoice.created_at)}</div></div>
++              <div><div className="k">Due</div><div className="v">{formatDate(invoice.due_date)}</div></div>
++              <div><div className="k">Tax rate</div><div className="v">{invoice.tax_rate || 0}%</div></div>
++              <div><div className="k">Job</div><div className="v mono"><Link href={`/owner/jobs/${invoice.job_id}`} style={{ color: "var(--ink)" }}>{jobTitle}</Link></div></div>
++            </div>
+ 
+-      {(["sent", "overdue"].includes(invoice.status)) && (
+-        <div className="bg-white rounded-xl border border-amber/40 mt-6 p-5">
+-          <p className="text-xs uppercase tracking-wider text-mist font-600">Payment reminders</p>
+-          <p className="text-sm text-forge mt-1">Auto emails at 3 and 7 days overdue.</p>
+-          {lastReminder && <p className="text-xs text-steel mt-1">Last: {lastReminder}</p>}
+-          {nextReminder && <p className="text-xs text-amber-700 mt-1">{nextReminder}</p>}
+-          {!lastReminder && !nextReminder && (
+-            <p className="text-xs text-mist mt-1">Not overdue yet. Reminders start after due date.</p>
+-          )}
+-        </div>
+-      )}
++            <table className="lines">
++              <thead><tr><th>Description</th><th style={{ width: 70 }}>Qty</th><th style={{ width: 100 }}>Rate</th><th style={{ width: 100 }}>Amount</th></tr></thead>
++              <tbody>
++                {(invoice.line_items || []).map((item: any, idx: number) => (
++                  <tr key={idx}>
++                    <td>{item.description}</td>
++                    <td className="qty">{item.quantity}</td>
++                    <td className="mono num">{formatCurrency(item.unit_price)}</td>
++                    <td className="mono num">{formatCurrency(item.total)}</td>
++                  </tr>
++                ))}
++              </tbody>
++            </table>
+ 
+-      {invoice.notes && (
+-        <div className="bg-white rounded-xl border border-gray-200 p-6 mt-6">
+-          <h2 className="font-display font-700 text-lg text-forge mb-3">Notes</h2>
+-          <p className="text-sm text-steel leading-relaxed">{invoice.notes}</p>
+-        </div>
+-      )}
+-
+-      {invoice.status !== "paid" && (
+-        <div className="space-y-4 mt-6">
+-          <InvoiceActions invoiceId={invoice.id} status={invoice.status} stripeConnected={stripeConnected} />
+-          <SendInvoiceWithEmail
+-            invoiceId={invoice.id}
+-            defaultEmail={invoice.property_managers?.email || ""}
+-          />
++            <div className="totals">
++              <div className="row"><div>Subtotal</div><div className="v mono">{formatCurrency(invoice.subtotal)}</div></div>
++              <div className="row"><div>Tax ({invoice.tax_rate || 0}%)</div><div className="v mono">{formatCurrency(invoice.tax_amount)}</div></div>
++              <div className="row grand"><div>Total due</div><div className="v mono">{formatCurrency(invoice.total)}</div></div>
++            </div>
++          </div>
++
++          <div className="col" style={{ gap: 16 }}>
++            {(["sent", "overdue"].includes(invoice.status)) && (
++              <div className="card">
++                <div className="card-head"><h3>Reminders</h3></div>
++                <div style={{ padding: "10px 18px 14px", fontSize: 13 }}>
++                  <p style={{ margin: 0, color: "var(--ink-2)" }}>Auto emails at 3 and 7 days overdue.</p>
++                  {lastReminder && <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--muted)" }}>Last: {lastReminder}</p>}
++                  {nextReminder && <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--orange-ink)" }}>{nextReminder}</p>}
++                  {!lastReminder && !nextReminder && (
++                    <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--muted)" }}>Not overdue yet. Reminders start after due date.</p>
++                  )}
++                </div>
++              </div>
++            )}
++
++            {invoice.notes && (
++              <div className="card">
++                <div className="card-head"><h3>Notes</h3></div>
++                <div style={{ padding: "4px 18px 16px", fontSize: 13, color: "var(--ink-2)" }}>
++                  <p style={{ margin: "8px 0", whiteSpace: "pre-wrap" }}>{invoice.notes}</p>
++                </div>
++              </div>
++            )}
++
++            {invoice.status !== "paid" && (
++              <div className="card">
++                <div className="card-head"><h3>Actions</h3></div>
++                <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 12 }}>
++                  <InvoiceActions invoiceId={invoice.id} status={invoice.status} stripeConnected={stripeConnected} />
++                  <SendInvoiceWithEmail
++                    invoiceId={invoice.id}
++                    defaultEmail={invoice.property_managers?.email || ""}
++                  />
++                </div>
++              </div>
++            )}
++          </div>
+         </div>
+-      )}
++      </div>
+     </div>
+   );
+ }
+diff --git a/app/owner/invoices/page.tsx b/app/owner/invoices/page.tsx
+index 9680a06..1829aa4 100644
+--- a/app/owner/invoices/page.tsx
++++ b/app/owner/invoices/page.tsx
+@@ -1,7 +1,7 @@
+ import { requireOwner } from "@/lib/auth";
+ import { getOwnerInvoiceTotals, getOwnerInvoices } from "@/lib/services/owner";
+ import { createServerSideClient } from "@/lib/supabase-server";
+-import { formatDate, formatCurrency, INVOICE_STATUS_CONFIG } from "@/lib/utils";
++import { formatDate, formatCurrency } from "@/lib/utils";
+ import Link from "next/link";
+ import ResendInvoiceButton from "@/components/owner/ResendInvoiceButton";
+ import SendInvoiceButton from "@/components/owner/SendInvoiceButton";
+@@ -9,6 +9,16 @@ import { getServerT } from "@/lib/i18n/server";
+ 
+ const ARCHIVE_DAYS = 30;
+ 
++function invoicePill(status: string) {
++  switch (status) {
++    case "paid":    return { cls: "pill--paid",  label: "Paid" };
++    case "overdue": return { cls: "pill--late",  label: "Overdue" };
++    case "sent":    return { cls: "pill--sent",  label: "Sent" };
++    case "draft":   return { cls: "pill--draft", label: "Draft" };
++    default:        return { cls: "pill--draft", label: status };
++  }
++}
++
+ function biweeklyLabel(iso: string): string {
+   const d = new Date(iso);
+   const month = d.toLocaleString("en-US", { month: "long", year: "numeric" });
+@@ -25,6 +35,14 @@ function groupByBiweekly<T extends { created_at: string }>(items: T[]) {
+   return groups;
+ }
+ 
++const STATUS_FILTERS: { value?: string; label: string }[] = [
++  { value: undefined, label: "All" },
++  { value: "draft",   label: "Draft" },
++  { value: "sent",    label: "Sent" },
++  { value: "paid",    label: "Paid" },
++  { value: "overdue", label: "Overdue" },
++];
++
+ export default async function InvoicesPage({ searchParams }: { searchParams: Promise<{ status?: string; page?: string; past?: string }> }) {
+   const { status, past, page: pageParam } = await searchParams;
+   const profile  = await requireOwner();
+@@ -61,157 +79,197 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
+   const archivedGroups = groupByBiweekly(archivedInvoices);
+ 
+   return (
+-    <div className="page-shell page-shell-standard">
+-      <div className="page-header">
+-        <div className="page-header-copy">
+-          <h1 className="page-title">{t("invoices.title")}</h1>
++    <div className="fm">
++      <div className="page">
++        <div className="page-h">
++          <div>
++            <div className="kicker">All invoices</div>
++            <h1 style={{ marginTop: 6 }}>{t("invoices.title")}</h1>
++          </div>
++          <div className="row gap-2">
++            <Link href="/owner/invoices/new" className="btn btn--primary">+ {t("invoices.newInvoice")}</Link>
++          </div>
+         </div>
+-        <Link href="/owner/invoices/new" className="action-button-primary">
+-          {t("invoices.newInvoice")}
+-        </Link>
+-      </div>
+ 
+-      {/* Summary cards */}
+-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+-        <div className="surface-card p-4">
+-          <p className="text-[11px] text-mist uppercase tracking-wider font-600">{t("invoices.totalPaid")}</p>
+-          <p className="font-display font-800 text-xl text-green-600 mt-1 truncate">{formatCurrency(totals.paid)}</p>
+-        </div>
+-        <div className="rounded-xl border border-amber/30 bg-amber/5 p-4">
+-          <p className="text-[11px] text-mist uppercase tracking-wider font-600">{t("invoices.outstanding")}</p>
+-          <p className="font-display font-800 text-xl text-amber-dark mt-1 truncate">{formatCurrency(totals.outstanding)}</p>
+-        </div>
+-        <div className="surface-card p-4">
+-          <p className="text-[11px] text-mist uppercase tracking-wider font-600">{t("invoices.drafts")}</p>
+-          <p className="font-display font-800 text-xl text-forge mt-1">{totals.draft}</p>
++        {/* Stat grid */}
++        <div className="stat-grid" style={{ marginBottom: 16, gridTemplateColumns: "repeat(3, 1fr)" }}>
++          <div className="stat-cell">
++            <div className="label">{t("invoices.totalPaid")}</div>
++            <div className="value mono num" style={{ color: "#135E3F" }}>{formatCurrency(totals.paid)}</div>
++          </div>
++          <div className="stat-cell">
++            <div className="label">{t("invoices.outstanding")}</div>
++            <div className="value mono num" style={{ color: "var(--orange-ink)" }}>{formatCurrency(totals.outstanding)}</div>
++          </div>
++          <div className="stat-cell">
++            <div className="label">{t("invoices.drafts")}</div>
++            <div className="value">{totals.draft}</div>
++          </div>
+         </div>
+-      </div>
+ 
+-      {/* Active / Past toggle */}
+-      <div className="flex items-center gap-3 mb-5">
+-        <Link href="/owner/invoices" className={`px-4 py-1.5 rounded-full text-sm font-600 transition-colors ${!showPast ? "bg-forge text-white" : "text-mist hover:text-forge"}`}>
+-          {t("invoices.activeTab")}
+-        </Link>
+-        <Link href="/owner/invoices?past=1" className={`px-4 py-1.5 rounded-full text-sm font-600 transition-colors ${showPast ? "bg-forge text-white" : "text-mist hover:text-forge"}`}>
+-          {t("invoices.pastTab")} {archivedInvoices.length > 0 && <span className="ml-1 text-xs opacity-60">{archivedInvoices.length}</span>}
+-        </Link>
+-      </div>
+-
+-      {/* Past view */}
+-      {showPast && (
+-        <div className="space-y-6">
+-          {Object.keys(archivedGroups).length === 0 ? (
+-            <div className="surface-empty">
+-              <p>{t("invoices.noPastInvoices")}</p>
+-            </div>
+-          ) : (
+-            Object.entries(archivedGroups).map(([label, items]) => (
+-              <div key={label}>
+-                <p className="text-xs font-700 uppercase tracking-widest text-mist mb-2 px-1">{label}</p>
+-                <div className="surface-card divide-y divide-gray-100">
+-                  {(items as any[]).map((inv) => (
+-                    <div key={inv.id} className="flex items-center justify-between px-4 py-3 gap-3">
+-                      <div className="min-w-0">
+-                        <Link href={`/owner/invoices/${inv.id}`} className="font-600 text-forge hover:text-amber text-sm">{inv.invoice_number}</Link>
+-                        <p className="text-xs text-mist mt-0.5">{inv.jobs?.title ?? "—"} · {inv.property_managers?.full_name ?? "—"}</p>
+-                        <p className="text-xs text-mist">{t("invoices.paid", { date: formatDate(inv.created_at) })}</p>
+-                      </div>
+-                      <p className="font-700 text-forge text-sm shrink-0">{formatCurrency(inv.total)}</p>
+-                    </div>
+-                  ))}
+-                </div>
+-              </div>
+-            ))
+-          )}
+-        </div>
+-      )}
+-
+-      {!showPast && <>
+-
+-      {/* Status filter */}
+-      <div className="flex gap-2 mb-5 flex-wrap">
+-        {[undefined, "draft", "sent", "paid", "overdue"].map((s) => {
+-          const label = s ? INVOICE_STATUS_CONFIG[s as keyof typeof INVOICE_STATUS_CONFIG].label : t("common.all");
+-          const active = (s === undefined && !status) || status === s;
+-          return (
+-            <Link key={s || "all"} href={s ? `/owner/invoices?status=${s}` : "/owner/invoices"}
+-              className={`px-3 py-1.5 rounded-full text-xs font-600 border transition-colors ${active ? "bg-forge text-white border-forge" : "border-gray-300 text-mist hover:border-gray-400"}`}>
+-              {label}
++        {/* Tabs: active / past */}
++        <div className="row" style={{ gap: 0, borderBottom: "1px solid var(--line)", marginBottom: 16 }}>
++          {[
++            { href: "/owner/invoices",       label: t("invoices.activeTab"), active: !showPast, count: activeInvoices.length },
++            { href: "/owner/invoices?past=1",label: t("invoices.pastTab"),   active: showPast,  count: archivedInvoices.length },
++          ].map((tab) => (
++            <Link
++              key={tab.href}
++              href={tab.href}
++              style={{
++                padding: "10px 14px",
++                fontSize: 13,
++                color: tab.active ? "var(--ink)" : "var(--muted)",
++                borderBottom: tab.active ? "2px solid var(--orange)" : "2px solid transparent",
++                marginBottom: -1,
++                fontWeight: tab.active ? 500 : 450,
++                display: "flex",
++                alignItems: "center",
++                gap: 6,
++                textDecoration: "none",
++              }}
++            >
++              {tab.label}
++              {tab.count > 0 && <span className="mono" style={{ fontSize: 10.5, color: "var(--muted)" }}>{tab.count}</span>}
+             </Link>
+-          );
+-        })}
+-      </div>
++          ))}
++        </div>
+ 
+-      {/* Invoice list */}
+-      <div className="space-y-3">
+-        {!activeInvoices?.length ? (
+-          <div className="surface-empty">
+-            <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+-              <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+-            </div>
+-            <p className="font-display font-700 text-xl text-forge mb-1">{t("invoices.noInvoices")}</p>
+-            <p className="text-mist text-sm">{t("invoices.noInvoicesNote")}</p>
+-          </div>
+-        ) : (
+-          activeInvoices.map((inv: any) => {
+-            const cfg = INVOICE_STATUS_CONFIG[inv.status as keyof typeof INVOICE_STATUS_CONFIG];
+-            const dueDate = new Date(inv.due_date + "T00:00:00Z");
+-            const daysOverdue = Math.floor((Date.now() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+-            let reminderBadge = "—";
+-            if (["sent","overdue"].includes(inv.status)) {
+-              if (daysOverdue >= 7) reminderBadge = "7-day sent";
+-              else if (daysOverdue >= 3) reminderBadge = "3-day sent";
+-              else if (daysOverdue >= 0) reminderBadge = "Next 3-day";
+-            }
+-            return (
+-              <Link
+-                key={inv.id}
+-                href={`/owner/invoices/${inv.id}`}
+-                className="surface-card p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 hover:border-amber/50 transition-colors"
+-              >
+-                <div className="min-w-0">
+-                  <p className="font-display font-700 text-forge text-sm">
+-                    {inv.invoice_number}
+-                  </p>
+-                  <p className="text-xs text-mist">{inv.jobs?.title || "—"}</p>
+-                  <p className="text-xs text-mist">{inv.property_managers?.full_name || "—"}</p>
+-                  <p className="text-xs text-steel">{t("invoices.due", { date: formatDate(inv.due_date) })}</p>
+-                  <p className="text-[11px] text-steel">{t("invoices.reminders", { count: reminderBadge })}</p>
+-                  <div className="mt-1 flex items-center gap-3">
+-                    {inv.status === "draft" ? (
+-                      <SendInvoiceButton invoiceId={inv.id} disabled={inv.status === "paid"} label={t("invoices.sendInvoice")} />
+-                    ) : (
+-                      <ResendInvoiceButton
+-                        invoiceId={inv.id}
+-                        disabled={inv.status === "paid"}
+-                      />
+-                    )}
+-                    <span className="inline-flex items-center justify-center gap-1 bg-white hover:bg-gray-50 text-forge border border-gray-300 text-xs sm:text-sm font-700 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg transition-colors min-h-[34px] sm:min-h-[40px] min-w-[82px] sm:min-w-[96px]">
+-                      {t("common.open")}
+-                    </span>
++        {showPast ? (
++          <div className="col" style={{ gap: 20 }}>
++            {Object.keys(archivedGroups).length === 0 ? (
++              <div className="card empty">
++                <div className="ti">{t("invoices.noPastInvoices")}</div>
++              </div>
++            ) : (
++              Object.entries(archivedGroups).map(([label, items]) => (
++                <div key={label}>
++                  <div className="kicker" style={{ marginBottom: 8 }}>{label}</div>
++                  <div className="card">
++                    <table className="tbl">
++                      <thead>
++                        <tr>
++                          <th style={{ width: 110 }}>Invoice</th>
++                          <th>Job</th>
++                          <th style={{ width: 160 }}>PM</th>
++                          <th style={{ width: 110 }}>Paid</th>
++                          <th style={{ width: 90, textAlign: "right" }}>Total</th>
++                        </tr>
++                      </thead>
++                      <tbody>
++                        {(items as any[]).map((inv) => (
++                          <tr key={inv.id} style={{ cursor: "pointer" }}>
++                            <td>
++                              <Link href={`/owner/invoices/${inv.id}`} className="mono" style={{ color: "var(--ink)", textDecoration: "none" }}>{inv.invoice_number}</Link>
++                            </td>
++                            <td>{inv.jobs?.title ?? "—"}</td>
++                            <td className="muted">{inv.property_managers?.full_name ?? "—"}</td>
++                            <td className="mono" style={{ color: "var(--muted)", fontSize: 12.5 }}>{formatDate(inv.created_at)}</td>
++                            <td className="mono num" style={{ textAlign: "right" }}>{formatCurrency(inv.total)}</td>
++                          </tr>
++                        ))}
++                      </tbody>
++                    </table>
+                   </div>
+                 </div>
+-                <div className="flex items-center gap-3 sm:flex-col sm:items-end sm:min-w-[140px]">
+-                  <p className="font-700 text-forge text-lg whitespace-nowrap">{formatCurrency(inv.total)}</p>
+-                  <span className={`px-2 py-1 rounded-full text-[11px] font-700 text-center whitespace-nowrap ${cfg.bg} ${cfg.color}`}>
+-                    {cfg.label}
+-                  </span>
++              ))
++            )}
++          </div>
++        ) : (
++          <>
++            {/* Status filter chips */}
++            <div className="row" style={{ gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
++              {STATUS_FILTERS.map((f) => {
++                const active = (f.value === undefined && !status) || status === f.value;
++                return (
++                  <Link
++                    key={f.value || "all"}
++                    href={f.value ? `/owner/invoices?status=${f.value}` : "/owner/invoices"}
++                    className={"btn btn--sm" + (active ? " btn--primary" : "")}
++                  >
++                    {f.label}
++                  </Link>
++                );
++              })}
++            </div>
++
++            {!activeInvoices?.length ? (
++              <div className="card empty">
++                <div className="ic">
++                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3h9l3 3v15H6z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>
+                 </div>
+-              </Link>
+-            );
+-          })
++                <div className="ti">{t("invoices.noInvoices")}</div>
++                <div className="ds">{t("invoices.noInvoicesNote")}</div>
++              </div>
++            ) : (
++              <div className="card" style={{ overflow: "hidden" }}>
++                <table className="tbl">
++                  <thead>
++                    <tr>
++                      <th style={{ width: 120 }}>Invoice</th>
++                      <th>Job</th>
++                      <th style={{ width: 160 }}>PM</th>
++                      <th style={{ width: 120 }}>Due</th>
++                      <th style={{ width: 120 }}>Status</th>
++                      <th style={{ width: 110, textAlign: "right" }}>Total</th>
++                      <th style={{ width: 120, textAlign: "right" }}>Actions</th>
++                    </tr>
++                  </thead>
++                  <tbody>
++                    {activeInvoices.map((inv: any) => {
++                      const pill = invoicePill(inv.status);
++                      const dueDate = new Date(inv.due_date + "T00:00:00Z");
++                      const daysOverdue = Math.floor((Date.now() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
++                      return (
++                        <tr key={inv.id}>
++                          <td>
++                            <Link href={`/owner/invoices/${inv.id}`} className="mono" style={{ color: "var(--ink)", textDecoration: "none", fontWeight: 500 }}>
++                              {inv.invoice_number}
++                            </Link>
++                          </td>
++                          <td>
++                            <div style={{ fontWeight: 500 }}>{inv.jobs?.title ?? "—"}</div>
++                          </td>
++                          <td><span className="tag">{inv.property_managers?.full_name ?? "—"}</span></td>
++                          <td className="mono" style={{ fontSize: 12.5, color: "var(--ink-2)" }}>
++                            {formatDate(inv.due_date)}
++                            {daysOverdue > 0 && inv.status !== "paid" && (
++                              <div style={{ fontSize: 11, color: "#8C291D", marginTop: 2 }}>+{daysOverdue}d</div>
++                            )}
++                          </td>
++                          <td><span className={`pill ${pill.cls}`}><span className="dot"></span>{pill.label}</span></td>
++                          <td className="mono num" style={{ textAlign: "right", fontWeight: 500 }}>{formatCurrency(inv.total)}</td>
++                          <td style={{ textAlign: "right" }}>
++                            {inv.status === "draft" ? (
++                              <SendInvoiceButton invoiceId={inv.id} disabled={inv.status === "paid"} label={t("invoices.sendInvoice")} />
++                            ) : inv.status !== "paid" ? (
++                              <ResendInvoiceButton invoiceId={inv.id} disabled={false} />
++                            ) : (
++                              <Link href={`/owner/invoices/${inv.id}`} className="btn btn--sm">Open</Link>
++                            )}
++                          </td>
++                        </tr>
++                      );
++                    })}
++                  </tbody>
++                </table>
++              </div>
++            )}
++
++            {pageCount > 1 && (
++              <div className="between" style={{ marginTop: 12, fontSize: 13 }}>
++                <Link href={`/owner/invoices?status=${status || ""}&page=${Math.max(1, page - 1)}`} className={"btn btn--sm" + (page === 1 ? " btn--ghost" : "")} aria-disabled={page === 1}>
++                  ← {t("common.previous")}
++                </Link>
++                <span className="mono" style={{ color: "var(--muted)", fontSize: 12 }}>{t("common.pageOf", { page, pageCount })}</span>
++                <Link href={`/owner/invoices?status=${status || ""}&page=${Math.min(pageCount, page + 1)}`} className={"btn btn--sm" + (page === pageCount ? " btn--ghost" : "")} aria-disabled={page === pageCount}>
++                  {t("common.next")} →
++                </Link>
++              </div>
++            )}
++          </>
+         )}
+       </div>
+-
+-      {/* Pagination */}
+-      {pageCount > 1 && (
+-        <div className="flex items-center justify-between px-1 py-3 text-sm">
+-          <Link href={`/owner/invoices?status=${status || ""}&page=${Math.max(1, page - 1)}`} className={`font-700 ${page === 1 ? "text-gray-400 pointer-events-none" : "text-forge hover:text-amber"}`}>← {t("common.previous")}</Link>
+-          <p className="text-xs text-mist">{t("common.pageOf", { page, pageCount })}</p>
+-          <Link href={`/owner/invoices?status=${status || ""}&page=${Math.min(pageCount, page + 1)}`} className={`font-700 ${page === pageCount ? "text-gray-400 pointer-events-none" : "text-forge hover:text-amber"}`}>{t("common.next")} →</Link>
+-        </div>
+-      )}
+-      </>}
+     </div>
+   );
+ }
+diff --git a/app/owner/jobs/page.tsx b/app/owner/jobs/page.tsx
+index 9b25a27..40f2d48 100644
+--- a/app/owner/jobs/page.tsx
++++ b/app/owner/jobs/page.tsx
+@@ -7,17 +7,39 @@ import JobsSearchBar from "@/components/owner/JobsSearchBar";
+ 
+ const ACTIVE_STATUSES = ["pending", "scheduled", "in_progress"] as const;
+ 
++function jobStatusPill(status: string) {
++  switch (status) {
++    case "in_progress": return { cls: "pill--inprog",    label: "In progress" };
++    case "completed":   return { cls: "pill--done",      label: "Completed" };
++    case "invoiced":    return { cls: "pill--paid",      label: "Invoiced" };
++    case "cancelled":   return { cls: "pill--draft",     label: "Cancelled" };
++    case "pending":     return { cls: "pill--unassigned",label: "Pending" };
++    default:            return { cls: "pill--scheduled", label: "Scheduled" };
++  }
++}
++
++function priorityPill(p?: string | null) {
++  switch (p) {
++    case "emergency":
++    case "urgent":   return { cls: "pill--high", label: p === "emergency" ? "Emergency" : "Urgent" };
++    case "high":     return { cls: "pill--high", label: "High" };
++    case "normal":   return { cls: "pill--med",  label: "Normal" };
++    case "low":      return { cls: "pill--low",  label: "Low" };
++    default:         return null;
++  }
++}
++
+ function SortTh({
+-  col, label, sort, sortDir, status, search,
+-}: { col: string; label: string; sort: string; sortDir: string; status?: string; search?: string }) {
++  col, label, sort, sortDir, status, search, width,
++}: { col: string; label: string; sort: string; sortDir: string; status?: string; search?: string; width?: number | string }) {
+   const isActive = sort === col;
+   const nextDir = isActive && sortDir === "asc" ? "desc" : "asc";
+   const params = new URLSearchParams({ sort: col, sortDir: nextDir, ...(status ? { status } : {}), ...(search ? { search } : {}) });
+   return (
+-    <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">
+-      <Link href={`/owner/jobs?${params}`} className="inline-flex items-center gap-1 hover:text-forge transition-colors">
++    <th scope="col" style={{ width }}>
++      <Link href={`/owner/jobs?${params}`} style={{ color: "inherit", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}>
+         {label}
+-        <span className="text-[10px]">{isActive ? (sortDir === "asc" ? "↑" : "↓") : <span className="opacity-30">↕</span>}</span>
++        <span style={{ fontSize: 9 }}>{isActive ? (sortDir === "asc" ? "↑" : "↓") : <span style={{ opacity: 0.3 }}>↕</span>}</span>
+       </Link>
+     </th>
+   );
+@@ -48,210 +70,156 @@ export default async function JobsPage({
+   const count = result.count;
+   const pageCount = Math.ceil(count / 8);
+ 
+-  const activeStatuses = ACTIVE_STATUSES as readonly string[];
+-  const showInvoiceCta = status === "completed";
+-
+   return (
+-    <div className="page-shell page-shell-wide">
+-      <div className="page-header">
+-        <div className="page-header-copy">
+-          <h1 className="page-title">{t("jobs.title")}</h1>
+-          <p className="page-subtitle">{t("common.total", { count })}</p>
+-        </div>
+-        <div className="flex items-center gap-2">
+-          {!showPast && (
+-            <JobsSearchBar defaultValue={search ?? ""} status={status} />
+-          )}
+-          <Link href="/owner/jobs/new" className="action-button-primary whitespace-nowrap">
+-            {t("jobs.newJob")}
+-          </Link>
++    <div className="fm">
++      <div className="page">
++        <div className="page-h">
++          <div>
++            <div className="kicker">All teams · open + closed</div>
++            <h1 style={{ marginTop: 6 }}>{t("jobs.title")}</h1>
++            <div className="sub">{t("common.total", { count })}</div>
++          </div>
++          <div className="row gap-2" style={{ flexWrap: "wrap" }}>
++            {!showPast && <JobsSearchBar defaultValue={search ?? ""} status={status} />}
++            <Link href="/owner/jobs/new" className="btn btn--primary">+ {t("jobs.newJob")}</Link>
++          </div>
+         </div>
+-      </div>
+ 
+-      {/* Active / Past toggle */}
+-      <div className="flex items-center gap-3 mb-5">
+-        <Link
+-          href="/owner/jobs"
+-          className={`px-4 py-1.5 rounded-full text-sm font-600 transition-colors ${!showPast ? "bg-forge text-white" : "text-mist hover:text-forge"}`}
+-        >
+-          {t("jobs.activeTab")}
+-        </Link>
+-        <Link
+-          href="/owner/jobs?past=1"
+-          className={`px-4 py-1.5 rounded-full text-sm font-600 transition-colors ${showPast ? "bg-forge text-white" : "text-mist hover:text-forge"}`}
+-        >
+-          {t("jobs.pastTab")}
+-        </Link>
+-      </div>
+-
+-      {/* Status filter — active tab only, show only non-past statuses */}
+-      {!showPast && (
+-        <div className="flex gap-2 flex-wrap mb-6" role="group" aria-label="Filter jobs by status">
+-          <Link
+-            href={search ? `/owner/jobs?search=${search}` : "/owner/jobs"}
+-            className={`px-3 py-1.5 rounded-full text-xs font-600 border transition-colors ${
+-              !status ? "bg-forge text-white border-forge" : "border-gray-300 text-mist hover:border-forge"
+-            }`}
+-          >
+-            {t("common.all")}
+-          </Link>
+-          {activeStatuses.map((s) => {
+-            const cfg = JOB_STATUS_CONFIG[s as keyof typeof JOB_STATUS_CONFIG];
+-            return (
+-              <Link
+-                key={s}
+-                href={`/owner/jobs?status=${s}${search ? `&search=${search}` : ""}`}
+-                className={`px-3 py-1.5 rounded-full text-xs font-600 border transition-colors ${
+-                  status === s
+-                    ? `${cfg.bg} ${cfg.color} border-current`
+-                    : "border-gray-300 text-mist hover:border-gray-400"
+-                }`}
+-              >
+-                {cfg.label}
+-              </Link>
+-            );
+-          })}
++        {/* Active / Past tabs */}
++        <div className="row" style={{ gap: 0, borderBottom: "1px solid var(--line)", marginBottom: 16 }}>
++          {[
++            { href: "/owner/jobs",        label: t("jobs.activeTab"), active: !showPast },
++            { href: "/owner/jobs?past=1", label: t("jobs.pastTab"),   active: showPast },
++          ].map((tab) => (
++            <Link
++              key={tab.href}
++              href={tab.href}
++              style={{
++                padding: "10px 14px",
++                fontSize: 13,
++                color: tab.active ? "var(--ink)" : "var(--muted)",
++                borderBottom: tab.active ? "2px solid var(--orange)" : "2px solid transparent",
++                marginBottom: -1,
++                fontWeight: tab.active ? 500 : 450,
++                textDecoration: "none",
++              }}
++            >
++              {tab.label}
++            </Link>
++          ))}
+         </div>
+-      )}
+ 
+-      {/* Uninvoiced callout */}
+-      {showInvoiceCta && (() => {
+-        const uninvoiced = jobs.filter((j) => !j.invoice_id);
+-        return uninvoiced.length > 0 ? (
+-          <div className="mb-4 bg-amber/10 border border-amber/30 rounded-xl px-4 py-3">
+-            <p className="text-sm font-600 text-forge">
+-              {uninvoiced.length} job{uninvoiced.length !== 1 ? "s" : ""} completed — click <strong>Invoice →</strong> on any row to bill it
+-            </p>
++        {/* Status filter chips */}
++        {!showPast && (
++          <div className="row" style={{ gap: 6, flexWrap: "wrap", marginBottom: 14 }} role="group" aria-label="Filter jobs by status">
++            <Link
++              href={search ? `/owner/jobs?search=${search}` : "/owner/jobs"}
++              className={"btn btn--sm" + (!status ? " btn--primary" : "")}
++            >
++              {t("common.all")}
++            </Link>
++            {ACTIVE_STATUSES.map((s) => {
++              const cfg = JOB_STATUS_CONFIG[s as keyof typeof JOB_STATUS_CONFIG];
++              const active = status === s;
++              return (
++                <Link
++                  key={s}
++                  href={`/owner/jobs?status=${s}${search ? `&search=${search}` : ""}`}
++                  className={"btn btn--sm" + (active ? " btn--primary" : "")}
++                >
++                  {cfg.label}
++                </Link>
++              );
++            })}
+           </div>
+-        ) : null;
+-      })()}
++        )}
++
++        {/* Uninvoiced callout */}
++        {status === "completed" && (() => {
++          const uninvoiced = jobs.filter((j) => !j.invoice_id);
++          return uninvoiced.length > 0 ? (
++            <div className="card" style={{ padding: "10px 14px", marginBottom: 14, background: "var(--orange-soft)", borderColor: "#F4D9A8" }}>
++              <p style={{ margin: 0, fontSize: 13, color: "var(--orange-ink)" }}>
++                <b>{uninvoiced.length}</b> job{uninvoiced.length !== 1 ? "s" : ""} completed and not invoiced — click <b>Invoice →</b> on any row to bill it.
++              </p>
++            </div>
++          ) : null;
++        })()}
+ 
+-      {/* List */}
+-      <div className="surface-card overflow-hidden">
+         {!jobs.length ? (
+-          <div className="p-12 text-center">
+-            <p className="text-mist text-sm mb-3">{t("jobs.noJobsFound")}</p>
++          <div className="card empty">
++            <div className="ic">
++              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16v13H4z"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>
++            </div>
++            <div className="ti">{t("jobs.noJobsFound")}</div>
+             {!showPast && (
+-              <Link href="/owner/jobs/new" className="text-amber hover:underline text-sm">
+-                {t("jobs.createJob")} →
+-              </Link>
++              <div style={{ marginTop: 12 }}>
++                <Link href="/owner/jobs/new" className="btn btn--primary btn--sm">{t("jobs.createJob")} →</Link>
++              </div>
+             )}
+           </div>
+         ) : (
+-          <>
+-            {/* Mobile cards */}
+-            <div className="divide-y divide-gray-100 md:hidden">
+-              {jobs.map((job) => {
+-                const statusCfg = JOB_STATUS_CONFIG[job.status as keyof typeof JOB_STATUS_CONFIG];
+-                const priorityCfg = PRIORITY_CONFIG[job.priority as keyof typeof PRIORITY_CONFIG];
+-                const needsInvoice = job.status === "completed" && !job.invoice_id;
+-                return (
+-                  <Link
+-                    key={job.id}
+-                    href={`/owner/jobs/${job.id}`}
+-                    className={`block p-4 space-y-2 ${needsInvoice ? "bg-amber/5" : "bg-white"} hover:bg-gray-50 transition-colors`}
+-                  >
+-                    <div className="flex items-start justify-between gap-3">
+-                      <div className="min-w-0">
+-                        <p className="font-700 text-forge line-clamp-1">{job.title}</p>
+-                        <p className="text-xs text-mist mt-0.5">{job.properties?.name || "—"}</p>
+-                        {job.scheduled_date && (
+-                          <p className="text-xs text-mist mt-0.5">{formatDate(job.scheduled_date)}</p>
+-                        )}
+-                        <span className={`badge mt-1 ${priorityCfg.bg} ${priorityCfg.color}`}>{priorityCfg.label}</span>
+-                      </div>
+-                      <span className={`badge ${statusCfg.bg} ${statusCfg.color}`}>{statusCfg.label}</span>
+-                    </div>
+-                  </Link>
+-                );
+-              })}
+-            </div>
+-
+-            {/* Desktop table */}
+-            <div className="hidden md:block">
+-              <table className="w-full text-sm" role="grid" aria-label="Jobs list">
+-                <thead>
+-                  <tr className="border-b border-gray-100 bg-gray-50">
+-                    <SortTh col="title" label={t("jobs.jobColumn")} sort={sort} sortDir={sortDir} status={status} search={search} />
+-                    <th scope="col" className="text-left px-4 py-3 font-600 text-mist text-xs uppercase tracking-wider">{t("jobs.propertyColumn")}</th>
+-                    <SortTh col="scheduled_date" label={t("jobs.scheduledColumn")} sort={sort} sortDir={sortDir} status={status} search={search} />
+-                    <SortTh col="status" label={t("jobs.statusColumn")} sort={sort} sortDir={sortDir} status={status} search={search} />
+-                    {showInvoiceCta && <th scope="col" className="px-4 py-3" />}
+-                  </tr>
+-                </thead>
+-                <tbody className="divide-y divide-gray-100">
+-                  {jobs.map((job) => {
+-                    const statusCfg = JOB_STATUS_CONFIG[job.status as keyof typeof JOB_STATUS_CONFIG];
+-                    const priorityCfg = PRIORITY_CONFIG[job.priority as keyof typeof PRIORITY_CONFIG];
+-                    const needsInvoice = job.status === "completed" && !job.invoice_id;
+-                    return (
+-                      <tr
+-                        key={job.id}
+-                        className={`relative hover:bg-gray-50 transition-colors ${needsInvoice ? "bg-amber/5" : ""}`}
+-                      >
+-                        <td className="px-4 py-3">
+-                          {/* Full-row click overlay */}
+-                          <Link
+-                            href={`/owner/jobs/${job.id}`}
+-                            className="font-600 text-forge line-clamp-1 after:absolute after:inset-0 after:content-['']"
+-                          >
+-                            {job.title}
+-                          </Link>
+-                          <span className={`ml-2 badge ${priorityCfg.bg} ${priorityCfg.color} hidden sm:inline`}>
+-                            {priorityCfg.label}
+-                          </span>
+-                        </td>
+-                        <td className="px-4 py-3 text-mist">{job.properties?.name || "—"}</td>
+-                        <td className="px-4 py-3 text-mist">
+-                          {job.scheduled_date ? formatDate(job.scheduled_date) : "—"}
+-                        </td>
+-                        <td className="px-4 py-3">
+-                          <span className={`badge ${statusCfg.bg} ${statusCfg.color}`}>{statusCfg.label}</span>
+-                        </td>
+-                        {showInvoiceCta && (
+-                          <td className="px-4 py-3 text-right relative z-10">
+-                            {needsInvoice ? (
+-                              <Link
+-                                href={`/owner/invoices/new?job=${job.id}`}
+-                                className="inline-flex items-center gap-1 bg-amber hover:bg-amber-dark text-forge font-display font-700 px-3 py-1.5 rounded-lg text-xs transition-colors whitespace-nowrap"
+-                              >
+-                                Invoice →
+-                              </Link>
+-                            ) : job.invoice_id ? (
+-                              <Link
+-                                href={`/owner/invoices/${job.invoice_id}`}
+-                                className="text-xs text-mist hover:text-amber transition-colors"
+-                              >
+-                                View invoice
+-                              </Link>
+-                            ) : null}
+-                          </td>
++          <div className="card" style={{ overflow: "hidden" }}>
++            <table className="tbl">
++              <thead>
++                <tr>
++                  <SortTh col="title" label={t("jobs.jobColumn")} sort={sort} sortDir={sortDir} status={status} search={search} />
++                  <th style={{ width: 160 }}>{t("jobs.propertyColumn")}</th>
++                  <SortTh col="scheduled_date" label={t("jobs.scheduledColumn")} sort={sort} sortDir={sortDir} status={status} search={search} width={140} />
++                  <th style={{ width: 100 }}>Priority</th>
++                  <SortTh col="status" label={t("jobs.statusColumn")} sort={sort} sortDir={sortDir} status={status} search={search} width={120} />
++                  <th style={{ width: 120, textAlign: "right" }}>Actions</th>
++                </tr>
++              </thead>
++              <tbody>
++                {jobs.map((job) => {
++                  const pill = jobStatusPill(job.status);
++                  const pri  = priorityPill(job.priority);
++                  const needsInvoice = job.status === "completed" && !job.invoice_id;
++                  return (
++                    <tr key={job.id} style={{ background: needsInvoice ? "var(--orange-soft)" : undefined }}>
++                      <td>
++                        <Link href={`/owner/jobs/${job.id}`} style={{ color: "var(--ink)", textDecoration: "none", fontWeight: 500 }}>{job.title}</Link>
++                      </td>
++                      <td><span className="tag">{job.properties?.name ?? "—"}</span></td>
++                      <td className="mono" style={{ fontSize: 12.5, color: "var(--ink-2)" }}>{job.scheduled_date ? formatDate(job.scheduled_date) : "—"}</td>
++                      <td>{pri ? <span className={`pill ${pri.cls}`}><span className="dot"></span>{pri.label}</span> : <span className="muted">—</span>}</td>
++                      <td><span className={`pill ${pill.cls}`}><span className="dot"></span>{pill.label}</span></td>
++                      <td style={{ textAlign: "right" }}>
++                        {needsInvoice ? (
++                          <Link href={`/owner/invoices/new?job=${job.id}`} className="btn btn--sm btn--orange">Invoice →</Link>
++                        ) : job.invoice_id ? (
++                          <Link href={`/owner/invoices/${job.invoice_id}`} className="btn btn--sm">View invoice</Link>
++                        ) : (
++                          <Link href={`/owner/jobs/${job.id}`} className="btn btn--sm">Open</Link>
+                         )}
+-                      </tr>
+-                    );
+-                  })}
+-                </tbody>
+-              </table>
+-            </div>
++                      </td>
++                    </tr>
++                  );
++                })}
++              </tbody>
++            </table>
++          </div>
++        )}
+ 
+-            {pageCount > 1 && (
+-              <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-t border-gray-100">
+-                <Link
+-                  href={`/owner/jobs?${new URLSearchParams({ ...(showPast ? { past: "1" } : {}), ...(status ? { status } : {}), ...(search ? { search } : {}), sort, sortDir, page: String(Math.max(1, page - 1)) })}`}
+-                  className={`text-sm font-600 ${page === 1 ? "text-gray-400 pointer-events-none" : "text-forge hover:text-amber"}`}
+-                >
+-                  ← {t("common.previous")}
+-                </Link>
+-                <p className="text-xs text-mist">{t("common.pageOf", { page, pageCount })}</p>
+-                <Link
+-                  href={`/owner/jobs?${new URLSearchParams({ ...(showPast ? { past: "1" } : {}), ...(status ? { status } : {}), ...(search ? { search } : {}), sort, sortDir, page: String(Math.min(pageCount, page + 1)) })}`}
+-                  className={`text-sm font-600 ${page === pageCount ? "text-gray-400 pointer-events-none" : "text-forge hover:text-amber"}`}
+-                >
+-                  {t("common.next")} →
+-                </Link>
+-              </div>
+-            )}
+-          </>
++        {pageCount > 1 && (
++          <div className="between" style={{ marginTop: 12, fontSize: 13 }}>
++            <Link
++              href={`/owner/jobs?${new URLSearchParams({ ...(showPast ? { past: "1" } : {}), ...(status ? { status } : {}), ...(search ? { search } : {}), sort, sortDir, page: String(Math.max(1, page - 1)) })}`}
++              className={"btn btn--sm" + (page === 1 ? " btn--ghost" : "")}
++              aria-disabled={page === 1}
++            >
++              ← {t("common.previous")}
++            </Link>
++            <span className="mono" style={{ color: "var(--muted)", fontSize: 12 }}>{t("common.pageOf", { page, pageCount })}</span>
++            <Link
++              href={`/owner/jobs?${new URLSearchParams({ ...(showPast ? { past: "1" } : {}), ...(status ? { status } : {}), ...(search ? { search } : {}), sort, sortDir, page: String(Math.min(pageCount, page + 1)) })}`}
++              className={"btn btn--sm" + (page === pageCount ? " btn--ghost" : "")}
++              aria-disabled={page === pageCount}
++            >
++              {t("common.next")} →
++            </Link>
++          </div>
+         )}
+       </div>
+     </div>
+diff --git a/app/owner/work-orders/page.tsx b/app/owner/work-orders/page.tsx
+index bdf6be2..25c7ec4 100644
+--- a/app/owner/work-orders/page.tsx
++++ b/app/owner/work-orders/page.tsx
+@@ -1,9 +1,29 @@
+ import { requireOwner } from "@/lib/auth";
+ import { getOwnerWorkOrders, OWNER_PAGE_SIZE } from "@/lib/services/owner";
+-import { formatDate, PRIORITY_CONFIG } from "@/lib/utils";
++import { formatDate } from "@/lib/utils";
+ import Link from "next/link";
+ import { getServerT } from "@/lib/i18n/server";
+ 
++function priorityPill(p?: string | null) {
++  switch (p) {
++    case "emergency":
++    case "urgent":   return { cls: "pill--high", label: p === "emergency" ? "Emergency" : "Urgent" };
++    case "high":     return { cls: "pill--high", label: "High" };
++    case "normal":   return { cls: "pill--med",  label: "Normal" };
++    case "low":      return { cls: "pill--low",  label: "Low" };
++    default:         return null;
++  }
++}
++
++function statusPill(s: string) {
++  switch (s) {
++    case "pending":  return { cls: "pill--unassigned", label: "Pending" };
++    case "accepted": return { cls: "pill--done",       label: "Accepted" };
++    case "declined": return { cls: "pill--draft",      label: "Declined" };
++    default:         return { cls: "pill--scheduled",  label: s };
++  }
++}
++
+ export default async function WorkOrdersPage({ searchParams }: { searchParams: Promise<{ past?: string; page?: string }> }) {
+   const { past, page: pageParam } = await searchParams;
+   const profile = await requireOwner();
+@@ -26,158 +46,151 @@ export default async function WorkOrdersPage({ searchParams }: { searchParams: P
+   const pageCount = showPast ? Math.ceil(count / OWNER_PAGE_SIZE) : 1;
+ 
+   return (
+-    <div className="page-shell page-shell-standard">
+-      <div className="page-header">
+-        <div className="page-header-copy">
+-          <h1 className="page-title">{t("workOrders.title")}</h1>
+-          <p className="page-subtitle">
+-            {showPast
+-              ? t("common.total", { count })
+-              : t("workOrders.pendingReview", { count: pending.length })}
+-          </p>
+-        </div>
+-      </div>
+-
+-      {/* Active / Past toggle */}
+-      <div className="flex items-center gap-3 mb-5">
+-        <Link
+-          href="/owner/work-orders"
+-          className={`px-4 py-1.5 rounded-full text-sm font-600 transition-colors ${!showPast ? "bg-forge text-white" : "text-mist hover:text-forge"}`}
+-        >
+-          {t("workOrders.activeTab")}
+-        </Link>
+-        <Link
+-          href="/owner/work-orders?past=1"
+-          className={`px-4 py-1.5 rounded-full text-sm font-600 transition-colors ${showPast ? "bg-forge text-white" : "text-mist hover:text-forge"}`}
+-        >
+-          {t("workOrders.pastTab")}
+-        </Link>
+-      </div>
+-
+-      {/* Past view */}
+-      {showPast && (
+-        <div className="space-y-3">
+-          {archived.length === 0 ? (
+-            <div className="surface-empty">
+-              <p>{t("workOrders.noWorkOrders")}</p>
+-            </div>
+-          ) : (
+-            archived.map((wo: any) => <WorkOrderCard key={wo.id} wo={wo} muted t={t} />)
+-          )}
+-          {pageCount > 1 && (
+-            <div className="flex items-center justify-between px-1 py-3">
+-              <Link
+-                href={`/owner/work-orders?past=1&page=${Math.max(1, page - 1)}`}
+-                className={`text-sm font-600 ${page === 1 ? "text-gray-400 pointer-events-none" : "text-forge hover:text-amber"}`}
+-              >
+-                ← {t("common.previous")}
+-              </Link>
+-              <p className="text-xs text-mist">{t("common.pageOf", { page, pageCount })}</p>
+-              <Link
+-                href={`/owner/work-orders?past=1&page=${Math.min(pageCount, page + 1)}`}
+-                className={`text-sm font-600 ${page === pageCount ? "text-gray-400 pointer-events-none" : "text-forge hover:text-amber"}`}
+-              >
+-                {t("common.next")} →
+-              </Link>
++    <div className="fm">
++      <div className="page">
++        <div className="page-h">
++          <div>
++            <div className="kicker">From property managers</div>
++            <h1 style={{ marginTop: 6 }}>{t("workOrders.title")}</h1>
++            <div className="sub">
++              {showPast
++                ? t("common.total", { count })
++                : t("workOrders.pendingReview", { count: pending.length })}
+             </div>
+-          )}
++          </div>
+         </div>
+-      )}
+ 
+-      {/* Active view */}
+-      {!showPast && (
+-        <>
+-          {pending.length > 0 && (
+-            <section aria-labelledby="pending-heading" className="mb-8">
+-              <h2 id="pending-heading" className="font-display font-700 text-xl text-forge mb-3 flex items-center gap-2">
+-                {t("workOrders.pendingTab")}
+-                <span className="w-6 h-6 bg-amber text-forge text-xs font-700 rounded-full flex items-center justify-center">
+-                  {pending.length}
+-                </span>
+-              </h2>
+-              <div className="space-y-3">
+-                {pending.map((wo: any) => <WorkOrderCard key={wo.id} wo={wo} t={t} />)}
+-              </div>
+-            </section>
+-          )}
++        {/* Active / Past tabs */}
++        <div className="row" style={{ gap: 0, borderBottom: "1px solid var(--line)", marginBottom: 16 }}>
++          {[
++            { href: "/owner/work-orders",        label: t("workOrders.activeTab"), active: !showPast, n: active.length },
++            { href: "/owner/work-orders?past=1", label: t("workOrders.pastTab"),   active: showPast,  n: archived.length },
++          ].map((tab) => (
++            <Link
++              key={tab.href}
++              href={tab.href}
++              style={{
++                padding: "10px 14px",
++                fontSize: 13,
++                color: tab.active ? "var(--ink)" : "var(--muted)",
++                borderBottom: tab.active ? "2px solid var(--orange)" : "2px solid transparent",
++                marginBottom: -1,
++                fontWeight: tab.active ? 500 : 450,
++                textDecoration: "none",
++                display: "flex",
++                alignItems: "center",
++                gap: 6,
++              }}
++            >
++              {tab.label}
++              {tab.n > 0 && <span className="mono" style={{ fontSize: 10.5, color: "var(--muted)" }}>{tab.n}</span>}
++            </Link>
++          ))}
++        </div>
+ 
+-          {accepted.length > 0 && (
+-            <section aria-labelledby="accepted-heading" className="mb-8">
+-              <h2 id="accepted-heading" className="font-display font-700 text-xl text-forge mb-3">{t("workOrders.acceptedTab")}</h2>
+-              <div className="space-y-3">
+-                {accepted.map((wo: any) => <WorkOrderCard key={wo.id} wo={wo} t={t} />)}
++        {showPast && (
++          <>
++            {archived.length === 0 ? (
++              <div className="card empty"><div className="ti">{t("workOrders.noWorkOrders")}</div></div>
++            ) : (
++              <div className="col" style={{ gap: 10 }}>
++                {archived.map((wo: any) => <WorkOrderCard key={wo.id} wo={wo} muted />)}
+               </div>
+-            </section>
+-          )}
+-
+-          {declined.length > 0 && (
+-            <section aria-labelledby="declined-heading" className="mb-8">
+-              <h2 id="declined-heading" className="font-display font-700 text-xl text-mist mb-3">{t("workOrders.declinedTab")}</h2>
+-              <div className="space-y-3">
+-                {declined.map((wo: any) => <WorkOrderCard key={wo.id} wo={wo} t={t} />)}
++            )}
++            {pageCount > 1 && (
++              <div className="between" style={{ marginTop: 12, fontSize: 13 }}>
++                <Link href={`/owner/work-orders?past=1&page=${Math.max(1, page - 1)}`} className={"btn btn--sm" + (page === 1 ? " btn--ghost" : "")} aria-disabled={page === 1}>← {t("common.previous")}</Link>
++                <span className="mono" style={{ color: "var(--muted)", fontSize: 12 }}>{t("common.pageOf", { page, pageCount })}</span>
++                <Link href={`/owner/work-orders?past=1&page=${Math.min(pageCount, page + 1)}`} className={"btn btn--sm" + (page === pageCount ? " btn--ghost" : "")} aria-disabled={page === pageCount}>{t("common.next")} →</Link>
+               </div>
+-            </section>
+-          )}
++            )}
++          </>
++        )}
+ 
+-          {active.length === 0 && (
+-            <div className="surface-empty py-16">
+-              <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+-                <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+-                </svg>
++        {!showPast && (
++          <>
++            {pending.length > 0 && (
++              <Section title={t("workOrders.pendingTab")} count={pending.length}>
++                {pending.map((wo: any) => <WorkOrderCard key={wo.id} wo={wo} />)}
++              </Section>
++            )}
++            {accepted.length > 0 && (
++              <Section title={t("workOrders.acceptedTab")} count={accepted.length}>
++                {accepted.map((wo: any) => <WorkOrderCard key={wo.id} wo={wo} />)}
++              </Section>
++            )}
++            {declined.length > 0 && (
++              <Section title={t("workOrders.declinedTab")} count={declined.length}>
++                {declined.map((wo: any) => <WorkOrderCard key={wo.id} wo={wo} muted />)}
++              </Section>
++            )}
++            {active.length === 0 && (
++              <div className="card empty">
++                <div className="ic">
++                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M4 6h16M4 12h10M4 18h13"/></svg>
++                </div>
++                <div className="ti">{t("workOrders.noWorkOrders")}</div>
++                <div className="ds">{t("workOrders.workOrdersNote")}</div>
+               </div>
+-              <p className="font-display font-700 text-xl text-forge mb-1">{t("workOrders.noWorkOrders")}</p>
+-              <p className="text-mist text-sm">{t("workOrders.workOrdersNote")}</p>
+-            </div>
+-          )}
+-        </>
+-      )}
++            )}
++          </>
++        )}
++      </div>
+     </div>
+   );
+ }
+ 
+-type TFn = (key: string, vars?: Record<string, string | number>) => string;
+-function WorkOrderCard({ wo, muted = false, t }: { wo: any; muted?: boolean; t: TFn }) {
+-  const priorityCfg = PRIORITY_CONFIG[wo.priority as keyof typeof PRIORITY_CONFIG];
+-  const statusColors: Record<string, string> = {
+-    pending:  "bg-yellow-100 text-yellow-700",
+-    accepted: "bg-green-100 text-green-700",
+-    declined: "bg-gray-100 text-gray-500",
+-  };
++function Section({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
++  return (
++    <section style={{ marginBottom: 28 }}>
++      <div className="between" style={{ marginBottom: 10 }}>
++        <div className="row gap-2">
++          <h2 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>{title}</h2>
++          <span className="mono" style={{ fontSize: 10.5, color: "var(--muted)" }}>{count}</span>
++        </div>
++      </div>
++      <div className="col" style={{ gap: 10 }}>{children}</div>
++    </section>
++  );
++}
++
++function WorkOrderCard({ wo, muted = false }: { wo: any; muted?: boolean }) {
++  const pri = priorityPill(wo.priority);
++  const st  = statusPill(wo.status);
+   const job = Array.isArray(wo.jobs) ? wo.jobs[0] : (wo as any).jobs?.[0];
+ 
+   return (
+     <Link
+       href={`/owner/work-orders/${wo.id}`}
+-      className={`surface-card block p-4 transition-all hover:shadow-md ${
+-        muted ? "border-gray-200 text-mist" : "border-gray-200 hover:border-amber/30"
+-      }`}
++      className="card"
++      style={{
++        display: "block",
++        padding: "14px 16px",
++        textDecoration: "none",
++        color: "inherit",
++        opacity: muted ? 0.75 : 1,
++      }}
+     >
+-      <div className="flex items-start justify-between gap-3">
+-        <div className="min-w-0 flex-1">
+-          <div className="flex items-center gap-2 flex-wrap mb-1">
+-            <h3 className="text-sm font-700 text-forge sm:text-base line-clamp-1">{wo.title}</h3>
+-            <span className={`badge ${priorityCfg.bg} ${priorityCfg.color}`}>{priorityCfg.label}</span>
+-            <span className={`badge ${statusColors[wo.status]}`}>{wo.status}</span>
++      <div className="between" style={{ alignItems: "flex-start", gap: 12 }}>
++        <div style={{ minWidth: 0, flex: 1 }}>
++          <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
++            <h3 style={{ margin: 0, fontSize: 14, fontWeight: 500, color: "var(--ink)" }}>{wo.title}</h3>
++            {pri && <span className={`pill ${pri.cls}`}><span className="dot"></span>{pri.label}</span>}
++            <span className={`pill ${st.cls}`}><span className="dot"></span>{st.label}</span>
+           </div>
+-          <p className="text-xs xs:text-sm text-mist">
++          <div className="muted" style={{ fontSize: 12.5 }}>
+             {wo.property_managers?.full_name}
+             {wo.property_managers?.company && ` · ${wo.property_managers.company}`}
+-            {" · "}{wo.properties?.name}
+-          </p>
+-          <p className="text-[11px] xs:text-xs text-mist mt-1">{formatDate(wo.created_at)}</p>
++            {wo.properties?.name && ` · ${wo.properties.name}`}
++          </div>
++          <div className="mono" style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>{formatDate(wo.created_at)}</div>
+           {job && (
+-            <div className="mt-3">
+-              <Link
+-                href={`/owner/jobs/${job.id}`}
+-                className="action-button-secondary min-h-[36px] px-3 py-1.5 text-xs xs:text-sm"
+-              >
+-                {t("workOrders.viewJob")} →
+-              </Link>
++            <div style={{ marginTop: 10 }}>
++              <span className="btn btn--sm">View job →</span>
+             </div>
+           )}
+         </div>
+-        <span className="text-mist text-sm shrink-0">→</span>
++        <span style={{ color: "var(--muted-2)" }}>→</span>
+       </div>
+     </Link>
+   );
+-- 
+2.43.0
+

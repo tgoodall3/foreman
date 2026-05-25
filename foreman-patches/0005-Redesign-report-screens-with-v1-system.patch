@@ -1,0 +1,788 @@
+From 34bf970b4a2b37249fb9e2043df3d1d7da3293cc Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 16 May 2026 12:53:33 +0000
+Subject: [PATCH 5/8] Redesign report screens with v1 system
+
+- Revenue: stat-grid kpis, sparkcols chart with current-month orange
+  highlight, aging stat cards, .tbl revenue-by-client.
+- Estimate conversion: chart-card with funnel rows, stat cards rail,
+  .tbl estimate list with v1 pills.
+- Recurring health: empty state card and .tbl with reschedule button.
+---
+ .../reports/estimate-conversion/page.tsx      | 220 +++++++++-------
+ app/owner/reports/recurring-health/page.tsx   | 140 +++++-----
+ app/owner/reports/revenue/page.tsx            | 245 +++++++++---------
+ 3 files changed, 311 insertions(+), 294 deletions(-)
+
+diff --git a/app/owner/reports/estimate-conversion/page.tsx b/app/owner/reports/estimate-conversion/page.tsx
+index 43c3955..7e0becc 100644
+--- a/app/owner/reports/estimate-conversion/page.tsx
++++ b/app/owner/reports/estimate-conversion/page.tsx
+@@ -1,10 +1,22 @@
+ import { requireOwner } from "@/lib/auth";
+ import { createServerSideClient } from "@/lib/supabase-server";
+-import { formatCurrency, ESTIMATE_STATUS_CONFIG } from "@/lib/utils";
++import { formatCurrency } from "@/lib/utils";
+ import { getServerT } from "@/lib/i18n/server";
++import Link from "next/link";
+ 
+ export const dynamic = "force-dynamic";
+ 
++function estimatePill(status: string) {
++  switch (status) {
++    case "approved":  return { cls: "pill--done",      label: "Approved" };
++    case "converted": return { cls: "pill--paid",      label: "Converted" };
++    case "declined":  return { cls: "pill--late",      label: "Declined" };
++    case "sent":      return { cls: "pill--sent",      label: "Sent" };
++    case "draft":     return { cls: "pill--draft",     label: "Draft" };
++    default:          return { cls: "pill--draft",     label: status };
++  }
++}
++
+ export default async function EstimateConversionPage() {
+   const profile = await requireOwner();
+   const supabase = await createServerSideClient();
+@@ -17,128 +29,150 @@ export default async function EstimateConversionPage() {
+     .order("created_at", { ascending: false })
+     .limit(200);
+ 
++  const list = estimates ?? [];
+   const stats = {
+-    total: estimates?.length ?? 0,
+-    sent: estimates?.filter((e: any) => e.status === "sent").length ?? 0,
+-    approved: estimates?.filter((e: any) => e.status === "approved").length ?? 0,
+-    converted: estimates?.filter((e: any) => e.status === "converted").length ?? 0,
+-    declined: estimates?.filter((e: any) => e.status === "declined").length ?? 0,
++    total:     list.length,
++    sent:      list.filter((e: any) => e.status === "sent").length,
++    approved:  list.filter((e: any) => e.status === "approved").length,
++    converted: list.filter((e: any) => e.status === "converted").length,
++    declined:  list.filter((e: any) => e.status === "declined").length,
+   };
+-  const winRate = stats.total ? Math.round(((stats.approved + stats.converted) / stats.total) * 100) : 0;
++  const wins   = stats.approved + stats.converted;
++  const winRate = stats.total ? Math.round((wins / stats.total) * 100) : 0;
+ 
+-  return (
+-    <div className="page-shell page-shell-standard">
+-      <div className="page-header-copy">
+-        <p className="page-eyebrow">{t("reports.eyebrow")}</p>
+-        <h1 className="page-title">{t("reports.estimateConversionTitle")}</h1>
+-        <p className="page-subtitle">{t("reports.estimateConversionSub")}</p>
+-      </div>
+-      <ReportTabs active="estimate-conversion" />
++  const totalValue   = list.reduce((s: number, e: any) => s + (e.total ?? 0), 0);
++  const wonValue     = list.filter((e: any) => ["approved","converted"].includes(e.status)).reduce((s: number, e: any) => s + (e.total ?? 0), 0);
+ 
+-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+-        <StatCard label={t("reports.winRate")} value={`${winRate}%`} />
+-        <StatCard label={t("reports.totalEstimates")} value={stats.total} />
+-        <StatCard label={t("reports.approved")} value={stats.approved} />
+-        <StatCard label={t("reports.converted")} value={stats.converted} />
+-        <StatCard label={t("reports.declinedLabel")} value={stats.declined} />
+-        <StatCard label={t("reports.sentLabel")} value={stats.sent} />
+-      </div>
++  // Funnel rows
++  const funnel = [
++    { stage: "Sent",      n: stats.sent + wins + stats.declined, kind: "alt" as const },
++    { stage: "Responded", n: wins + stats.declined,              kind: "alt" as const },
++    { stage: "Won",       n: wins,                               kind: "win" as const },
++  ];
++  const funnelMax = Math.max(funnel[0].n, 1);
+ 
+-      {!estimates?.length ? (
+-        <div className="surface-empty">
+-          {t("reports.noEstimatesYet")}
++  return (
++    <div className="fm">
++      <div className="page">
++        <div className="page-h">
++          <div>
++            <div className="kicker">{t("reports.eyebrow")}</div>
++            <h1 style={{ marginTop: 6 }}>{t("reports.estimateConversionTitle")}</h1>
++            <div className="sub">{t("reports.estimateConversionSub")}</div>
++          </div>
+         </div>
+-      ) : (
+-        <div className="surface-card overflow-hidden">
+-          {/* Desktop table */}
+-          <table className="hidden sm:table w-full text-sm">
+-            <thead className="bg-gray-50 border-b border-gray-100">
+-              <tr>
+-                <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">{t("reports.titleHeader")}</th>
+-                <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">{t("reports.statusHeader")}</th>
+-                <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">{t("reports.amountHeader")}</th>
+-                <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">{t("reports.pmHeader")}</th>
+-                <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">{t("reports.createdHeader")}</th>
+-              </tr>
+-            </thead>
+-            <tbody className="divide-y divide-gray-100">
+-              {estimates.map((e: any) => {
+-                const cfg = ESTIMATE_STATUS_CONFIG[e.status] ?? ESTIMATE_STATUS_CONFIG.draft;
++
++        <ReportTabs active="estimate-conversion" />
++
++        <div className="grid-2" style={{ marginTop: 16, marginBottom: 16 }}>
++          <div className="chart-card">
++            <div className="chart-h">
++              <div>
++                <h3>Win rate</h3>
++                <div className="sub">{wins} won of {stats.total} sent</div>
++              </div>
++              <div className="chart-big">{winRate}%</div>
++            </div>
++            <div className="funnel" style={{ marginTop: 14 }}>
++              {funnel.map((row) => {
++                const pct = Math.max(8, (row.n / funnelMax) * 100);
+                 return (
+-                  <tr key={e.id} className="relative hover:bg-gray-50 transition-colors cursor-pointer">
+-                    <td className="px-4 py-3">
+-                      <a
+-                        href={`/owner/estimates/${e.id}`}
+-                        className="font-600 text-forge line-clamp-1 after:absolute after:inset-0 after:content-['']"
+-                      >
+-                        {e.title}
+-                      </a>
+-                    </td>
+-                    <td className="px-4 py-3">
+-                      <span className={`badge ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
+-                    </td>
+-                    <td className="px-4 py-3 text-sm">{formatCurrency(e.total ?? 0)}</td>
+-                    <td className="px-4 py-3 text-sm text-steel">{e.property_managers?.full_name ?? "—"}</td>
+-                    <td className="px-4 py-3 text-sm text-steel">{e.created_at?.split("T")[0]}</td>
+-                  </tr>
++                  <div key={row.stage} className="row">
++                    <div className="stage">{row.stage}</div>
++                    <div className="bar">
++                      <div className={"fill " + (row.kind === "win" ? "win" : row.kind === "alt" ? "alt" : "")} style={{ width: `${pct}%` }}></div>
++                    </div>
++                    <div className="val">{row.n}</div>
++                  </div>
+                 );
+               })}
+-            </tbody>
+-          </table>
++            </div>
++          </div>
+ 
+-          {/* Mobile cards */}
+-          <div className="sm:hidden divide-y divide-gray-100">
+-            {estimates.map((e: any) => {
+-              const cfg = ESTIMATE_STATUS_CONFIG[e.status] ?? ESTIMATE_STATUS_CONFIG.draft;
+-              return (
+-                <a key={e.id} href={`/owner/estimates/${e.id}`} className="flex items-start justify-between gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
+-                  <div className="min-w-0">
+-                    <p className="font-600 text-forge text-sm leading-snug line-clamp-1">{e.title}</p>
+-                    <p className="text-xs text-mist mt-0.5">
+-                      {e.property_managers?.full_name ?? "—"} &middot; {e.created_at?.split("T")[0]}
+-                    </p>
+-                  </div>
+-                  <div className="flex flex-col items-end gap-1 shrink-0">
+-                    <span className={`badge ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
+-                    <span className="text-sm font-600 text-forge">{formatCurrency(e.total ?? 0)}</span>
+-                  </div>
+-                </a>
+-              );
+-            })}
++          <div className="col" style={{ gap: 12 }}>
++            <StatCard label={t("reports.totalEstimates")} value={String(stats.total)} sub={formatCurrency(totalValue)} />
++            <StatCard label={t("reports.approved")} value={String(stats.approved)} />
++            <StatCard label={t("reports.converted")} value={String(stats.converted)} sub={formatCurrency(wonValue)} />
++            <StatCard label={t("reports.declinedLabel")} value={String(stats.declined)} />
+           </div>
+         </div>
+-      )}
++
++        {!list.length ? (
++          <div className="card empty"><div className="ti">{t("reports.noEstimatesYet")}</div></div>
++        ) : (
++          <div className="card" style={{ overflow: "hidden" }}>
++            <div className="card-head">
++              <h3>Estimates</h3>
++              <span className="kicker">last 200</span>
++            </div>
++            <table className="tbl">
++              <thead>
++                <tr>
++                  <th>{t("reports.titleHeader")}</th>
++                  <th style={{ width: 130 }}>{t("reports.statusHeader")}</th>
++                  <th style={{ width: 120, textAlign: "right" }}>{t("reports.amountHeader")}</th>
++                  <th style={{ width: 160 }}>{t("reports.pmHeader")}</th>
++                  <th style={{ width: 120 }}>{t("reports.createdHeader")}</th>
++                </tr>
++              </thead>
++              <tbody>
++                {list.map((e: any) => {
++                  const pill = estimatePill(e.status);
++                  return (
++                    <tr key={e.id}>
++                      <td>
++                        <Link href={`/owner/estimates/${e.id}`} style={{ color: "var(--ink)", textDecoration: "none", fontWeight: 500 }}>{e.title}</Link>
++                      </td>
++                      <td><span className={`pill ${pill.cls}`}><span className="dot"></span>{pill.label}</span></td>
++                      <td className="mono num" style={{ textAlign: "right", fontWeight: 500 }}>{formatCurrency(e.total ?? 0)}</td>
++                      <td><span className="tag">{e.property_managers?.full_name ?? "—"}</span></td>
++                      <td className="mono" style={{ fontSize: 12, color: "var(--muted)" }}>{e.created_at?.split("T")[0]}</td>
++                    </tr>
++                  );
++                })}
++              </tbody>
++            </table>
++          </div>
++        )}
++      </div>
+     </div>
+   );
+ }
+ 
+-function StatCard({ label, value }: { label: string; value: string | number }) {
++function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
+   return (
+-    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+-      <p className="text-xs text-mist uppercase tracking-wide font-700">{label}</p>
+-      <p className="font-display font-800 text-xl text-forge mt-1">{value}</p>
++    <div className="card" style={{ padding: "12px 16px" }}>
++      <div className="kicker">{label}</div>
++      <div className="value mono num" style={{ fontSize: 22, fontWeight: 500, letterSpacing: "-0.01em", marginTop: 4 }}>{value}</div>
++      {sub && <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{sub}</div>}
+     </div>
+   );
+ }
+ 
+ function ReportTabs({ active }: { active: "revenue" | "jobs-to-invoice" | "estimate-conversion" }) {
+   const tabs = [
+-    { key: "revenue" as const, label: "Revenue", href: "/owner/reports/revenue" },
+-    { key: "jobs-to-invoice" as const, label: "Billing Gap", href: "/owner/reports/jobs-to-invoice" },
+-    { key: "estimate-conversion" as const, label: "Conversions", href: "/owner/reports/estimate-conversion" },
++    { key: "revenue" as const,             label: "Revenue",      href: "/owner/reports/revenue" },
++    { key: "jobs-to-invoice" as const,     label: "Billing Gap",  href: "/owner/reports/jobs-to-invoice" },
++    { key: "estimate-conversion" as const, label: "Conversions",  href: "/owner/reports/estimate-conversion" },
+   ];
+   return (
+-    <div className="flex items-center gap-2 flex-wrap">
++    <div className="row" style={{ gap: 0, borderBottom: "1px solid var(--line)", marginBottom: 16 }}>
+       {tabs.map((tab) => (
+-        <a
++        <Link
+           key={tab.key}
+           href={tab.href}
+-          className={`px-4 py-1.5 rounded-full text-sm font-600 transition-colors ${
+-            active === tab.key ? "bg-forge text-white" : "text-mist hover:text-forge border border-gray-200 hover:border-forge"
+-          }`}
++          style={{
++            padding: "10px 14px",
++            fontSize: 13,
++            color: active === tab.key ? "var(--ink)" : "var(--muted)",
++            borderBottom: active === tab.key ? "2px solid var(--orange)" : "2px solid transparent",
++            marginBottom: -1,
++            fontWeight: active === tab.key ? 500 : 450,
++            textDecoration: "none",
++          }}
+         >
+           {tab.label}
+-        </a>
++        </Link>
+       ))}
+     </div>
+   );
+diff --git a/app/owner/reports/recurring-health/page.tsx b/app/owner/reports/recurring-health/page.tsx
+index 553b744..656daa5 100644
+--- a/app/owner/reports/recurring-health/page.tsx
++++ b/app/owner/reports/recurring-health/page.tsx
+@@ -10,9 +10,20 @@ const RECURRENCE_MAP: Record<string, number> = {
+   daily: 1,
+   weekly: 7,
+   biweekly: 14,
+-  monthly: 31, // simple heuristic
++  monthly: 31,
+ };
+ 
++function jobStatusPill(status: string) {
++  switch (status) {
++    case "in_progress": return { cls: "pill--inprog",    label: "In progress" };
++    case "completed":   return { cls: "pill--done",      label: "Completed" };
++    case "invoiced":    return { cls: "pill--paid",      label: "Invoiced" };
++    case "cancelled":   return { cls: "pill--draft",     label: "Cancelled" };
++    case "pending":     return { cls: "pill--unassigned",label: "Pending" };
++    default:            return { cls: "pill--scheduled", label: "Scheduled" };
++  }
++}
++
+ export default async function RecurringHealthPage() {
+   const profile = await requireOwner();
+   const supabase = await createServerSideClient();
+@@ -36,82 +47,63 @@ export default async function RecurringHealthPage() {
+   });
+ 
+   return (
+-    <div className="page-shell page-shell-standard">
+-      <div className="page-header-copy">
+-        <p className="page-eyebrow">{t("reports.eyebrow")}</p>
+-        <h1 className="page-title">{t("reports.recurringTitle")}</h1>
+-        <p className="page-subtitle">{t("reports.recurringSub")}</p>
+-      </div>
+-
+-      {!flagged.length ? (
+-        <div className="surface-empty">
+-          {t("reports.recurringEmpty")}
++    <div className="fm">
++      <div className="page">
++        <div className="page-h">
++          <div>
++            <div className="kicker">{t("reports.eyebrow")}</div>
++            <h1 style={{ marginTop: 6 }}>{t("reports.recurringTitle")}</h1>
++            <div className="sub">{t("reports.recurringSub")}</div>
++          </div>
+         </div>
+-      ) : (
+-        <div className="surface-card overflow-hidden">
+-          {/* Desktop table */}
+-          <table className="hidden sm:table w-full text-sm">
+-            <thead className="bg-gray-50 border-b border-gray-100">
+-              <tr>
+-                <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">{t("reports.jobHeader")}</th>
+-                <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">{t("reports.recurrenceHeader")}</th>
+-                <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">{t("reports.scheduledHeader")}</th>
+-                <th className="px-4 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">{t("reports.statusHeader")}</th>
+-                <th className="px-4 py-3 text-right text-xs font-700 text-mist uppercase tracking-wide">{t("reports.actionsHeader")}</th>
+-              </tr>
+-            </thead>
+-            <tbody className="divide-y divide-gray-100">
+-              {flagged.map((job: any) => {
+-                const prop = Array.isArray(job.properties) ? job.properties[0] : job.properties;
+-                return (
+-                  <tr key={job.id} className="hover:bg-gray-50 transition-colors">
+-                    <td className="px-4 py-3">
+-                      <Link href={`/owner/jobs/${job.id}`} className="text-forge font-600 hover:text-amber">
+-                        {job.title}
+-                      </Link>
+-                      {prop?.name && <p className="text-xs text-mist mt-0.5">{prop.name}</p>}
+-                    </td>
+-                    <td className="px-4 py-3 text-sm text-steel capitalize">{job.recurrence}</td>
+-                    <td className="px-4 py-3 text-sm text-steel">{job.scheduled_date ? formatDate(job.scheduled_date) : "—"}</td>
+-                    <td className="px-4 py-3 text-sm text-steel capitalize">{job.status}</td>
+-                    <td className="px-4 py-3 text-right">
+-                      <Link href={`/owner/jobs/${job.id}/edit`} className="text-xs font-700 text-amber hover:underline">
+-                        {t("reports.reschedule")}
+-                      </Link>
+-                    </td>
+-                  </tr>
+-                );
+-              })}
+-            </tbody>
+-          </table>
+ 
+-          {/* Mobile cards */}
+-          <div className="sm:hidden divide-y divide-gray-100">
+-            {flagged.map((job: any) => {
+-              const prop = Array.isArray(job.properties) ? job.properties[0] : job.properties;
+-              return (
+-                <div key={job.id} className="px-4 py-3 space-y-2">
+-                  <div className="min-w-0">
+-                    <Link href={`/owner/jobs/${job.id}`} className="text-forge font-600 hover:text-amber text-sm">
+-                      {job.title}
+-                    </Link>
+-                    {prop?.name && <p className="text-xs text-mist mt-0.5">{prop.name}</p>}
+-                    <p className="text-xs text-steel mt-0.5 capitalize">
+-                      {job.recurrence} &middot; scheduled {job.scheduled_date ? formatDate(job.scheduled_date) : "—"} &middot; {job.status}
+-                    </p>
+-                  </div>
+-                  <Link
+-                    href={`/owner/jobs/${job.id}/edit`}
+-                    className="inline-flex items-center bg-amber text-forge text-xs font-700 px-3 py-1.5 rounded-lg hover:bg-amber-dark transition-colors"
+-                  >
+-                    {t("reports.reschedule")}
+-                  </Link>
+-                </div>
+-              );
+-            })}
++        {!flagged.length ? (
++          <div className="card empty">
++            <div className="ic">
++              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="m4 12 5 5L20 6"/></svg>
++            </div>
++            <div className="ti">{t("reports.recurringEmpty")}</div>
+           </div>
+-        </div>
+-      )}
++        ) : (
++          <div className="card" style={{ overflow: "hidden" }}>
++            <div className="card-head">
++              <h3>Falling behind</h3>
++              <span className="kicker">{flagged.length} flagged</span>
++            </div>
++            <table className="tbl">
++              <thead>
++                <tr>
++                  <th>{t("reports.jobHeader")}</th>
++                  <th style={{ width: 110 }}>{t("reports.recurrenceHeader")}</th>
++                  <th style={{ width: 130 }}>{t("reports.scheduledHeader")}</th>
++                  <th style={{ width: 120 }}>{t("reports.statusHeader")}</th>
++                  <th style={{ width: 120, textAlign: "right" }}>{t("reports.actionsHeader")}</th>
++                </tr>
++              </thead>
++              <tbody>
++                {flagged.map((job: any) => {
++                  const prop = Array.isArray(job.properties) ? job.properties[0] : job.properties;
++                  const pill = jobStatusPill(job.status);
++                  return (
++                    <tr key={job.id}>
++                      <td>
++                        <Link href={`/owner/jobs/${job.id}`} style={{ color: "var(--ink)", textDecoration: "none", fontWeight: 500 }}>{job.title}</Link>
++                        {prop?.name && <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>{prop.name}</div>}
++                      </td>
++                      <td style={{ textTransform: "capitalize" }}>{job.recurrence}</td>
++                      <td className="mono" style={{ fontSize: 12.5, color: "var(--ink-2)" }}>{job.scheduled_date ? formatDate(job.scheduled_date) : "—"}</td>
++                      <td><span className={`pill ${pill.cls}`}><span className="dot"></span>{pill.label}</span></td>
++                      <td style={{ textAlign: "right" }}>
++                        <Link href={`/owner/jobs/${job.id}/edit`} className="btn btn--sm btn--orange">{t("reports.reschedule")}</Link>
++                      </td>
++                    </tr>
++                  );
++                })}
++              </tbody>
++            </table>
++          </div>
++        )}
++      </div>
+     </div>
+   );
+ }
+diff --git a/app/owner/reports/revenue/page.tsx b/app/owner/reports/revenue/page.tsx
+index 7b5050d..d2479d8 100644
+--- a/app/owner/reports/revenue/page.tsx
++++ b/app/owner/reports/revenue/page.tsx
+@@ -6,13 +6,10 @@ import { getServerT } from "@/lib/i18n/server";
+ 
+ export const dynamic = "force-dynamic";
+ 
+-function monthKey(iso: string) {
+-  return iso.slice(0, 7); // "2025-04"
+-}
+-
++function monthKey(iso: string) { return iso.slice(0, 7); }
+ function monthLabel(key: string) {
+   const [year, month] = key.split("-");
+-  return new Date(Number(year), Number(month) - 1, 1).toLocaleDateString("en-US", { month: "short", year: "numeric" });
++  return new Date(Number(year), Number(month) - 1, 1).toLocaleDateString("en-US", { month: "short" });
+ }
+ 
+ export default async function RevenueReportPage() {
+@@ -20,29 +17,22 @@ export default async function RevenueReportPage() {
+   const supabase = await createServerSideClient();
+   const t = await getServerT();
+ 
+-  // Last 6 months
+   const since = new Date();
+   since.setMonth(since.getMonth() - 5);
+   since.setDate(1);
+   const sinceStr = since.toISOString().split("T")[0];
+ 
+-  const [{ data: invoices }, { data: pmList }] = await Promise.all([
++  const [{ data: invoices }] = await Promise.all([
+     supabase
+       .from("invoices")
+       .select("id, total, status, due_date, paid_at, created_at, property_manager_id, property_managers(full_name)")
+       .eq("tenant_id", profile.tenant_id)
+       .gte("created_at", sinceStr + "T00:00:00Z")
+       .order("created_at", { ascending: false }),
+-    supabase
+-      .from("property_managers")
+-      .select("id, full_name")
+-      .eq("tenant_id", profile.tenant_id)
+-      .order("full_name"),
+   ]);
+ 
+   const all = invoices ?? [];
+ 
+-  // Monthly revenue buckets (paid invoices)
+   const monthlyMap: Record<string, number> = {};
+   for (const inv of all) {
+     if (inv.status === "paid" && inv.paid_at) {
+@@ -51,7 +41,6 @@ export default async function RevenueReportPage() {
+     }
+   }
+ 
+-  // Build last 6 months in order
+   const months: { key: string; label: string; revenue: number }[] = [];
+   for (let i = 5; i >= 0; i--) {
+     const d = new Date();
+@@ -62,8 +51,8 @@ export default async function RevenueReportPage() {
+   }
+ 
+   const maxRevenue = Math.max(...months.map((m) => m.revenue), 1);
++  const currentKey = new Date().toISOString().slice(0, 7);
+ 
+-  // Revenue by PM
+   const pmRevMap: Record<string, { name: string; paid: number; outstanding: number }> = {};
+   for (const inv of all) {
+     const pmId = inv.property_manager_id ?? "unknown";
+@@ -74,7 +63,6 @@ export default async function RevenueReportPage() {
+   }
+   const pmRevRows = Object.values(pmRevMap).sort((a, b) => (b.paid + b.outstanding) - (a.paid + a.outstanding));
+ 
+-  // Aging buckets (outstanding invoices)
+   const now = Date.now();
+   const aging = { current: 0, d30: 0, d60: 0, d90: 0 };
+   for (const inv of all) {
+@@ -91,143 +79,146 @@ export default async function RevenueReportPage() {
+   const totalDraft = all.filter((i) => i.status === "draft").reduce((s, i) => s + (i.total ?? 0), 0);
+ 
+   return (
+-    <div className="page-shell page-shell-standard space-y-6">
+-      <div className="page-header-copy">
+-        <p className="page-eyebrow">{t("reports.eyebrow")}</p>
+-        <h1 className="page-title">{t("reports.revenueTitle")}</h1>
+-        <p className="text-mist text-sm mt-1">{t("reports.revenueSub", { count: String(all.length) })}</p>
+-      </div>
+-      <ReportTabs active="revenue" />
+-
+-      {/* Summary KPIs */}
+-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+-        <div className="surface-card p-4">
+-          <p className="text-xs text-mist uppercase tracking-wide font-700">{t("reports.collected")}</p>
+-          <p className="font-display font-800 text-2xl text-green-600 mt-1">{formatCurrency(totalPaid)}</p>
+-        </div>
+-        <div className="bg-white rounded-xl border border-amber/30 bg-amber/5 p-4">
+-          <p className="text-xs text-mist uppercase tracking-wide font-700">{t("reports.outstanding")}</p>
+-          <p className="font-display font-800 text-2xl text-amber-dark mt-1">{formatCurrency(totalOutstanding)}</p>
++    <div className="fm">
++      <div className="page">
++        <div className="page-h">
++          <div>
++            <div className="kicker">{t("reports.eyebrow")}</div>
++            <h1 style={{ marginTop: 6 }}>{t("reports.revenueTitle")}</h1>
++            <div className="sub">{t("reports.revenueSub", { count: String(all.length) })}</div>
++          </div>
+         </div>
+-        <div className="surface-card p-4">
+-          <p className="text-xs text-mist uppercase tracking-wide font-700">{t("reports.inDraft")}</p>
+-          <p className="font-display font-800 text-2xl text-forge mt-1">{formatCurrency(totalDraft)}</p>
++
++        <ReportTabs active="revenue" />
++
++        {/* KPIs */}
++        <div className="stat-grid" style={{ marginTop: 16, marginBottom: 16, gridTemplateColumns: "repeat(3, 1fr)" }}>
++          <div className="stat-cell">
++            <div className="label">{t("reports.collected")}</div>
++            <div className="value mono num" style={{ color: "#135E3F" }}>{formatCurrency(totalPaid)}</div>
++          </div>
++          <div className="stat-cell">
++            <div className="label">{t("reports.outstanding")}</div>
++            <div className="value mono num" style={{ color: "var(--orange-ink)" }}>{formatCurrency(totalOutstanding)}</div>
++          </div>
++          <div className="stat-cell">
++            <div className="label">{t("reports.inDraft")}</div>
++            <div className="value mono num">{formatCurrency(totalDraft)}</div>
++          </div>
+         </div>
+-      </div>
+ 
+-      {/* Monthly bar chart */}
+-      <div className="surface-card p-5">
+-        <h2 className="font-display font-700 text-base text-forge mb-4">{t("reports.monthlyRevenue")}</h2>
+-        <div className="flex items-end gap-2 h-40">
+-          {months.map((m) => {
+-            const heightPct = maxRevenue > 0 ? (m.revenue / maxRevenue) * 100 : 0;
+-            const isCurrentMonth = m.key === new Date().toISOString().slice(0, 7);
+-            return (
+-              <div key={m.key} className="flex-1 flex flex-col items-center gap-1 min-w-0">
+-                <p className="text-xs text-mist font-600 tabular-nums truncate w-full text-center">
+-                  {m.revenue > 0 ? formatCurrency(m.revenue).replace("$", "$") : ""}
+-                </p>
+-                <div className="w-full flex items-end" style={{ height: "80px" }}>
++        {/* Monthly bars */}
++        <div className="chart-card" style={{ marginBottom: 16 }}>
++          <div className="chart-h">
++            <div>
++              <h3>{t("reports.monthlyRevenue")}</h3>
++              <div className="sub">Last 6 months</div>
++            </div>
++            <div className="chart-big">{formatCurrency(totalPaid)}</div>
++          </div>
++          <div className="sparkcols-wrap">
++            <div className="sparkcols">
++              {months.map((m) => {
++                const heightPct = maxRevenue > 0 ? (m.revenue / maxRevenue) * 100 : 0;
++                return (
+                   <div
+-                    className={`w-full rounded-t-md transition-all ${isCurrentMonth ? "bg-amber" : "bg-forge/20"}`}
+-                    style={{ height: `${Math.max(heightPct, m.revenue > 0 ? 4 : 0)}%` }}
++                    key={m.key}
++                    className={"c" + (m.key === currentKey ? " is-orange" : (m.revenue > 0 ? " is-on" : ""))}
++                    style={{ height: `${Math.max(heightPct, m.revenue > 0 ? 6 : 4)}%` }}
++                    title={`${m.label}: ${formatCurrency(m.revenue)}`}
+                   />
+-                </div>
+-                <p className="text-[10px] text-mist truncate w-full text-center">{m.label}</p>
+-              </div>
+-            );
+-          })}
+-        </div>
+-      </div>
+-
+-      {/* Invoice aging */}
+-      <div className="surface-card p-5">
+-        <h2 className="font-display font-700 text-base text-forge mb-4">{t("reports.invoiceAging")}</h2>
+-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+-          {[
+-            { label: t("reports.agingCurrent"), value: aging.current, color: "text-green-600" },
+-            { label: t("reports.aging1to30"), value: aging.d30, color: "text-amber-dark" },
+-            { label: t("reports.aging31to60"), value: aging.d60, color: "text-orange-600" },
+-            { label: t("reports.aging60plus"), value: aging.d90, color: "text-red-600" },
+-          ].map((b) => (
+-            <div key={b.label} className="border border-gray-100 rounded-xl p-3">
+-              <p className="text-xs text-mist font-700 uppercase tracking-wide">{b.label}</p>
+-              <p className={`font-display font-800 text-xl mt-1 ${b.color}`}>{formatCurrency(b.value)}</p>
++                );
++              })}
++            </div>
++            <div className="axis">
++              {months.map((m) => <span key={m.key}>{m.label}</span>)}
+             </div>
+-          ))}
+-        </div>
+-        {totalOutstanding > 0 && (
+-          <div className="mt-3">
+-            <Link href="/owner/invoices?status=overdue" className="text-xs text-amber hover:underline font-600">
+-              {t("reports.viewOverdue")}
+-            </Link>
+           </div>
+-        )}
+-      </div>
++        </div>
+ 
+-      {/* Revenue by client */}
+-      {pmRevRows.length > 0 && (
+-        <div className="surface-card overflow-hidden">
+-          <div className="px-5 py-4 border-b border-gray-100">
+-            <h2 className="font-display font-700 text-base text-forge">{t("reports.revenueByClient")}</h2>
++        {/* Aging */}
++        <div className="card" style={{ marginBottom: 16 }}>
++          <div className="card-head">
++            <h3>{t("reports.invoiceAging")}</h3>
++            {totalOutstanding > 0 && (
++              <Link href="/owner/invoices?status=overdue" className="btn btn--sm">{t("reports.viewOverdue")} →</Link>
++            )}
+           </div>
+-          {/* Desktop */}
+-          <table className="hidden sm:table w-full text-sm">
+-            <thead className="bg-gray-50 border-b border-gray-100">
+-              <tr>
+-                <th className="px-5 py-3 text-left text-xs font-700 text-mist uppercase tracking-wide">{t("reports.clientHeader")}</th>
+-                <th className="px-5 py-3 text-right text-xs font-700 text-mist uppercase tracking-wide">{t("reports.collectedHeader")}</th>
+-                <th className="px-5 py-3 text-right text-xs font-700 text-mist uppercase tracking-wide">{t("reports.outstandingHeader")}</th>
+-                <th className="px-5 py-3 text-right text-xs font-700 text-mist uppercase tracking-wide">{t("reports.totalHeader")}</th>
+-              </tr>
+-            </thead>
+-            <tbody className="divide-y divide-gray-100">
+-              {pmRevRows.map((row, i) => (
+-                <tr key={i} className="hover:bg-gray-50">
+-                  <td className="px-5 py-3 font-600 text-forge">{row.name}</td>
+-                  <td className="px-5 py-3 text-right text-green-600 font-600">{formatCurrency(row.paid)}</td>
+-                  <td className="px-5 py-3 text-right text-amber-dark font-600">{row.outstanding > 0 ? formatCurrency(row.outstanding) : "—"}</td>
+-                  <td className="px-5 py-3 text-right font-700 text-forge">{formatCurrency(row.paid + row.outstanding)}</td>
+-                </tr>
+-              ))}
+-            </tbody>
+-          </table>
+-          {/* Mobile */}
+-          <div className="sm:hidden divide-y divide-gray-100">
+-            {pmRevRows.map((row, i) => (
+-              <div key={i} className="px-4 py-3 flex items-center justify-between gap-3">
+-                <p className="font-600 text-forge text-sm">{row.name}</p>
+-                <div className="text-right shrink-0">
+-                  <p className="text-sm font-700 text-forge">{formatCurrency(row.paid + row.outstanding)}</p>
+-                  <p className="text-xs text-green-600">{formatCurrency(row.paid)} {t("reports.collectedLabel")}</p>
+-                </div>
++          <div style={{ padding: 16, display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
++            {[
++              { label: t("reports.agingCurrent"),  value: aging.current, color: "var(--green)" },
++              { label: t("reports.aging1to30"),    value: aging.d30,     color: "var(--amber)" },
++              { label: t("reports.aging31to60"),   value: aging.d60,     color: "var(--orange-ink)" },
++              { label: t("reports.aging60plus"),   value: aging.d90,     color: "var(--red)" },
++            ].map((b) => (
++              <div key={b.label} className="stat-card">
++                <div className="k">{b.label}</div>
++                <div className="v" style={{ color: b.color }}>{formatCurrency(b.value)}</div>
+               </div>
+             ))}
+           </div>
+         </div>
+-      )}
++
++        {/* Revenue by client */}
++        {pmRevRows.length > 0 && (
++          <div className="card" style={{ overflow: "hidden" }}>
++            <div className="card-head">
++              <h3>{t("reports.revenueByClient")}</h3>
++              <span className="kicker">{pmRevRows.length} clients</span>
++            </div>
++            <table className="tbl">
++              <thead>
++                <tr>
++                  <th>{t("reports.clientHeader")}</th>
++                  <th style={{ width: 140, textAlign: "right" }}>{t("reports.collectedHeader")}</th>
++                  <th style={{ width: 140, textAlign: "right" }}>{t("reports.outstandingHeader")}</th>
++                  <th style={{ width: 140, textAlign: "right" }}>{t("reports.totalHeader")}</th>
++                </tr>
++              </thead>
++              <tbody>
++                {pmRevRows.map((row, i) => (
++                  <tr key={i}>
++                    <td style={{ fontWeight: 500 }}>{row.name}</td>
++                    <td className="mono num" style={{ textAlign: "right", color: "#135E3F" }}>{formatCurrency(row.paid)}</td>
++                    <td className="mono num" style={{ textAlign: "right", color: row.outstanding > 0 ? "var(--orange-ink)" : "var(--muted)" }}>
++                      {row.outstanding > 0 ? formatCurrency(row.outstanding) : "—"}
++                    </td>
++                    <td className="mono num" style={{ textAlign: "right", fontWeight: 500 }}>{formatCurrency(row.paid + row.outstanding)}</td>
++                  </tr>
++                ))}
++              </tbody>
++            </table>
++          </div>
++        )}
++      </div>
+     </div>
+   );
+ }
+ 
+ function ReportTabs({ active }: { active: "revenue" | "jobs-to-invoice" | "estimate-conversion" }) {
+   const tabs = [
+-    { key: "revenue" as const, label: "Revenue", href: "/owner/reports/revenue" },
+-    { key: "jobs-to-invoice" as const, label: "Billing Gap", href: "/owner/reports/jobs-to-invoice" },
+-    { key: "estimate-conversion" as const, label: "Conversions", href: "/owner/reports/estimate-conversion" },
++    { key: "revenue" as const,             label: "Revenue",      href: "/owner/reports/revenue" },
++    { key: "jobs-to-invoice" as const,     label: "Billing Gap",  href: "/owner/reports/jobs-to-invoice" },
++    { key: "estimate-conversion" as const, label: "Conversions",  href: "/owner/reports/estimate-conversion" },
+   ];
+   return (
+-    <div className="flex items-center gap-2 flex-wrap">
++    <div className="row" style={{ gap: 0, borderBottom: "1px solid var(--line)", marginBottom: 16 }}>
+       {tabs.map((tab) => (
+-        <a
++        <Link
+           key={tab.key}
+           href={tab.href}
+-          className={`px-4 py-1.5 rounded-full text-sm font-600 transition-colors ${
+-            active === tab.key ? "bg-forge text-white" : "text-mist hover:text-forge border border-gray-200 hover:border-forge"
+-          }`}
++          style={{
++            padding: "10px 14px",
++            fontSize: 13,
++            color: active === tab.key ? "var(--ink)" : "var(--muted)",
++            borderBottom: active === tab.key ? "2px solid var(--orange)" : "2px solid transparent",
++            marginBottom: -1,
++            fontWeight: active === tab.key ? 500 : 450,
++            textDecoration: "none",
++          }}
+         >
+           {tab.label}
+-        </a>
++        </Link>
+       ))}
+     </div>
+   );
+-- 
+2.43.0
+

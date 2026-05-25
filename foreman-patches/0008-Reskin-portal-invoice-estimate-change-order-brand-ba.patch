@@ -1,0 +1,170 @@
+From fccbfcf99e684f2077c70b7f6b613aba045949e1 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sat, 16 May 2026 12:57:40 +0000
+Subject: [PATCH 8/8] Reskin portal invoice / estimate / change-order brand
+ bars
+
+Public-facing PM documents now sit on paper background with an ink
+brand bar and orange mark, matching v1 design tokens.
+---
+ .../change-order/PortalChangeOrderClient.tsx     | 16 ++++++++--------
+ app/portal/estimate/PortalEstimateClient.tsx     | 16 ++++++++--------
+ app/portal/invoice/PortalInvoiceClient.tsx       | 16 ++++++++--------
+ next-env.d.ts                                    |  3 ++-
+ tsconfig.json                                    | 10 +++++++---
+ 5 files changed, 33 insertions(+), 28 deletions(-)
+
+diff --git a/app/portal/change-order/PortalChangeOrderClient.tsx b/app/portal/change-order/PortalChangeOrderClient.tsx
+index 45e01f1..e3e051d 100644
+--- a/app/portal/change-order/PortalChangeOrderClient.tsx
++++ b/app/portal/change-order/PortalChangeOrderClient.tsx
+@@ -45,19 +45,19 @@ export default function PortalChangeOrderClient({ changeOrder, pm, job, tenant,
+   };
+ 
+   return (
+-    <div className="min-h-screen bg-gray-50 py-8 px-4">
++    <div className="min-h-screen py-8 px-4" style={{ background: "var(--paper)" }}>
+       <div className="w-full max-w-2xl mx-auto space-y-4">
+-        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
++        <div className="card" style={{ overflow: "hidden", borderRadius: 14 }}>
+ 
+           {/* Brand bar */}
+-          <div className="bg-[#1a2332] px-6 py-4 flex items-center justify-between">
+-            <div className="flex items-center gap-2">
+-              <div className="w-7 h-7 bg-[#f5a623] rounded flex items-center justify-center">
+-                <span className="font-bold text-[#1a2332] text-sm">{(tenant?.name ?? "F")[0].toUpperCase()}</span>
++          <div className="flex items-center justify-between px-6 py-4" style={{ background: "var(--ink)", color: "#fff" }}>
++            <div className="flex items-center gap-3">
++              <div className="flex items-center justify-center shrink-0" style={{ width: 28, height: 28, background: "var(--orange)", borderRadius: 7 }}>
++                <span style={{ fontWeight: 700, color: "#1A1208", fontSize: 14 }}>{(tenant?.name ?? "F")[0].toUpperCase()}</span>
+               </div>
+-              <span className="font-bold text-white text-base tracking-wide">{tenant?.name ?? "FOREMAN"}</span>
++              <span style={{ fontWeight: 600, letterSpacing: "0.02em", fontSize: 14 }}>{tenant?.name ?? "FOREMAN"}</span>
+             </div>
+-            <span className="text-xs text-white/50 font-mono">{changeOrder.change_order_number}</span>
++            <span className="mono" style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>{changeOrder.change_order_number}</span>
+           </div>
+ 
+           {/* Title + total */}
+diff --git a/app/portal/estimate/PortalEstimateClient.tsx b/app/portal/estimate/PortalEstimateClient.tsx
+index b4979ff..df0504b 100644
+--- a/app/portal/estimate/PortalEstimateClient.tsx
++++ b/app/portal/estimate/PortalEstimateClient.tsx
+@@ -54,22 +54,22 @@ export default function PortalEstimateClient({ estimate, pm, prop, tenant, token
+   };
+ 
+   return (
+-    <div className="min-h-screen bg-gray-50 py-8 px-4">
++    <div className="min-h-screen py-8 px-4" style={{ background: "var(--paper)" }}>
+       <div className="w-full max-w-2xl mx-auto space-y-4">
+ 
+         {/* Header card */}
+-        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
++        <div className="card" style={{ overflow: "hidden", borderRadius: 14 }}>
+           {/* Brand bar */}
+-          <div className="bg-[#1a2332] px-6 py-4 flex items-center justify-between">
+-            <div className="flex items-center gap-2">
+-              <div className="w-7 h-7 bg-[#f5a623] rounded flex items-center justify-center">
+-                <span className="font-bold text-[#1a2332] text-sm">F</span>
++          <div className="flex items-center justify-between px-6 py-4" style={{ background: "var(--ink)", color: "#fff" }}>
++            <div className="flex items-center gap-3">
++              <div className="flex items-center justify-center shrink-0" style={{ width: 28, height: 28, background: "var(--orange)", borderRadius: 7 }}>
++                <span style={{ fontWeight: 700, color: "#1A1208", fontSize: 14 }}>{(tenant?.name?.[0] || "F").toUpperCase()}</span>
+               </div>
+-              <span className="font-bold text-white text-base tracking-wide">
++              <span style={{ fontWeight: 600, letterSpacing: "0.02em", fontSize: 14 }}>
+                 {tenant?.name || "FOREMAN"}
+               </span>
+             </div>
+-            <span className="text-xs text-white/50 font-mono">{estimate.estimate_number}</span>
++            <span className="mono" style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>{estimate.estimate_number}</span>
+           </div>
+ 
+           {/* Title + total */}
+diff --git a/app/portal/invoice/PortalInvoiceClient.tsx b/app/portal/invoice/PortalInvoiceClient.tsx
+index 4e99fa8..7e0a06e 100644
+--- a/app/portal/invoice/PortalInvoiceClient.tsx
++++ b/app/portal/invoice/PortalInvoiceClient.tsx
+@@ -84,26 +84,26 @@ export default function PortalInvoiceClient({ invoice, pm, tenant, job, paidSucc
+   const fetchClientSecret = useCallback(() => Promise.resolve(clientSecret!), [clientSecret]);
+ 
+   return (
+-    <div className="min-h-screen bg-gray-50 py-8 px-4">
++    <div className="min-h-screen py-8 px-4" style={{ background: "var(--paper)" }}>
+       <div className="w-full max-w-2xl mx-auto space-y-4">
+ 
+         {/* Main invoice card */}
+-        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
++        <div className="card" style={{ overflow: "hidden", borderRadius: 14 }}>
+ 
+           {/* Brand bar */}
+-          <div className="bg-[#0f1923] px-6 py-5 flex items-center justify-between">
++          <div className="flex items-center justify-between px-6 py-5" style={{ background: "var(--ink)", color: "#fff" }}>
+             <div className="flex items-center gap-3">
+-              <div className="w-9 h-9 bg-[#f59e0b] rounded-lg flex items-center justify-center shrink-0">
+-                <span className="font-bold text-[#0f1923] text-lg leading-none">
++              <div className="flex items-center justify-center shrink-0" style={{ width: 36, height: 36, background: "var(--orange)", borderRadius: 8 }}>
++                <span style={{ fontWeight: 700, color: "#1A1208", fontSize: 18 }}>
+                   {tenantName[0]?.toUpperCase() ?? "F"}
+                 </span>
+               </div>
+               <div>
+-                <p className="font-bold text-white text-base tracking-wide leading-none">{tenantName}</p>
+-                <p className="text-white/50 text-xs mt-0.5">Invoice</p>
++                <p style={{ margin: 0, fontWeight: 600, letterSpacing: "0.02em", fontSize: 14 }}>{tenantName}</p>
++                <p className="kicker" style={{ margin: "4px 0 0", color: "rgba(255,255,255,0.55)" }}>Invoice</p>
+               </div>
+             </div>
+-            <span className="text-xs text-white/40 font-mono">{invoice.invoice_number}</span>
++            <span className="mono" style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>{invoice.invoice_number}</span>
+           </div>
+ 
+           {/* Invoice header */}
+diff --git a/next-env.d.ts b/next-env.d.ts
+index 40c3d68..9edff1c 100644
+--- a/next-env.d.ts
++++ b/next-env.d.ts
+@@ -1,5 +1,6 @@
+ /// <reference types="next" />
+ /// <reference types="next/image-types/global" />
++import "./.next/types/routes.d.ts";
+ 
+ // NOTE: This file should not be edited
+-// see https://nextjs.org/docs/app/building-your-application/configuring/typescript for more information.
++// see https://nextjs.org/docs/app/api-reference/config/typescript for more information.
+diff --git a/tsconfig.json b/tsconfig.json
+index 885e8c1..34db60c 100644
+--- a/tsconfig.json
++++ b/tsconfig.json
+@@ -15,7 +15,7 @@
+     "moduleResolution": "bundler",
+     "resolveJsonModule": true,
+     "isolatedModules": true,
+-    "jsx": "preserve",
++    "jsx": "react-jsx",
+     "incremental": true,
+     "plugins": [
+       {
+@@ -27,13 +27,17 @@
+         "./*"
+       ]
+     },
+-    "types": ["jest", "node"]
++    "types": [
++      "jest",
++      "node"
++    ]
+   },
+   "include": [
+     "next-env.d.ts",
+     "**/*.ts",
+     "**/*.tsx",
+-    ".next/types/**/*.ts"
++    ".next/types/**/*.ts",
++    ".next/dev/types/**/*.ts"
+   ],
+   "exclude": [
+     "node_modules"
+-- 
+2.43.0
+

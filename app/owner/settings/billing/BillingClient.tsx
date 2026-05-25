@@ -12,6 +12,18 @@ export default function BillingClient({ tenant, profile }: { tenant: any; profil
   const [connectError, setConnectError] = useState("");
   const searchParams = useSearchParams();
   const connectStatus = searchParams.get("connect"); // "success" | "expired"
+  const [connectRefreshed, setConnectRefreshed] = useState(false);
+
+  // When Stripe onboarding completes, update stripe_connect_enabled in the DB
+  // then reload so the UI reflects the real status (webhooks may not be set up).
+  useEffect(() => {
+    if (connectStatus === "success" && !connectRefreshed) {
+      setConnectRefreshed(true);
+      fetch("/api/billing/connect", { method: "PATCH" })
+        .then(() => { window.location.href = "/owner/settings/billing"; })
+        .catch(() => { /* silent — webhook will catch it eventually */ });
+    }
+  }, [connectStatus, connectRefreshed]);
 
   const handleUpgrade = async () => {
     setLoading(true);
