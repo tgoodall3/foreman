@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { requireOwner } from "@/lib/auth";
 import { createServerSideClient } from "@/lib/supabase-server";
 import { getOwnerDashboardData } from "@/lib/services/owner";
@@ -25,8 +24,6 @@ export default async function OwnerToday() {
     supabase.from("property_managers").select("id", { count: "exact", head: true })
       .eq("tenant_id", profile.tenant_id),
   ]);
-  if ((workerCount ?? 0) === 0 && (pmCount ?? 0) === 0) redirect("/owner/onboarding");
-
   const { today, todayJobs, upcomingJobs, workOrders, workers, metrics, actions } =
     await getOwnerDashboardData(profile);
 
